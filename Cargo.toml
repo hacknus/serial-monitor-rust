@@ -1,0 +1,32 @@
+[package]
+name = "serial-monitor-rust"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+eframe = {version = "0.18.0", features = ["persistence"]}
+egui_extras = { version = "0.18.0", features = ["image"] }
+image = { version = "0.24", default-features = false, features = ["png"] }
+rand = "0.8.4"
+itertools-num = "0.1"
+realfft = "3.0.0"
+rfd = "0.8"
+hex = "0.4"
+safe-transmute = "0.11.2"
+preferences = { git = "https://github.com/andybarron/preferences-rs" }
+serde = { version = "1.0", features = ["derive"] }
+regex = "1"
+csv = "1.1.6"
+serialport = "4.2.0"
+
+[package.metadata.bundle]
+name = "Bijou"
+identifier = "com.linsto.serial_monitor"
+icon = ["./icons/icon-128.png", "./icons/icon-128@2x.png"]
+version = "0.1.0"
+copyright = "Copyright (c) Linus Leo Stöckli 2022. All rights reserved."
+category = "Developer Tool"
+short_description = "Serial Monitor and Plotter."
+
