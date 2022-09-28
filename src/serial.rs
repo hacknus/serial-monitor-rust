@@ -100,7 +100,6 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
         }
 
         // perform writes
-        /*
         match send_rx.recv_timeout(Duration::from_millis(10)) {
             Ok(cmd) => {
                 let output = cmd.as_bytes();
@@ -109,7 +108,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                     match std::str::from_utf8(&output) {
                         Ok(v) => {
                             let packet = Packet {
-                                time: Instant::now(),
+                                time: Instant::now().duration_since(t_zero).as_millis(),
                                 direction: SerialDirection::SEND,
                                 payload: v.to_string(),
                             };
@@ -123,7 +122,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             }
             Err(..) => {}
         }
-        */
+
 
         // perform reads
         let mut serial_buf: Vec<u8> = vec![0; 1024];
@@ -132,10 +131,17 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                 match std::str::from_utf8(&serial_buf) {
                     Ok(v) => {
                         let p = v.to_string();
-                        let payloads: Vec<&str> = p.split("\r\n").collect::<Vec<&str>>();
+                        println!("received: {:?}",p);
+                        let payloads: Vec<&str>;
+                        if p.contains("\r\n"){
+                            payloads = p.split("\r\n").collect::<Vec<&str>>();
+                        } else {
+                            payloads= p.split("\0\0").collect::<Vec<&str>>();
+                        }
+                        println!("received split2: {:?}",payloads);
                         for payload in payloads.iter() {
                             let payload_string = payload.to_string();
-                            if !payload_string.contains("\0\0") {
+                            if !payload_string.contains("\0\0") && payload_string != "".to_string() {
                                 let packet = Packet {
                                     time: Instant::now().duration_since(t_zero).as_millis(),
                                     direction: SerialDirection::RECEIVE,
@@ -152,6 +158,6 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             }
         }
 
-        std::thread::sleep(Duration::from_millis(10));
+        std::thread::sleep(Duration::from_millis(100));
     }
 }

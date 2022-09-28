@@ -167,8 +167,7 @@ impl eframe::App for MyApp {
                         graph.push([self.data.time[i] as f64, data[i] as f64]);
                     } else {
                         // not same length
-                        println!("not same length in gui! length self.data.time = {}, length data = {}", self.data.time.len(), data.len())
-
+                        //println!("not same length in gui! length self.data.time = {}, length data = {}", self.data.time.len(), data.len())
                     }
                 }
             }
