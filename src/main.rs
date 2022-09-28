@@ -45,7 +45,6 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                 // empty dataset
             } else {
                 data.raw_traffic.push(packet.clone());
-                data.time.push(packet.time);
                 let split_data = packet.payload.split(", ").collect::<Vec<&str>>();
                 if data.dataset.len() == 0 || failed_format_counter > 10 {
                     data.dataset = vec![vec![]; split_data.len()];
@@ -53,11 +52,13 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                     println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
                 } else {
                     if split_data.len() == data.dataset.len() {
+                        let mut parse_state = false;
                         for (i, set) in data.dataset.iter_mut().enumerate() {
                             match split_data[i].parse::<f32>() {
                                 Ok(r) => {
                                     // println!("success parsing i={i}");
                                     set.push(r);
+                                    parse_state = true;
                                     failed_format_counter = 0;
                                 }
                                 Err(_) => {
@@ -66,6 +67,9 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                                     failed_format_counter += 1;
                                 }
                             }
+                        }
+                        if parse_state {
+                            data.time.push(packet.time);
                         }
                     } else {
                         // not same length

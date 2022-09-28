@@ -160,18 +160,16 @@ impl eframe::App for MyApp {
             }
 
             let mut graphs: Vec<Vec<[f64; 2]>> = vec![vec![]; self.data.dataset.len()];
-            println!("gui found {} datasets with {} entries.", self.data.dataset.len(), self.data.dataset[0].len());
             for i in 0..self.data.dataset[0].len() {
                 for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
-                    graph.push([i as f64, data[i] as f64]);
+                    //graph.push([i as f64, data[i] as f64]);
+                    if self.data.time.len() == data.len() {
+                        graph.push([self.data.time[i] as f64, data[i] as f64]);
+                    } else {
+                        // not same length
+                        println!("not same length in gui! length self.data.time = {}, length data = {}", self.data.time.len(), data.len())
 
-                    // if self.data.time.len() == data.len() {
-                    //     graph.push([self.data.time[i] as f64, data[i] as f64]);
-                    // } else {
-                    //     // not same length
-                    //     println!("not same length in gui! length self.data.time = {}, length data = {}", self.data.time.len(), data.len())
-                    //
-                    // }
+                    }
                 }
             }
 
@@ -193,9 +191,7 @@ impl eframe::App for MyApp {
             signal_plot.show(ui, |signal_plot_ui| {
                 for (i, graph) in graphs.iter().enumerate() {
                     signal_plot_ui.line(Line::new(PlotPoints::from(graph.clone()))
-                        .color(egui::Color32::RED)
-                        .style(LineStyle::Solid)
-                        .name(format!("{}", i)));
+                        .name(format!("Column {}", i)));
                 }
             });
 
