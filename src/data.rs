@@ -11,7 +11,7 @@ use crate::gui::{print_to_console, Print, update_in_console};
 const BUF_LEN: usize = 1024;
 const READ_HEADER_LEN: usize = 19;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SerialDirection {
     SEND,
     RECEIVE,
@@ -26,9 +26,9 @@ impl fmt::Display for SerialDirection {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Packet {
-    pub time: Instant,
+    pub time: u128,
     pub direction: SerialDirection,
     pub payload: String,
 }
@@ -36,16 +36,16 @@ pub struct Packet {
 impl Default for Packet {
     fn default() -> Packet {
         return Packet {
-            time: Instant::now(),
+            time: 0,
             direction: SerialDirection::SEND,
-            payload: "".to_string()
-        }
+            payload: "".to_string(),
+        };
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DataContainer {
-    pub time: Vec<f32>,
+    pub time: Vec<u128>,
     pub dataset: Vec<Vec<f32>>,
     pub raw_traffic: Vec<Packet>,
 }

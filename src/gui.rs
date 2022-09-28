@@ -6,7 +6,7 @@ use std::time::Duration;
 use std::fs;
 use eframe::{egui, Storage};
 use eframe::egui::panel::{Side};
-use eframe::egui::plot::{Legend, Line, LineStyle, Plot, Value, Values, VLine};
+use eframe::egui::plot::{Legend, Line, LineStyle, Plot, PlotPoint, PlotPoints, VLine};
 use eframe::egui::{Checkbox, FontId, FontFamily, RichText, Stroke, global_dark_light_mode_buttons};
 use crate::toggle::toggle;
 use egui_extras::RetainedImage;
@@ -96,6 +96,7 @@ pub struct MyApp {
     data_lock: Arc<RwLock<DataContainer>>,
     config_tx: Sender<Vec<GuiState>>,
     save_tx: Sender<String>,
+    send_tx: Sender<String>,
     show_sent_cmds: bool,
     show_timestamps: bool,
     save_raw: bool,
@@ -111,6 +112,7 @@ impl MyApp {
                gui_conf: GuiSettingsContainer,
                config_tx: Sender<Vec<GuiState>>,
                save_tx: Sender<String>,
+               send_tx: Sender<String>,
     ) -> Self {
         Self {
             dark_mode: true,
@@ -129,6 +131,7 @@ impl MyApp {
             data_lock,
             config_tx,
             save_tx,
+            send_tx,
             plotting_range: 100.0,
             command: "".to_string(),
             graph_visible: vec![],
@@ -156,15 +159,19 @@ impl eframe::App for MyApp {
                 //                                  (self.tera_flash_conf.t_begin + self.tera_flash_conf.range) as f32, 1000).collect();
             }
 
-            let mut graphs: Vec<Vec<Value>> = vec![vec![]];
-
-            for i in 0..self.data.time.len() {
+            let mut graphs: Vec<Vec<[f64; 2]>> = vec![vec![]; self.data.dataset.len()];
+            println!("gui found {} datasets with {} entries.", self.data.dataset.len(), self.data.dataset[0].len());
+            for i in 0..self.data.dataset[0].len() {
                 for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
-                    if self.data.time.len() == data.len() {
-                        graph.push(Value { x: self.data.time[i] as f64, y: data[i] as f64 });
-                    } else {
-                        // not same length
-                    }
+                    graph.push([i as f64, data[i] as f64]);
+
+                    // if self.data.time.len() == data.len() {
+                    //     graph.push([self.data.time[i] as f64, data[i] as f64]);
+                    // } else {
+                    //     // not same length
+                    //     println!("not same length in gui! length self.data.time = {}, length data = {}", self.data.time.len(), data.len())
+                    //
+                    // }
                 }
             }
 
@@ -185,7 +192,7 @@ impl eframe::App for MyApp {
 
             signal_plot.show(ui, |signal_plot_ui| {
                 for (i, graph) in graphs.iter().enumerate() {
-                    signal_plot_ui.line(Line::new(Values::from_values(graph.clone()))
+                    signal_plot_ui.line(Line::new(PlotPoints::from(graph.clone()))
                         .color(egui::Color32::RED)
                         .style(LineStyle::Solid)
                         .name(format!("{}", i)));
@@ -199,14 +206,17 @@ impl eframe::App for MyApp {
 
             ui.separator();
             egui::ScrollArea::vertical()
-                .id_source("console_scroll_area")
+                .id_source("serial_output")
                 .auto_shrink([false; 2])
-                .stick_to_bottom()
+                .stick_to_bottom(true)
+                .always_show_scroll(true)
+                .enable_scrolling(true)
                 .max_height(height)
                 .max_width(width)
                 .show_rows(ui, row_height, num_rows,
                            |ui, row_range| {
-                               for packet in self.data.raw_traffic.iter() {
+                               for row in row_range {
+                                   let packet = self.data.raw_traffic[row].clone();
                                    let color;
                                    if self.dark_mode {
                                        color = egui::Color32::WHITE;
@@ -216,7 +226,7 @@ impl eframe::App for MyApp {
                                    ui.horizontal_wrapped(|ui| {
                                        let text = format!("[{}] {:3}: {}",
                                                           packet.direction,
-                                                          packet.time.elapsed().as_secs_f32(),
+                                                          packet.time,
                                                           packet.payload);
                                        ui.label(RichText::new(text).color(color).font(
                                            FontId::new(14.0, FontFamily::Monospace)));
@@ -231,6 +241,7 @@ impl eframe::App for MyApp {
             });
             if text_triggered || button_triggered {
                 // send command
+                self.send_tx.send(self.command.clone());
             }
             ctx.request_repaint()
         });
@@ -354,7 +365,7 @@ impl eframe::App for MyApp {
                 egui::ScrollArea::vertical()
                     .id_source("console_scroll_area")
                     .auto_shrink([false; 2])
-                    .stick_to_bottom()
+                    .stick_to_bottom(true)
                     .max_height(row_height * 5.0)
                     .show_rows(ui, row_height, num_rows,
                                |ui, row_range| {

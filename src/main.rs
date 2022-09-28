@@ -37,6 +37,7 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
     let mut file_path = "serial_monitor_test.csv".to_string();
     let mut data = DataContainer::default();
     let t_zero = Instant::now();
+    let mut failed_format_counter = 0;
     loop {
         if let Ok(read_guard) = raw_data_lock.read() {
             let packet = read_guard.clone();
@@ -44,21 +45,38 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                 // empty dataset
             } else {
                 data.raw_traffic.push(packet.clone());
-                data.time.push(packet.time.duration_since(t_zero).as_secs_f32());
+                data.time.push(packet.time);
                 let split_data = packet.payload.split(", ").collect::<Vec<&str>>();
-                if split_data.len() == data.dataset.len() {
-                    for (i, set) in data.dataset.iter_mut().enumerate() {
-                        match split_data[i].parse::<f32>() {
-                            Ok(r) => {
-                                set.push(r);
-                            }
-                            Err(_) => {}
-                        }
-                    }
+                if data.dataset.len() == 0 || failed_format_counter > 10 {
+                    data.dataset = vec![vec![]; split_data.len()];
+                    failed_format_counter = 0;
+                    println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
                 } else {
-                    // not same length
+                    if split_data.len() == data.dataset.len() {
+                        for (i, set) in data.dataset.iter_mut().enumerate() {
+                            match split_data[i].parse::<f32>() {
+                                Ok(r) => {
+                                    // println!("success parsing i={i}");
+                                    set.push(r);
+                                    failed_format_counter = 0;
+                                }
+                                Err(_) => {
+                                    // println!("failed to parse i={i}");
+                                    set.push(f32::NAN);
+                                    failed_format_counter += 1;
+                                }
+                            }
+                        }
+                    } else {
+                        // not same length
+                        failed_format_counter += 1;
+                        // println!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
+                    }
                 }
             }
+        }
+        if let Ok(mut write_guard) = raw_data_lock.write() {
+            *write_guard = Packet::default();
         }
 
         match save_rx.recv_timeout(Duration::from_millis(10)) {
@@ -112,6 +130,7 @@ fn main() {
 
     let (config_tx, config_rx): (Sender<Vec<GuiState>>, Receiver<Vec<GuiState>>) = mpsc::channel();
     let (save_tx, save_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
+    let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
 
     let serial_device_lock = device_lock.clone();
     let serial_devices_lock = devices_lock.clone();
@@ -124,6 +143,7 @@ fn main() {
     println!("starting connection thread..");
     let serial_thread = thread::spawn(|| {
         serial_thread(serial_gui_settings,
+                      send_rx,
                       serial_device_lock,
                       serial_devices_lock,
                       serial_baud_lock,
@@ -173,6 +193,7 @@ fn main() {
                 gui_settings,
                 config_tx,
                 save_tx,
+                send_tx,
             ))
         }),
     );
