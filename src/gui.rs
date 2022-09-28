@@ -97,6 +97,7 @@ pub struct MyApp {
     config_tx: Sender<Vec<GuiState>>,
     save_tx: Sender<String>,
     send_tx: Sender<String>,
+    eol: String,
     show_sent_cmds: bool,
     show_timestamps: bool,
     save_raw: bool,
@@ -139,6 +140,7 @@ impl MyApp {
             show_sent_cmds: true,
             show_timestamps: true,
             save_raw: true,
+            eol: "\r\n".to_string()
         }
     }
 }
@@ -236,7 +238,7 @@ impl eframe::App for MyApp {
             });
             if text_triggered || button_triggered {
                 // send command
-                self.send_tx.send(self.command.clone());
+                self.send_tx.send(self.command.clone() + &self.eol.clone());
             }
             ctx.request_repaint()
         });
@@ -346,6 +348,9 @@ impl eframe::App for MyApp {
                             if ui.add(toggle(&mut self.show_timestamps)).changed() {
                                 // gui_states.push(GuiState::Run(self.show_timestamps));
                             }
+                            ui.end_row();
+                            ui.label("EOL character");
+                            ui.text_edit_singleline(&mut self.eol);
                             // ui.checkbox(&mut self.gui_conf.debug, "Debug Mode");
                             ui.end_row();
                             global_dark_light_mode_buttons(ui);
