@@ -50,7 +50,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
     let mut device = "".to_string();
     let mut devices: Vec<String> = vec![];
     let mut baud_rate = 115_200;
-    let mut connected ;
+    let mut connected;
     loop {
         connected = false;
         if let Ok(mut write_guard) = connected_lock.write() {

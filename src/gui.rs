@@ -254,14 +254,20 @@ impl eframe::App for MyApp {
                     ui.set_visible(true);
                     ui.horizontal(|ui| {
                         ui.heading("Serial Monitor");
-                        // TODO: only run this when the system is waiting for a response
+                        let color_stroke;
+                        let color;
                         if !self.ready {
                             ui.add(egui::Spinner::new());
+                            color = egui::Color32::DARK_RED;
+                            color_stroke = egui::Color32::RED;
+                        } else {
+                            color = egui::Color32::DARK_GREEN;
+                            color_stroke = egui::Color32::GREEN;
                         }
                         let radius = &ui.spacing().interact_size.y * 0.375;
                         let center = egui::pos2(ui.next_widget_position().x + &ui.spacing().interact_size.x * 0.5, ui.next_widget_position().y);
                         ui.painter()
-                            .circle(center, radius, egui::Color32::DARK_GREEN, egui::Stroke::new(1.0, egui::Color32::GREEN));
+                            .circle(center, radius, color, egui::Stroke::new(1.0, color_stroke));
                     });
 
                     let mut devices: Vec<String> = Vec::new();
