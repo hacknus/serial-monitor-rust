@@ -44,7 +44,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                      device_lock: Arc<RwLock<String>>,
                      devices_lock: Arc<RwLock<Vec<String>>>,
                      baud_lock: Arc<RwLock<u32>>,
-                     raw_data_lock: Arc<RwLock<Packet>>,
+                     raw_data_lock: Arc<RwLock<Vec<Packet>>>,
                      print_lock: Arc<RwLock<Vec<Print>>>,
                      connected_lock: Arc<RwLock<bool>>) {
     let mut device = "".to_string();
@@ -93,7 +93,6 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
         'connected_loop: loop {
 
             // check for reconnection
-
             devices = vec![];
             for p in serialport::available_ports().unwrap().iter() {
                 devices.push(p.port_name.clone());
@@ -122,7 +121,6 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                 }
             }
 
-
             if reconnect || !dev_is_con {
                 break 'connected_loop;
             }
@@ -140,7 +138,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                                     direction: SerialDirection::SEND,
                                     payload: v.to_string(),
                                 };
-                                *write_guard = packet;
+                                write_guard.push(packet);
                             }
                             Err(_) => {
                                 println!("output encode fail");
@@ -175,7 +173,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                                         direction: SerialDirection::RECEIVE,
                                         payload: payload_string,
                                     };
-                                    *write_guard = packet;
+                                    write_guard.push(packet);
                                 }
                             }
                         }
@@ -186,7 +184,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                 }
             }
 
-            std::thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(10));
         }
         std::mem::drop(port);
     }
