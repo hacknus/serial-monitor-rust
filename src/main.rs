@@ -31,7 +31,8 @@ const APP_INFO: AppInfo = AppInfo { name: "Serial Monitor", author: "Linus Leo S
 fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                raw_data_lock: Arc<RwLock<Packet>>,
                print_lock: Arc<RwLock<Vec<Print>>>,
-               save_rx: Receiver<String>) {
+               save_rx: Receiver<String>,
+               clear_rx: Receiver<bool>) {
     // reads data from mutex, samples and saves if needed
     let mut acquire = false;
     let mut file_path = "serial_monitor_test.csv".to_string();
@@ -39,6 +40,16 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
     let t_zero = Instant::now();
     let mut failed_format_counter = 0;
     loop {
+        match clear_rx.recv_timeout(Duration::from_millis(10)) {
+            Ok(cl) => {
+                if cl {
+                    data = DataContainer::default();
+                    failed_format_counter = 0;
+                    // t_zero = Instant::now();
+                }
+            }
+            Err(..) => ()
+        }
         if let Ok(read_guard) = raw_data_lock.read() {
             let packet = read_guard.clone();
             if packet.payload == "".to_string() {
@@ -135,6 +146,7 @@ fn main() {
     let (config_tx, config_rx): (Sender<Vec<GuiState>>, Receiver<Vec<GuiState>>) = mpsc::channel();
     let (save_tx, save_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
+    let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
 
     let serial_device_lock = device_lock.clone();
     let serial_devices_lock = devices_lock.clone();
@@ -165,7 +177,8 @@ fn main() {
         main_thread(main_data_lock,
                     main_raw_data_lock,
                     main_print_lock,
-                    save_rx);
+                    save_rx,
+                    clear_rx);
     });
 
 
@@ -198,6 +211,7 @@ fn main() {
                 config_tx,
                 save_tx,
                 send_tx,
+                clear_tx,
             ))
         }),
     );

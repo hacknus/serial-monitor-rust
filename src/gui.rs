@@ -97,6 +97,7 @@ pub struct MyApp {
     config_tx: Sender<Vec<GuiState>>,
     save_tx: Sender<String>,
     send_tx: Sender<String>,
+    clear_tx: Sender<bool>,
     eol: String,
     show_sent_cmds: bool,
     show_timestamps: bool,
@@ -114,6 +115,7 @@ impl MyApp {
                config_tx: Sender<Vec<GuiState>>,
                save_tx: Sender<String>,
                send_tx: Sender<String>,
+               clear_tx: Sender<bool>,
     ) -> Self {
         Self {
             dark_mode: true,
@@ -133,6 +135,7 @@ impl MyApp {
             config_tx,
             save_tx,
             send_tx,
+            clear_tx,
             plotting_range: -1,
             command: "".to_string(),
             graph_visible: vec![],
@@ -358,6 +361,9 @@ impl eframe::App for MyApp {
                                 *write_guard = self.baud_rate.clone();
                             }
                         }
+                    }
+                    if ui.button("Clear Data").clicked() {
+                        self.clear_tx.send(true);
                     }
 
                     egui::Grid::new("upper")
