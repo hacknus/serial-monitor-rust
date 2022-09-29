@@ -115,7 +115,15 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                 }
             }
 
-            if reconnect {
+            let mut dev_is_con = false;
+            for dev in devices.iter() {
+                if device == *dev {
+                    dev_is_con = true;
+                }
+            }
+
+
+            if reconnect || !dev_is_con {
                 break 'connected_loop;
             }
 
