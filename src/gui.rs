@@ -434,7 +434,7 @@ impl eframe::App for MyApp {
                     .id_source("console_scroll_area")
                     .auto_shrink([false; 2])
                     .stick_to_bottom(true)
-                    .max_height(row_height * 5.0)
+                    .max_height(row_height * 15.5)
                     .show_rows(ui, row_height, num_rows,
                                |ui, row_range| {
                                    for row in row_range {
