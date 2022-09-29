@@ -140,7 +140,7 @@ impl MyApp {
             show_sent_cmds: true,
             show_timestamps: true,
             save_raw: true,
-            eol: "\r\n".to_string()
+            eol: "\r\n".to_string(),
         }
     }
 }
@@ -148,6 +148,10 @@ impl MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut gui_states: Vec<GuiState> = vec![];
+
+        if let Ok(read_guard) = self.connected_lock.read() {
+            self.ready = read_guard.clone();
+        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let height = ui.available_size().y * 0.45;
@@ -251,7 +255,9 @@ impl eframe::App for MyApp {
                     ui.horizontal(|ui| {
                         ui.heading("Serial Monitor");
                         // TODO: only run this when the system is waiting for a response
-                        ui.add(egui::Spinner::new());
+                        if !self.ready {
+                            ui.add(egui::Spinner::new());
+                        }
                         let radius = &ui.spacing().interact_size.y * 0.375;
                         let center = egui::pos2(ui.next_widget_position().x + &ui.spacing().interact_size.x * 0.5, ui.next_widget_position().y);
                         ui.painter()
@@ -295,10 +301,20 @@ impl eframe::App for MyApp {
                     }
                     if ui.button(connect_text).clicked() {
                         if let Ok(mut write_guard) = self.device_lock.write() {
-                            *write_guard = self.device.clone();
+                            if self.ready {
+                                *write_guard = "".to_string();
+                                self.device = "".to_string();
+                            } else {
+                                *write_guard = self.device.clone();
+                            }
                         }
                         if let Ok(mut write_guard) = self.baud_lock.write() {
-                            *write_guard = self.baud_rate.clone();
+                            if self.ready {
+                                *write_guard = 0;
+                                self.baud_rate = 0;
+                            } else {
+                                *write_guard = self.baud_rate.clone();
+                            }
                         }
                     }
 

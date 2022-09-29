@@ -49,115 +49,137 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                      connected_lock: Arc<RwLock<bool>>) {
     let mut device = "".to_string();
     let mut devices: Vec<String> = vec![];
-    let mut baud_rate = 116_200;
-    let mut connected = false;
-    if let Ok(mut write_guard) = connected_lock.write() {
-        *write_guard = connected.clone();
-    }
-    while !connected {
-        if let Ok(read_guard) = baud_lock.read() {
-            baud_rate = read_guard.clone()
-        }
-        if let Ok(read_guard) = device_lock.read() {
-            device = read_guard.clone();
-        }
-        devices = vec![];
-        for p in serialport::available_ports().unwrap().iter() {
-            devices.push(p.port_name.clone());
-            if p.port_name == device {
-                connected = true;
-                break;
-            }
-        }
-        if let Ok(mut write_guard) = devices_lock.write() {
-            *write_guard = devices.clone();
-        }
-        std::thread::sleep(Duration::from_millis(100));
-    }
-    let mut port = serialport::new(&device, baud_rate)
-        .timeout(Duration::from_millis(100));
-    let mut port = port.open().unwrap();
-
-    if let Ok(mut write_guard) = connected_lock.write() {
-        *write_guard = connected.clone();
-    }
-
-    let t_zero = Instant::now();
-
-    println!("opened serial connection");
-
-
+    let mut baud_rate = 115_200;
+    let mut connected ;
     loop {
-
-        // check for reconnection
-
-        devices = vec![];
-        for p in serialport::available_ports().unwrap().iter() {
-            devices.push(p.port_name.clone());
-        }
-        if let Ok(mut write_guard) = devices_lock.write() {
-            *write_guard = devices.clone();
+        connected = false;
+        if let Ok(mut write_guard) = connected_lock.write() {
+            *write_guard = connected.clone();
         }
 
-        // perform writes
-        match send_rx.recv_timeout(Duration::from_millis(10)) {
-            Ok(cmd) => {
-                let output = cmd.as_bytes();
-                serial_write(&mut port, &output);
-                if let Ok(mut write_guard) = raw_data_lock.write() {
-                    match std::str::from_utf8(&output) {
-                        Ok(v) => {
-                            let packet = Packet {
-                                time: Instant::now().duration_since(t_zero).as_millis(),
-                                direction: SerialDirection::SEND,
-                                payload: v.to_string(),
-                            };
-                            *write_guard = packet;
-                        }
-                        Err(_) => {
-                            println!("output encode fail");
-                        }
-                    }
+        while !connected {
+            if let Ok(read_guard) = baud_lock.read() {
+                baud_rate = read_guard.clone()
+            }
+            if let Ok(read_guard) = device_lock.read() {
+                device = read_guard.clone();
+            }
+            devices = vec![];
+            for p in serialport::available_ports().unwrap().iter() {
+                devices.push(p.port_name.clone());
+                if p.port_name == device {
+                    connected = true;
+                    break;
                 }
             }
-            Err(..) => {}
+            if let Ok(mut write_guard) = devices_lock.write() {
+                *write_guard = devices.clone();
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        let mut port_builder = serialport::new(&device, baud_rate)
+            .timeout(Duration::from_millis(100));
+        let mut port = port_builder.open().unwrap();
+
+        if let Ok(mut write_guard) = connected_lock.write() {
+            *write_guard = connected.clone();
         }
 
+        let t_zero = Instant::now();
 
-        // perform reads
-        let mut serial_buf: Vec<u8> = vec![0; 1024];
-        if serial_read(&mut port, &mut serial_buf) {
-            if let Ok(mut write_guard) = raw_data_lock.write() {
-                match std::str::from_utf8(&serial_buf) {
-                    Ok(v) => {
-                        let p = v.to_string();
-                        println!("received: {:?}",p);
-                        let payloads: Vec<&str>;
-                        if p.contains("\r\n"){
-                            payloads = p.split("\r\n").collect::<Vec<&str>>();
-                        } else {
-                            payloads= p.split("\0\0").collect::<Vec<&str>>();
-                        }
-                        println!("received split2: {:?}",payloads);
-                        for payload in payloads.iter() {
-                            let payload_string = payload.to_string();
-                            if !payload_string.contains("\0\0") && payload_string != "".to_string() {
+        println!("opened serial connection");
+        let mut reconnect = false;
+
+        'connected_loop: loop {
+
+            // check for reconnection
+
+            devices = vec![];
+            for p in serialport::available_ports().unwrap().iter() {
+                devices.push(p.port_name.clone());
+            }
+            if let Ok(mut write_guard) = devices_lock.write() {
+                *write_guard = devices.clone();
+            }
+
+            if let Ok(read_guard) = baud_lock.read() {
+                if baud_rate != *read_guard {
+                    baud_rate = read_guard.clone();
+                    reconnect = true;
+                }
+            }
+            if let Ok(read_guard) = device_lock.read() {
+                if device != *read_guard {
+                    device = read_guard.clone();
+                    reconnect = true;
+                }
+            }
+
+            if reconnect {
+                break 'connected_loop;
+            }
+
+            // perform writes
+            match send_rx.recv_timeout(Duration::from_millis(10)) {
+                Ok(cmd) => {
+                    let output = cmd.as_bytes();
+                    serial_write(&mut port, &output);
+                    if let Ok(mut write_guard) = raw_data_lock.write() {
+                        match std::str::from_utf8(&output) {
+                            Ok(v) => {
                                 let packet = Packet {
                                     time: Instant::now().duration_since(t_zero).as_millis(),
-                                    direction: SerialDirection::RECEIVE,
-                                    payload: payload_string,
+                                    direction: SerialDirection::SEND,
+                                    payload: v.to_string(),
                                 };
                                 *write_guard = packet;
                             }
+                            Err(_) => {
+                                println!("output encode fail");
+                            }
                         }
                     }
-                    Err(_) => {
-                        println!("recv encode fail");
+                }
+                Err(..) => {}
+            }
+
+
+            // perform reads
+            let mut serial_buf: Vec<u8> = vec![0; 1024];
+            if serial_read(&mut port, &mut serial_buf) {
+                if let Ok(mut write_guard) = raw_data_lock.write() {
+                    match std::str::from_utf8(&serial_buf) {
+                        Ok(v) => {
+                            let p = v.to_string();
+                            println!("received: {:?}", p);
+                            let payloads: Vec<&str>;
+                            if p.contains("\r\n") {
+                                payloads = p.split("\r\n").collect::<Vec<&str>>();
+                            } else {
+                                payloads = p.split("\0\0").collect::<Vec<&str>>();
+                            }
+                            println!("received split2: {:?}", payloads);
+                            for payload in payloads.iter() {
+                                let payload_string = payload.to_string();
+                                if !payload_string.contains("\0\0") && payload_string != "".to_string() {
+                                    let packet = Packet {
+                                        time: Instant::now().duration_since(t_zero).as_millis(),
+                                        direction: SerialDirection::RECEIVE,
+                                        payload: payload_string,
+                                    };
+                                    *write_guard = packet;
+                                }
+                            }
+                        }
+                        Err(_) => {
+                            println!("recv encode fail");
+                        }
                     }
                 }
             }
-        }
 
-        std::thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(100));
+        }
+        std::mem::drop(port);
     }
 }
