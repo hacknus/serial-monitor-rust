@@ -11,18 +11,15 @@ mod io;
 mod serial;
 mod data;
 
-use std::error::Error;
-use std::num::ParseFloatError;
 use std::thread;
 use eframe::egui::{vec2, Visuals};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, mpsc, RwLock};
-use std::time::{Duration, Instant};
-use itertools_num::linspace;
+use std::time::{Duration};
 use preferences::{AppInfo, Preferences};
 use crate::data::{DataContainer, Packet};
 
-use crate::gui::{GuiSettingsContainer, GuiState, MyApp, Print, print_to_console, update_in_console};
+use crate::gui::{GuiSettingsContainer, MyApp, Print, print_to_console, update_in_console};
 use crate::io::save_to_csv;
 use crate::serial::serial_thread;
 
@@ -37,7 +34,6 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
     let mut acquire = false;
     let mut file_path = "serial_monitor_test.csv".to_string();
     let mut data = DataContainer::default();
-    let t_zero = Instant::now();
     let mut failed_format_counter = 0;
     loop {
         match clear_rx.recv_timeout(Duration::from_millis(10)) {
@@ -45,7 +41,6 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                 if cl {
                     data = DataContainer::default();
                     failed_format_counter = 0;
-                    // t_zero = Instant::now();
                 }
             }
             Err(..) => ()
@@ -113,7 +108,7 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                     update_in_console(&print_lock, Print::OK(format!("saved data file to {:?} ", file_path).to_string()), print_index);
                 }
                 Err(e) => {
-                    print_to_console(&print_lock, Print::ERROR(format!("failed to save file").to_string()));
+                    print_to_console(&print_lock, Print::ERROR(format!("failed to save file: {e:?}").to_string()));
                 }
             }
             acquire = false;
@@ -134,7 +129,12 @@ fn main() {
         gui_settings = load_result.unwrap();
     } else {
         // save default settings
-        gui_settings.save(&APP_INFO, prefs_key);
+        match gui_settings.save(&APP_INFO, prefs_key){
+            Ok(_) => {}
+            Err(_) => {
+                println!("failed to save gui_settings");
+            }
+        }
     }
 
     let device_lock = Arc::new(RwLock::new(gui_settings.device.clone()));
@@ -145,7 +145,6 @@ fn main() {
     let print_lock = Arc::new(RwLock::new(vec![Print::EMPTY]));
     let connected_lock = Arc::new(RwLock::new(false));
 
-    let (config_tx, config_rx): (Sender<Vec<GuiState>>, Receiver<Vec<GuiState>>) = mpsc::channel();
     let (save_tx, save_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
@@ -207,10 +206,9 @@ fn main() {
                 gui_data_lock,
                 gui_device_lock,
                 gui_devices_lock,
-                baud_lock,
+                gui_baud_lock,
                 gui_connected_lock,
                 gui_settings,
-                config_tx,
                 save_tx,
                 send_tx,
                 clear_tx,

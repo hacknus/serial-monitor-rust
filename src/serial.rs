@@ -1,12 +1,8 @@
-use std::fs::read;
-use std::num::ParseIntError;
-use std::ptr::write;
-use std::str::Utf8Error;
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 use serialport::SerialPort;
-use crate::{DataContainer, GuiSettingsContainer, Packet, Print, print_to_console};
+use crate::{GuiSettingsContainer, Packet, Print, print_to_console};
 use crate::data::SerialDirection;
 
 
@@ -48,7 +44,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                      print_lock: Arc<RwLock<Vec<Print>>>,
                      connected_lock: Arc<RwLock<bool>>) {
     let mut device = "".to_string();
-    let mut devices: Vec<String> = vec![];
+    let mut devices: Vec<String>;
     let mut baud_rate = 115_200;
     let mut connected;
     loop {
@@ -77,7 +73,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             }
             std::thread::sleep(Duration::from_millis(100));
         }
-        let mut port_builder = serialport::new(&device, baud_rate)
+        let port_builder = serialport::new(&device, baud_rate)
             .timeout(Duration::from_millis(100));
         let mut port = port_builder.open().unwrap();
 

@@ -3,22 +3,18 @@ use std::ops::RangeInclusive;
 use std::sync::mpsc::{Sender};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use std::fs;
 use eframe::{egui, Storage};
 use eframe::egui::panel::{Side};
-use eframe::egui::plot::{Legend, Line, LineStyle, Plot, PlotPoint, PlotPoints, VLine};
-use eframe::egui::{Checkbox, FontId, FontFamily, RichText, Stroke, global_dark_light_mode_buttons, Visuals};
+use eframe::egui::plot::{Legend, Line, Plot, PlotPoints};
+use eframe::egui::{FontId, FontFamily, RichText, global_dark_light_mode_buttons, Visuals};
 use crate::toggle::toggle;
-use egui_extras::RetainedImage;
-use itertools_num::linspace;
-use preferences::Preferences;
+use preferences::{Preferences};
 use crate::{APP_INFO, vec2};
 use serde::{Deserialize, Serialize};
 use crate::data::{DataContainer, SerialDirection};
 
 
 const MAX_FPS: f64 = 24.0;
-
 
 #[derive(Clone)]
 pub enum Print {
@@ -43,15 +39,6 @@ pub fn update_in_console(print_lock: &Arc<RwLock<Vec<Print>>>, message: Print, i
     if let Ok(mut write_guard) = print_lock.write() {
         write_guard[index] = message;
     }
-}
-
-pub enum GuiState {
-    IDLE,
-    Heater1Temperature(f32),
-    Heater2Temperature(f32),
-    Pump(bool),
-    Heater1(bool),
-    Heater2(bool),
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
@@ -83,7 +70,6 @@ pub struct MyApp {
     baud_rate: u32,
     plotting_range: i32,
     console: Vec<Print>,
-    graph_visible: Vec<bool>,
     dropped_files: Vec<egui::DroppedFile>,
     picked_path: String,
     data: DataContainer,
@@ -94,7 +80,6 @@ pub struct MyApp {
     baud_lock: Arc<RwLock<u32>>,
     connected_lock: Arc<RwLock<bool>>,
     data_lock: Arc<RwLock<DataContainer>>,
-    config_tx: Sender<Vec<GuiState>>,
     save_tx: Sender<String>,
     send_tx: Sender<String>,
     clear_tx: Sender<bool>,
@@ -112,7 +97,6 @@ impl MyApp {
                baud_lock: Arc<RwLock<u32>>,
                connected_lock: Arc<RwLock<bool>>,
                gui_conf: GuiSettingsContainer,
-               config_tx: Sender<Vec<GuiState>>,
                save_tx: Sender<String>,
                send_tx: Sender<String>,
                clear_tx: Sender<bool>,
@@ -132,13 +116,11 @@ impl MyApp {
             print_lock,
             gui_conf,
             data_lock,
-            config_tx,
             save_tx,
             send_tx,
             clear_tx,
             plotting_range: -1,
             command: "".to_string(),
-            graph_visible: vec![],
             baud_rate: 9600,
             show_sent_cmds: true,
             show_timestamps: true,
@@ -150,7 +132,6 @@ impl MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let mut gui_states: Vec<GuiState> = vec![];
 
         if let Ok(read_guard) = self.connected_lock.read() {
             self.ready = read_guard.clone();
@@ -169,7 +150,7 @@ impl eframe::App for MyApp {
             }
 
             let mut graphs: Vec<Vec<[f64; 2]>> = vec![vec![]; self.data.dataset.len()];
-            let mut window: usize;
+            let window: usize;
             if self.plotting_range == -1 {
                 window = 0;
             } else {
@@ -281,7 +262,13 @@ impl eframe::App for MyApp {
             });
             if text_triggered || button_triggered {
                 // send command
-                self.send_tx.send(self.command.clone() + &self.eol.clone());
+                match self.send_tx.send(self.command.clone() + &self.eol.clone()){
+                    Ok(_) => {}
+                    Err(err) => {
+                        print_to_console(&self.print_lock, Print::ERROR(format!("send_tx thread send failed: {:?}", err)));
+
+                    }
+                }
             }
             ctx.request_repaint()
         });
@@ -363,8 +350,14 @@ impl eframe::App for MyApp {
                         }
                     }
                     if ui.button("Clear Data").clicked() {
-                        print_to_console(&print_lock, Print::OK(format!("Cleared recorded data")));
-                        self.clear_tx.send(true);
+                        print_to_console(&self.print_lock, Print::OK(format!("Cleared recorded data")));
+                        match self.clear_tx.send(true){
+                            Ok(_) => {}
+                            Err(err) => {
+                                print_to_console(&self.print_lock, Print::ERROR(format!("clear_tx thread send failed: {:?}", err)));
+
+                            }
+                        }
                     }
 
                     egui::Grid::new("upper")
@@ -394,7 +387,13 @@ impl eframe::App for MyApp {
                                         }
                                     None => self.picked_path = "".to_string()
                                 }
-                                self.save_tx.send(self.picked_path.clone());
+                                match self.save_tx.send(self.picked_path.clone()){
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        print_to_console(&self.print_lock, Print::ERROR(format!("save_tx thread send failed: {:?}", err)));
+
+                                    }
+                                }
                             }
                             ui.end_row();
                             ui.label("Save Raw Traffic");
@@ -513,14 +512,16 @@ impl eframe::App for MyApp {
         self.gui_conf.x = ctx.used_size().x;
         self.gui_conf.y = ctx.used_size().y;
 
-        if !gui_states.is_empty() {
-            self.config_tx.send(gui_states);
-        }
         std::thread::sleep(Duration::from_millis((1000.0 / MAX_FPS) as u64));
     }
 
     fn save(&mut self, _storage: &mut dyn Storage) {
         let prefs_key = "config/gui";
-        self.gui_conf.save(&APP_INFO, prefs_key);
+        match self.gui_conf.save(&APP_INFO, prefs_key){
+            Ok(_) => {}
+            Err(err) => {
+                println!("gui settings save failed: {:?}", err);
+            }
+        }
     }
 }
