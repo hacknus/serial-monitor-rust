@@ -87,7 +87,8 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
 
         let t_zero = Instant::now();
 
-        println!("opened serial connection");
+        print_to_console(&print_lock, Print::OK(format!("connected to serial port: {} @ baud = {}", device, baud_rate)));
+
         let mut reconnect = false;
 
         'connected_loop: loop {
@@ -122,6 +123,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             }
 
             if reconnect || !dev_is_con {
+                print_to_console(&print_lock, Print::ERROR(format!("disconnected from serial port: {}", device)));
                 break 'connected_loop;
             }
 
@@ -141,7 +143,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                                 write_guard.push(packet);
                             }
                             Err(_) => {
-                                println!("output encode fail");
+                                // println!("output encode fail");
                             }
                         }
                     }
@@ -157,14 +159,14 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                     match std::str::from_utf8(&serial_buf) {
                         Ok(v) => {
                             let p = v.to_string();
-                            println!("received: {:?}", p);
+                            // println!("received: {:?}", p);
                             let payloads: Vec<&str>;
                             if p.contains("\r\n") {
                                 payloads = p.split("\r\n").collect::<Vec<&str>>();
                             } else {
                                 payloads = p.split("\0\0").collect::<Vec<&str>>();
                             }
-                            println!("received split2: {:?}", payloads);
+                            // println!("received split2: {:?}", payloads);
                             for payload in payloads.iter() {
                                 let payload_string = payload.to_string();
                                 if !payload_string.contains("\0\0") && payload_string != "".to_string() {

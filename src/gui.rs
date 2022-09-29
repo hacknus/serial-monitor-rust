@@ -363,6 +363,7 @@ impl eframe::App for MyApp {
                         }
                     }
                     if ui.button("Clear Data").clicked() {
+                        print_to_console(&print_lock, Print::OK(format!("Cleared recorded data")));
                         self.clear_tx.send(true);
                     }
 
@@ -424,6 +425,9 @@ impl eframe::App for MyApp {
                             ui.end_row();
                         });
                 });
+                if let Ok(read_guard) = self.print_lock.read() {
+                    self.console = read_guard.clone();
+                }
                 let num_rows = self.console.len();
                 let text_style = egui::TextStyle::Body;
                 let row_height = ui.text_style_height(&text_style);

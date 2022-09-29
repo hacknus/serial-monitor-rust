@@ -61,7 +61,7 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                     if data.dataset.len() == 0 || failed_format_counter > 10 {
                         data.dataset = vec![vec![]; split_data.len()];
                         failed_format_counter = 0;
-                        println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
+                        // println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
                     } else {
                         if split_data.len() == data.dataset.len() {
                             let mut parse_state = false;
