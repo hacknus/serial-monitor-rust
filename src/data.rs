@@ -11,7 +11,7 @@ use crate::gui::{print_to_console, Print, update_in_console};
 const BUF_LEN: usize = 1024;
 const READ_HEADER_LEN: usize = 19;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SerialDirection {
     SEND,
     RECEIVE,

@@ -7,14 +7,14 @@ use std::fs;
 use eframe::{egui, Storage};
 use eframe::egui::panel::{Side};
 use eframe::egui::plot::{Legend, Line, LineStyle, Plot, PlotPoint, PlotPoints, VLine};
-use eframe::egui::{Checkbox, FontId, FontFamily, RichText, Stroke, global_dark_light_mode_buttons};
+use eframe::egui::{Checkbox, FontId, FontFamily, RichText, Stroke, global_dark_light_mode_buttons, Visuals};
 use crate::toggle::toggle;
 use egui_extras::RetainedImage;
 use itertools_num::linspace;
 use preferences::Preferences;
 use crate::{APP_INFO, vec2};
 use serde::{Deserialize, Serialize};
-use crate::data::{DataContainer};
+use crate::data::{DataContainer, SerialDirection};
 
 
 const MAX_FPS: f64 = 24.0;
@@ -81,7 +81,7 @@ pub struct MyApp {
     command: String,
     device: String,
     baud_rate: u32,
-    plotting_range: f32,
+    plotting_range: i32,
     console: Vec<Print>,
     graph_visible: Vec<bool>,
     dropped_files: Vec<egui::DroppedFile>,
@@ -133,14 +133,14 @@ impl MyApp {
             config_tx,
             save_tx,
             send_tx,
-            plotting_range: 100.0,
+            plotting_range: -1,
             command: "".to_string(),
             graph_visible: vec![],
             baud_rate: 9600,
             show_sent_cmds: true,
             show_timestamps: true,
             save_raw: true,
-            eol: "\r\n".to_string(),
+            eol: "\\r\\n".to_string(),
         }
     }
 }
@@ -166,7 +166,17 @@ impl eframe::App for MyApp {
             }
 
             let mut graphs: Vec<Vec<[f64; 2]>> = vec![vec![]; self.data.dataset.len()];
-            for i in 0..self.data.dataset[0].len() {
+            let mut window: usize;
+            if self.plotting_range == -1 {
+                window = 0;
+            } else {
+                if self.data.dataset[0].len() <= self.plotting_range as usize {
+                    window = 0;
+                } else {
+                    window = self.data.dataset[0].len() - self.plotting_range as usize;
+                }
+            }
+            for i in window..self.data.dataset[0].len() {
                 for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
                     //graph.push([i as f64, data[i] as f64]);
                     if self.data.time.len() == data.len() {
@@ -225,12 +235,38 @@ impl eframe::App for MyApp {
                                        color = egui::Color32::BLACK;
                                    }
                                    ui.horizontal_wrapped(|ui| {
-                                       let text = format!("[{}] {:3}: {}",
-                                                          packet.direction,
-                                                          packet.time,
-                                                          packet.payload);
-                                       ui.label(RichText::new(text).color(color).font(
-                                           FontId::new(14.0, FontFamily::Monospace)));
+                                       let text;
+                                       if self.show_sent_cmds {
+                                           if self.show_timestamps {
+                                               text = format!("[{}] t + {:.3}s: {}",
+                                                              packet.direction,
+                                                              packet.time as f32 / 1000.0,
+                                                              packet.payload);
+                                               ui.label(RichText::new(text).color(color).font(
+                                                   FontId::new(14.0, FontFamily::Monospace)));
+                                           } else {
+                                               text = format!("[{}]: {}",
+                                                              packet.direction,
+                                                              packet.payload);
+                                               ui.label(RichText::new(text).color(color).font(
+                                                   FontId::new(14.0, FontFamily::Monospace)));
+                                           }
+                                       } else {
+                                           if packet.direction == SerialDirection::RECEIVE {
+                                               if self.show_timestamps {
+                                                   text = format!("t + {:.3}s: {}",
+                                                                  packet.time as f32 / 1000.0,
+                                                                  packet.payload);
+                                                   ui.label(RichText::new(text).color(color).font(
+                                                       FontId::new(14.0, FontFamily::Monospace)));
+                                               } else {
+                                                   text = format!("{}",
+                                                                  packet.payload);
+                                                   ui.label(RichText::new(text).color(color).font(
+                                                       FontId::new(14.0, FontFamily::Monospace)));
+                                               }
+                                           }
+                                       }
                                    });
                                }
                            });
@@ -329,7 +365,7 @@ impl eframe::App for MyApp {
                         .spacing([20.0, 4.0])
                         .striped(true)
                         .show(ui, |ui| {
-                            ui.label("Plotting range [s]: ");
+                            ui.label("Plotting range [#]: ");
                             if ui.add(egui::DragValue::new(&mut self.plotting_range)).lost_focus() {
                                 //gui_states.push(GuiState::TBegin(self.tera_flash_conf.t_begin));
                             };
@@ -376,6 +412,7 @@ impl eframe::App for MyApp {
                             // ui.checkbox(&mut self.gui_conf.debug, "Debug Mode");
                             ui.end_row();
                             global_dark_light_mode_buttons(ui);
+                            self.dark_mode = ui.visuals() == &Visuals::dark();
                             ui.end_row();
                             ui.label("");
                             ui.end_row();
