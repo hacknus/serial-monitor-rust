@@ -132,149 +132,157 @@ impl MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-
         if let Ok(read_guard) = self.connected_lock.read() {
             self.ready = read_guard.clone();
         }
+        let right_panel_width = 350.0;
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let height = ui.available_size().y * 0.45;
-            let spacing = (ui.available_size().y - 2.0 * height) / 3.0 - 10.0;
-            let width = ui.available_size().x * 0.8;
+            let spacing = (ui.available_size().y - 2.0 * height) / 3.5 - 10.0;
+            let border = 10.0;
+            let width = ui.available_size().x - 2.0 * border - right_panel_width;
             ui.add_space(spacing);
-
-            if let Ok(read_guard) = self.data_lock.read() {
-                self.data = read_guard.clone();
-                // self.data.time = linspace::<f32>(self.tera_flash_conf.t_begin as f32,
-                //                                  (self.tera_flash_conf.t_begin + self.tera_flash_conf.range) as f32, 1000).collect();
-            }
-
-            let mut graphs: Vec<Vec<[f64; 2]>> = vec![vec![]; self.data.dataset.len()];
-            let window: usize;
-            if self.plotting_range == -1 {
-                window = 0;
-            } else {
-                if self.data.dataset[0].len() <= self.plotting_range as usize {
-                    window = 0;
-                } else {
-                    window = self.data.dataset[0].len() - self.plotting_range as usize;
-                }
-            }
-            for i in window..self.data.dataset[0].len() {
-                for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
-                    //graph.push([i as f64, data[i] as f64]);
-                    if self.data.time.len() == data.len() {
-                        graph.push([self.data.time[i] as f64, data[i] as f64]);
-                    } else {
-                        // not same length
-                        //println!("not same length in gui! length self.data.time = {}, length data = {}", self.data.time.len(), data.len())
+            ui.horizontal(|ui| {
+                ui.add_space(border);
+                ui.vertical(|ui| {
+                    if let Ok(read_guard) = self.data_lock.read() {
+                        self.data = read_guard.clone();
+                        // self.data.time = linspace::<f32>(self.tera_flash_conf.t_begin as f32,
+                        //                                  (self.tera_flash_conf.t_begin + self.tera_flash_conf.range) as f32, 1000).collect();
                     }
-                }
-            }
 
-            let t_fmt = |x, _range: &RangeInclusive<f64>| {
-                format!("{:4.2} s", x)
-            };
-            let s_fmt = move |y, _range: &RangeInclusive<f64>| {
-                format!("{:4.2} [a.u.]", y as f64)
-            };
-            let signal_plot = Plot::new("data")
-                .height(height)
-                .width(width)
-                .legend(Legend::default())
-                .y_axis_formatter(s_fmt)
-                .x_axis_formatter(t_fmt)
-                .min_size(vec2(50.0, 100.0));
+                    let mut graphs: Vec<Vec<[f64; 2]>> = vec![vec![]; self.data.dataset.len()];
+                    let window: usize;
+                    if self.plotting_range == -1 {
+                        window = 0;
+                    } else {
+                        if self.data.dataset[0].len() <= self.plotting_range as usize {
+                            window = 0;
+                        } else {
+                            window = self.data.dataset[0].len() - self.plotting_range as usize;
+                        }
+                    }
+                    for i in window..self.data.dataset[0].len() {
+                        for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
+                            //graph.push([i as f64, data[i] as f64]);
+                            if self.data.time.len() == data.len() {
+                                graph.push([self.data.time[i] as f64, data[i] as f64]);
+                            } else {
+                                // not same length
+                                //println!("not same length in gui! length self.data.time = {}, length data = {}", self.data.time.len(), data.len())
+                            }
+                        }
+                    }
+
+                    let t_fmt = |x, _range: &RangeInclusive<f64>| {
+                        format!("{:4.2} s", x)
+                    };
+                    let s_fmt = move |y, _range: &RangeInclusive<f64>| {
+                        format!("{:4.2} [a.u.]", y as f64)
+                    };
+                    let signal_plot = Plot::new("data")
+                        .height(height)
+                        .width(width)
+                        .legend(Legend::default())
+                        .y_axis_formatter(s_fmt)
+                        .x_axis_formatter(t_fmt)
+                        .min_size(vec2(50.0, 100.0));
 
 
-            signal_plot.show(ui, |signal_plot_ui| {
-                for (i, graph) in graphs.iter().enumerate() {
-                    signal_plot_ui.line(Line::new(PlotPoints::from(graph.clone()))
-                        .name(format!("Column {}", i)));
-                }
-            });
+                    signal_plot.show(ui, |signal_plot_ui| {
+                        for (i, graph) in graphs.iter().enumerate() {
+                            signal_plot_ui.line(Line::new(PlotPoints::from(graph.clone()))
+                                .name(format!("Column {}", i)));
+                        }
+                    });
 
-            let num_rows = self.data.raw_traffic.len();
-            let text_style = egui::TextStyle::Body;
-            let row_height = ui.text_style_height(&text_style);
-            ui.add_space(spacing);
+                    let num_rows = self.data.raw_traffic.len();
+                    let text_style = egui::TextStyle::Body;
+                    let row_height = ui.text_style_height(&text_style);
+                    ui.add_space(spacing);
 
-            ui.separator();
-            egui::ScrollArea::vertical()
-                .id_source("serial_output")
-                .auto_shrink([false; 2])
-                .stick_to_bottom(true)
-                .always_show_scroll(true)
-                .enable_scrolling(true)
-                .max_height(height)
-                .max_width(width)
-                .show_rows(ui, row_height, num_rows,
-                           |ui, row_range| {
-                               for row in row_range {
-                                   let packet = self.data.raw_traffic[row].clone();
-                                   let color;
-                                   if self.dark_mode {
-                                       color = egui::Color32::WHITE;
-                                   } else {
-                                       color = egui::Color32::BLACK;
-                                   }
-                                   ui.horizontal_wrapped(|ui| {
-                                       let text;
-                                       if self.show_sent_cmds {
-                                           if self.show_timestamps {
-                                               text = format!("[{}] t + {:.3}s: {}",
-                                                              packet.direction,
-                                                              packet.time as f32 / 1000.0,
-                                                              packet.payload);
-                                               ui.label(RichText::new(text).color(color).font(
-                                                   FontId::new(14.0, FontFamily::Monospace)));
+                    ui.separator();
+                    egui::ScrollArea::vertical()
+                        .id_source("serial_output")
+                        .auto_shrink([false; 2])
+                        .stick_to_bottom(true)
+                        .always_show_scroll(true)
+                        .enable_scrolling(true)
+                        .max_height(height)
+                        .min_scrolled_height(height)
+                        .max_width(width)
+                        .show_rows(ui, row_height, num_rows,
+                                   |ui, row_range| {
+                                       for row in row_range {
+                                           let packet = self.data.raw_traffic[row].clone();
+                                           let color;
+                                           if self.dark_mode {
+                                               color = egui::Color32::WHITE;
                                            } else {
-                                               text = format!("[{}]: {}",
-                                                              packet.direction,
-                                                              packet.payload);
-                                               ui.label(RichText::new(text).color(color).font(
-                                                   FontId::new(14.0, FontFamily::Monospace)));
+                                               color = egui::Color32::BLACK;
                                            }
-                                       } else {
-                                           if packet.direction == SerialDirection::RECEIVE {
-                                               if self.show_timestamps {
-                                                   text = format!("t + {:.3}s: {}",
-                                                                  packet.time as f32 / 1000.0,
-                                                                  packet.payload);
-                                                   ui.label(RichText::new(text).color(color).font(
-                                                       FontId::new(14.0, FontFamily::Monospace)));
+                                           ui.horizontal_wrapped(|ui| {
+                                               let text;
+                                               if self.show_sent_cmds {
+                                                   if self.show_timestamps {
+                                                       text = format!("[{}] t + {:.3}s: {}",
+                                                                      packet.direction,
+                                                                      packet.time as f32 / 1000.0,
+                                                                      packet.payload);
+                                                       ui.label(RichText::new(text).color(color).font(
+                                                           FontId::new(14.0, FontFamily::Monospace)));
+                                                   } else {
+                                                       text = format!("[{}]: {}",
+                                                                      packet.direction,
+                                                                      packet.payload);
+                                                       ui.label(RichText::new(text).color(color).font(
+                                                           FontId::new(14.0, FontFamily::Monospace)));
+                                                   }
                                                } else {
-                                                   text = format!("{}",
-                                                                  packet.payload);
-                                                   ui.label(RichText::new(text).color(color).font(
-                                                       FontId::new(14.0, FontFamily::Monospace)));
+                                                   if packet.direction == SerialDirection::RECEIVE {
+                                                       if self.show_timestamps {
+                                                           text = format!("t + {:.3}s: {}",
+                                                                          packet.time as f32 / 1000.0,
+                                                                          packet.payload);
+                                                           ui.label(RichText::new(text).color(color).font(
+                                                               FontId::new(14.0, FontFamily::Monospace)));
+                                                       } else {
+                                                           text = format!("{}",
+                                                                          packet.payload);
+                                                           ui.label(RichText::new(text).color(color).font(
+                                                               FontId::new(14.0, FontFamily::Monospace)));
+                                                       }
+                                                   }
                                                }
-                                           }
+                                           });
                                        }
                                    });
-                               }
-                           });
-            let mut text_triggered = false;
-            let mut button_triggered = false;
-            ui.horizontal(|ui| {
-                text_triggered = ui.add(egui::TextEdit::singleline(&mut self.command).desired_width(width)).lost_focus();
-                button_triggered = ui.button("Send").clicked();
-            });
-            if text_triggered || button_triggered {
-                // send command
-                match self.send_tx.send(self.command.clone() + &self.eol.clone()){
-                    Ok(_) => {}
-                    Err(err) => {
-                        print_to_console(&self.print_lock, Print::ERROR(format!("send_tx thread send failed: {:?}", err)));
-
+                    let mut text_triggered = false;
+                    let mut button_triggered = false;
+                    ui.add_space(spacing / 2.0);
+                    ui.horizontal(|ui| {
+                        text_triggered = ui.add(egui::TextEdit::singleline(&mut self.command).desired_width(right_panel_width - 50.0)).lost_focus();
+                        button_triggered = ui.button("Send").clicked();
+                    });
+                    if text_triggered || button_triggered {
+                        // send command
+                        match self.send_tx.send(self.command.clone() + &self.eol.clone()) {
+                            Ok(_) => {}
+                            Err(err) => {
+                                print_to_console(&self.print_lock, Print::ERROR(format!("send_tx thread send failed: {:?}", err)));
+                            }
+                        }
                     }
-                }
-            }
-            ctx.request_repaint()
+                    ctx.request_repaint()
+                });
+                ui.add_space(border);
+            });
         });
 
         egui::SidePanel::new(Side::Right, 3)
-            .min_width(100.0)
+            .min_width(right_panel_width)
+            .max_width(right_panel_width)
             .show(ctx, |ui| {
                 ui.add_enabled_ui(true, |ui| {
                     ui.set_visible(true);
@@ -303,6 +311,7 @@ impl eframe::App for MyApp {
 
                     egui::ComboBox::from_id_source("Device")
                         .selected_text(&self.device)
+                        .width(right_panel_width * 0.9)
                         .show_ui(ui, |ui| {
                             for dev in devices {
                                 ui.selectable_value(&mut self.device, dev.clone(), dev);
@@ -351,18 +360,16 @@ impl eframe::App for MyApp {
                     }
                     if ui.button("Clear Data").clicked() {
                         print_to_console(&self.print_lock, Print::OK(format!("Cleared recorded data")));
-                        match self.clear_tx.send(true){
+                        match self.clear_tx.send(true) {
                             Ok(_) => {}
                             Err(err) => {
                                 print_to_console(&self.print_lock, Print::ERROR(format!("clear_tx thread send failed: {:?}", err)));
-
                             }
                         }
                     }
 
                     egui::Grid::new("upper")
                         .num_columns(2)
-                        .spacing([20.0, 4.0])
                         .striped(true)
                         .show(ui, |ui| {
                             ui.label("Plotting range [#]: ");
@@ -387,11 +394,10 @@ impl eframe::App for MyApp {
                                         }
                                     None => self.picked_path = "".to_string()
                                 }
-                                match self.save_tx.send(self.picked_path.clone()){
+                                match self.save_tx.send(self.picked_path.clone()) {
                                     Ok(_) => {}
                                     Err(err) => {
                                         print_to_console(&self.print_lock, Print::ERROR(format!("save_tx thread send failed: {:?}", err)));
-
                                     }
                                 }
                             }
@@ -414,7 +420,7 @@ impl eframe::App for MyApp {
                             }
                             ui.end_row();
                             ui.label("EOL character");
-                            ui.text_edit_singleline(&mut self.eol);
+                            ui.add(egui::TextEdit::singleline(&mut self.eol).desired_width(ui.available_width() * 0.9));
                             // ui.checkbox(&mut self.gui_conf.debug, "Debug Mode");
                             ui.end_row();
                             global_dark_light_mode_buttons(ui);
@@ -517,7 +523,7 @@ impl eframe::App for MyApp {
 
     fn save(&mut self, _storage: &mut dyn Storage) {
         let prefs_key = "config/gui";
-        match self.gui_conf.save(&APP_INFO, prefs_key){
+        match self.gui_conf.save(&APP_INFO, prefs_key) {
             Ok(_) => {}
             Err(err) => {
                 println!("gui settings save failed: {:?}", err);
