@@ -262,7 +262,7 @@ impl eframe::App for MyApp {
                     let mut button_triggered = false;
                     ui.add_space(spacing / 2.0);
                     ui.horizontal(|ui| {
-                        text_triggered = ui.add(egui::TextEdit::singleline(&mut self.command).desired_width(right_panel_width - 50.0)).lost_focus();
+                        text_triggered = ui.add(egui::TextEdit::singleline(&mut self.command).desired_width(width - 50.0)).lost_focus();
                         button_triggered = ui.button("Send").clicked();
                     });
                     if text_triggered || button_triggered {
