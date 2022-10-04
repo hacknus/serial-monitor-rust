@@ -8,7 +8,7 @@ use crate::data::SerialDirection;
 
 
 fn serial_write(port: &mut BufReader<Box<dyn SerialPort>>, cmd: &[u8]) -> bool {
-    let mut write_port = port.get_mut();
+    let write_port = port.get_mut();
     match write_port.write(cmd) {
         Ok(_) => {
             let mut response = "".to_string();
@@ -76,7 +76,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
         }
         let port_builder = serialport::new(&device, baud_rate)
             .timeout(Duration::from_millis(100));
-        let mut port = port_builder.open().unwrap();
+        let port = port_builder.open().unwrap();
         let mut port = BufReader::new(port);
 
         if let Ok(mut write_guard) = connected_lock.write() {
