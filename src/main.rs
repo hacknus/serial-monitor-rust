@@ -86,7 +86,7 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                     // empty dataset
                 } else {
                     data.raw_traffic.push(packet.clone());
-                    let split_data = split(packet.payload);
+                    let split_data = split(&packet.payload);
                     if data.dataset.len() == 0 || failed_format_counter > 10 {
                         data.dataset = vec![vec![]; split_data.len()];
                         failed_format_counter = 0;
