@@ -1,8 +1,10 @@
 [package]
 name = "serial-monitor-rust"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
-
+authors = ["Linus Leo Stöckli"]
+description = "Serial Monitor and Plotter written in rust."
+license = "GPL-3.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -22,11 +24,21 @@ csv = "1.1.6"
 serialport = "4.2.0"
 
 [package.metadata.bundle]
-name = "Bijou"
-identifier = "com.linsto.serial_monitor"
+name = "Serial Monitor"
+identifier = "com.hacknus.serial_monitor"
 icon = ["./icons/icon-128.png", "./icons/icon-128@2x.png"]
-version = "0.1.0"
+version = "0.1.1"
 copyright = "Copyright (c) Linus Leo Stöckli 2022. All rights reserved."
 category = "Developer Tool"
-short_description = "Serial Monitor and Plotter."
+short_description = "Serial Monitor and Plotter written in rust."
+license = "GPL-3.0"
+osx_minimum_system_version = "10.11"
 
+[package.metadata.wix]
+dbg-build = false
+dbg-name = false
+name = "Serial Monitor"
+no-build = false
+output = "target/wix/SerialMonitorInstaller.msi"
+version = "0.1.1"
+license = "GPL-3.0"
