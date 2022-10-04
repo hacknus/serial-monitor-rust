@@ -25,6 +25,40 @@ use crate::serial::serial_thread;
 
 const APP_INFO: AppInfo = AppInfo { name: "Serial Monitor", author: "Linus Leo Stöckli" };
 
+fn split(payload: &str) -> Vec<&str> {
+    let delimiter_1;
+    if payload.contains(": "){
+        delimiter_1 = ": ";
+    } else {
+        delimiter_1 = ":";
+    }
+    let delimiter_2;
+    if payload.contains(", "){
+        delimiter_2 = ", ";
+    } else {
+        delimiter_2 = ",";
+    }
+    let mut split_data: Vec<&str> = vec![];
+    let first_split = payload.split(delimiter_1).collect::<Vec<&str>>();
+    for s in first_split.iter() {
+        let s_split = s.split(delimiter_2).collect::<Vec<&str>>();
+        for si in s_split.iter() {
+            let mut contains_value = false;
+            for char in si.bytes(){
+                if b"-0.123456789".contains(&char) {
+                    contains_value = true;
+                    break;
+                }
+            }
+            if contains_value {
+                split_data.push(si);
+            }
+
+        }
+    }
+    split_data
+}
+
 fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                raw_data_lock: Arc<RwLock<Vec<Packet>>>,
                print_lock: Arc<RwLock<Vec<Print>>>,
@@ -52,7 +86,7 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                     // empty dataset
                 } else {
                     data.raw_traffic.push(packet.clone());
-                    let split_data = packet.payload.split(", ").collect::<Vec<&str>>();
+                    let split_data = split(packet.payload);
                     if data.dataset.len() == 0 || failed_format_counter > 10 {
                         data.dataset = vec![vec![]; split_data.len()];
                         failed_format_counter = 0;
@@ -129,7 +163,7 @@ fn main() {
         gui_settings = load_result.unwrap();
     } else {
         // save default settings
-        match gui_settings.save(&APP_INFO, prefs_key){
+        match gui_settings.save(&APP_INFO, prefs_key) {
             Ok(_) => {}
             Err(_) => {
                 println!("failed to save gui_settings");
