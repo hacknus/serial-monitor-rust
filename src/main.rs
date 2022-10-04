@@ -11,6 +11,7 @@ mod io;
 mod serial;
 mod data;
 
+use std::cmp::max;
 use std::thread;
 use eframe::egui::{vec2, Visuals};
 use std::sync::mpsc::{Receiver, Sender};
@@ -27,13 +28,13 @@ const APP_INFO: AppInfo = AppInfo { name: "Serial Monitor", author: "Linus Leo S
 
 fn split(payload: &str) -> Vec<&str> {
     let delimiter_1;
-    if payload.contains(": "){
+    if payload.contains(": ") {
         delimiter_1 = ": ";
     } else {
         delimiter_1 = ":";
     }
     let delimiter_2;
-    if payload.contains(", "){
+    if payload.contains(", ") {
         delimiter_2 = ", ";
     } else {
         delimiter_2 = ",";
@@ -44,7 +45,7 @@ fn split(payload: &str) -> Vec<&str> {
         let s_split = s.split(delimiter_2).collect::<Vec<&str>>();
         for si in s_split.iter() {
             let mut contains_value = false;
-            for char in si.bytes(){
+            for char in si.bytes() {
                 if b"-0.123456789".contains(&char) {
                     contains_value = true;
                     break;
@@ -53,7 +54,6 @@ fn split(payload: &str) -> Vec<&str> {
             if contains_value {
                 split_data.push(si);
             }
-
         }
     }
     split_data
@@ -88,7 +88,7 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                     data.raw_traffic.push(packet.clone());
                     let split_data = split(&packet.payload);
                     if data.dataset.len() == 0 || failed_format_counter > 10 {
-                        data.dataset = vec![vec![]; split_data.len()];
+                        data.dataset = vec![vec![]; max(split_data.len(), 1)];
                         failed_format_counter = 0;
                         // println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
                     } else {
@@ -97,20 +97,26 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                             for (i, set) in data.dataset.iter_mut().enumerate() {
                                 match split_data[i].parse::<f32>() {
                                     Ok(r) => {
-                                        // println!("success parsing i={i}");
+                                        // println!("success parsing {} -> {}", split_data[i], r);
                                         set.push(r);
                                         parse_state = true;
                                         failed_format_counter = 0;
                                     }
                                     Err(_) => {
-                                        // println!("failed to parse i={i}");
-                                        set.push(f32::NAN);
+                                        // if failed_format_counter != 0 {
+                                        //     println!("failed to parse i={i} @ count={failed_format_counter}");
+                                        // }
+                                        // set.push(f32::NAN);
                                         failed_format_counter += 1;
                                     }
                                 }
                             }
                             if parse_state {
                                 data.time.push(packet.time);
+                            }
+                            if data.time.len() != data.dataset[0].len() {
+                                data.time = vec![];
+                                data.dataset = vec![vec![]; max(split_data.len(), 1)];
                             }
                         } else {
                             // not same length

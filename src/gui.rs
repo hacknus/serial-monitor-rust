@@ -148,8 +148,6 @@ impl eframe::App for MyApp {
                 ui.vertical(|ui| {
                     if let Ok(read_guard) = self.data_lock.read() {
                         self.data = read_guard.clone();
-                        // self.data.time = linspace::<f32>(self.tera_flash_conf.t_begin as f32,
-                        //                                  (self.tera_flash_conf.t_begin + self.tera_flash_conf.range) as f32, 1000).collect();
                     }
 
                     let mut graphs: Vec<Vec<[f64; 2]>> = vec![vec![]; self.data.dataset.len()];
@@ -170,7 +168,7 @@ impl eframe::App for MyApp {
                                 graph.push([self.data.time[i] as f64, data[i] as f64]);
                             } else {
                                 // not same length
-                                //println!("not same length in gui! length self.data.time = {}, length data = {}", self.data.time.len(), data.len())
+                                // println!("not same length in gui! length self.data.time = {}, length data = {}", self.data.time.len(), data.len())
                             }
                         }
                     }

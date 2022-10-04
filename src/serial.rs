@@ -1,3 +1,4 @@
+use std::io::{BufRead, BufReader};
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
@@ -6,32 +7,32 @@ use crate::{GuiSettingsContainer, Packet, Print, print_to_console};
 use crate::data::SerialDirection;
 
 
-fn serial_write(port: &mut Box<dyn SerialPort>, cmd: &[u8]) -> bool {
-    match port.write(cmd) {
+fn serial_write(port: &mut BufReader<Box<dyn SerialPort>>, cmd: &[u8]) -> bool {
+    let mut write_port = port.get_mut();
+    match write_port.write(cmd) {
         Ok(_) => {
-            let mut response = vec![0; 128];
+            let mut response = "".to_string();
             serial_read(port, &mut response);
             println!("sent a command!");
-            match std::str::from_utf8(&response) {
-                Ok(v) => {
-                    if v.contains("OK") {
-                        true
-                    } else {
-                        println!("cmd not acknowledged!!!");
-                        false
-                    }
-                }
-                Err(_) => { false }
+            if response.contains("OK") {
+                true
+            } else {
+                println!("cmd not acknowledged!!!");
+                false
             }
         }
         Err(_) => { false }
     }
 }
 
-fn serial_read(port: &mut Box<dyn SerialPort>, serial_buf: &mut Vec<u8>) -> bool {
-    match port.read(serial_buf.as_mut_slice()) {
+fn serial_read(port: &mut BufReader<Box<dyn SerialPort>>, serial_buf: &mut String) -> bool {
+    match port.read_line(serial_buf) {
         Ok(_) => { true }
-        Err(_) => { false }
+        Err(_) => {
+            // this probably means that either there is no data,
+            // or it could not be decoded to a String (binary stuff...)
+            false
+        }
     }
 }
 
@@ -76,6 +77,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
         let port_builder = serialport::new(&device, baud_rate)
             .timeout(Duration::from_millis(100));
         let mut port = port_builder.open().unwrap();
+        let mut port = BufReader::new(port);
 
         if let Ok(mut write_guard) = connected_lock.write() {
             *write_guard = connected.clone();
@@ -147,36 +149,27 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                 Err(..) => {}
             }
 
-
             // perform reads
-            let mut serial_buf: Vec<u8> = vec![0; 1024];
+            let mut serial_buf = "".to_string();
             if serial_read(&mut port, &mut serial_buf) {
                 if let Ok(mut write_guard) = raw_data_lock.write() {
-                    match std::str::from_utf8(&serial_buf) {
-                        Ok(v) => {
-                            let p = v.to_string();
-                            // println!("received: {:?}", p);
-                            let payloads: Vec<&str>;
-                            if p.contains("\r\n") {
-                                payloads = p.split("\r\n").collect::<Vec<&str>>();
-                            } else {
-                                payloads = p.split("\0\0").collect::<Vec<&str>>();
-                            }
-                            // println!("received split2: {:?}", payloads);
-                            for payload in payloads.iter() {
-                                let payload_string = payload.to_string();
-                                if !payload_string.contains("\0\0") && payload_string != "".to_string() {
-                                    let packet = Packet {
-                                        time: Instant::now().duration_since(t_zero).as_millis(),
-                                        direction: SerialDirection::RECEIVE,
-                                        payload: payload_string,
-                                    };
-                                    write_guard.push(packet);
-                                }
-                            }
-                        }
-                        Err(_) => {
-                            println!("recv encode fail");
+                    // println!("received: {:?}", serial_buf);
+                    let payloads: Vec<&str>;
+                    if serial_buf.contains("\r\n") {
+                        payloads = serial_buf.split("\r\n").collect::<Vec<&str>>();
+                    } else {
+                        payloads = serial_buf.split("\0\0").collect::<Vec<&str>>();
+                    }
+                    // println!("received split2: {:?}", payloads);
+                    for payload in payloads.iter() {
+                        let payload_string = payload.to_string();
+                        if !payload_string.contains("\0\0") && payload_string != "".to_string() {
+                            let packet = Packet {
+                                time: Instant::now().duration_since(t_zero).as_millis(),
+                                direction: SerialDirection::RECEIVE,
+                                payload: payload_string,
+                            };
+                            write_guard.push(packet);
                         }
                     }
                 }
