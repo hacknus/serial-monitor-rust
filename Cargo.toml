@@ -7,9 +7,6 @@ description = "Serial Monitor and Plotter written in rust."
 license = "GPL-3.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[target.x86_64-apple-darwin]
-rustflags=["-C", "link-arg=-mmacosx-version-min=10.8"]
-
 [dependencies]
 eframe = {version = "0.19.0", features = ["persistence"]}
 egui_extras = { version = "0.19.0", features = ["image"] }
