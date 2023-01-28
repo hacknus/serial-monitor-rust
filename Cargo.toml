@@ -29,11 +29,12 @@ name = "Serial Monitor"
 identifier = "com.hacknus.serial_monitor"
 icon = ["./icons/icon-128.png", "./icons/icon-128@2x.png"]
 version = "0.1.1"
-copyright = "Copyright (c) Linus Leo Stöckli 2022. All rights reserved."
+copyright = "Copyright (c) hacknus 2023. All rights reserved."
 category = "Developer Tool"
 short_description = "Serial Monitor and Plotter written in rust."
 license = "GPL-3.0"
 osx_minimum_system_version = "10.8"
+osx_url_schemes = ["com.hacknus.serial_monitor"]
 
 [package.metadata.wix]
 dbg-build = false
