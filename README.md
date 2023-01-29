@@ -3,10 +3,13 @@ A cross-plattform serial monitor/plotter written entirely in rust, the GUI is wr
 Inspired by the serial monitor/plotter from the Arduino IDE, but both plotting and reading the traffic can be done simultaneously.  
 Additionally, the output of the plot and the traffic can be saved to a file (TBD). The window of the plot can also be adjusted.  
 Data points in the received string between ", " or "," or ":" or ": " that can be parsed into floats will be plotted as lines, everything else will be discarded without raising an error.  
-ToDo:
+  
+TODOs:
 * Save text to file
 * Save Plot to file
 * Smarter data parser
+* make side panel and plot/serial prompt be resizeable (snappy?)
+* implement a history of past commands for the prompt (use arrow up/down key to navigate)
 * ...  
 
 
