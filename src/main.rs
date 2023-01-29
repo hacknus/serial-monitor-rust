@@ -157,7 +157,7 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
         if let Ok(mut write_guard) = data_lock.write() {
             *write_guard = data.clone();
         }
-        std::thread::sleep(Duration::from_millis(10));
+        // std::thread::sleep(Duration::from_millis(10));
     }
 }
 
