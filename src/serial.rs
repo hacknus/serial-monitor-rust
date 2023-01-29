@@ -2,7 +2,7 @@ use std::io::{BufRead, BufReader};
 use std::sync::{Arc, RwLock};
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
-use serialport::SerialPort;
+use serialport::{SerialPort, SerialPortType};
 use crate::{GuiSettingsContainer, Packet, Print, print_to_console};
 use crate::data::SerialDirection;
 
@@ -63,7 +63,15 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             }
             devices = vec![];
             for p in serialport::available_ports().unwrap().iter() {
-                devices.push(p.port_name.clone());
+                match p.clone().port_type {
+                    SerialPortType::UsbPort(info) => {
+                        let name = format!("{}, ({})", p.port_name, info.product.unwrap_or("unnamed".to_string()));
+                        devices.push(name);
+                    }
+                    SerialPortType::PciPort => {}
+                    SerialPortType::BluetoothPort => {}
+                    SerialPortType::Unknown => {}
+                }
                 if p.port_name == device {
                     connected = true;
                     break;
@@ -94,7 +102,15 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             // check for reconnection
             devices = vec![];
             for p in serialport::available_ports().unwrap().iter() {
-                devices.push(p.port_name.clone());
+                match p.clone().port_type {
+                    SerialPortType::UsbPort(info) => {
+                        let name = format!("{}, ({})", p.port_name, info.product.unwrap_or("unnamed".to_string()));
+                        devices.push(name);
+                    }
+                    SerialPortType::PciPort => {}
+                    SerialPortType::BluetoothPort => {}
+                    SerialPortType::Unknown => {}
+                }
             }
             if let Ok(mut write_guard) = devices_lock.write() {
                 *write_guard = devices.clone();
