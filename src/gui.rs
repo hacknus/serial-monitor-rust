@@ -281,6 +281,8 @@ impl eframe::App for MyApp {
         egui::SidePanel::new(Side::Right, 3)
             .min_width(right_panel_width)
             .max_width(right_panel_width)
+            .resizable(false)
+            //.default_width(right_panel_width)
             .show(ctx, |ui| {
                 ui.add_enabled_ui(true, |ui| {
                     ui.set_visible(true);
