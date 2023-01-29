@@ -66,7 +66,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                 devices.push(p.port_name.clone());
                 if p.port_name == device {
                     connected = true;
-                    break;
+                    // break;
                 }
             }
             if let Ok(mut write_guard) = devices_lock.write() {
@@ -76,7 +76,18 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
         }
         let port_builder = serialport::new(&device, baud_rate)
             .timeout(Duration::from_millis(100));
-        let port = port_builder.open().unwrap();
+        let port;
+        match port_builder.open() {
+            Ok(p) => {port=p}
+            Err(err) => {
+                if let Ok(mut write_guard) = device_lock.write() {
+                    *write_guard = "".to_string();
+                }
+                device = "".to_string();
+                print_to_console(&print_lock, Print::ERROR(format!("Error connecting: {}", err.to_string())));
+                continue;
+            }
+        }
         let mut port = BufReader::new(port);
 
         if let Ok(mut write_guard) = connected_lock.write() {
@@ -122,6 +133,9 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
 
             if reconnect || !dev_is_con {
                 print_to_console(&print_lock, Print::ERROR(format!("disconnected from serial port: {}", device)));
+                if let Ok(mut write_guard) = device_lock.write() {
+                    *write_guard = "".to_string();
+                }
                 break 'connected_loop;
             }
 

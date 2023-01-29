@@ -257,6 +257,4 @@ fn main() {
     );
 
 
-    main_thread_handler.join().unwrap();
-    serial_thread.join().unwrap();
 }

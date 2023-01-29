@@ -306,6 +306,9 @@ impl eframe::App for MyApp {
                     if let Ok(read_guard) = self.devices_lock.read() {
                         devices = read_guard.clone();
                     }
+                    if !devices.contains(&self.device){
+                        self.device = "".to_string();
+                    }
 
                     egui::ComboBox::from_id_source("Device")
                         .selected_text(&self.device)
@@ -349,8 +352,7 @@ impl eframe::App for MyApp {
                         }
                         if let Ok(mut write_guard) = self.baud_lock.write() {
                             if self.ready {
-                                *write_guard = 0;
-                                self.baud_rate = 0;
+                                // do nothing
                             } else {
                                 *write_guard = self.baud_rate.clone();
                             }
