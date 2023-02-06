@@ -12,6 +12,7 @@ mod serial;
 mod data;
 
 use std::cmp::max;
+use std::path::PathBuf;
 use std::thread;
 use eframe::egui::{vec2, Visuals};
 use std::sync::mpsc::{Receiver, Sender};
@@ -62,11 +63,11 @@ fn split(payload: &str) -> Vec<&str> {
 fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                raw_data_lock: Arc<RwLock<Vec<Packet>>>,
                print_lock: Arc<RwLock<Vec<Print>>>,
-               save_rx: Receiver<String>,
+               save_rx: Receiver<PathBuf>,
                clear_rx: Receiver<bool>) {
     // reads data from mutex, samples and saves if needed
     let mut acquire = false;
-    let mut file_path = "serial_monitor_test.csv".to_string();
+    let mut file_path = PathBuf::from("serial_monitor_test.csv");
     let mut data = DataContainer::default();
     let mut failed_format_counter = 0;
     loop {
@@ -185,7 +186,7 @@ fn main() {
     let print_lock = Arc::new(RwLock::new(vec![Print::EMPTY]));
     let connected_lock = Arc::new(RwLock::new(false));
 
-    let (save_tx, save_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
+    let (save_tx, save_rx): (Sender<PathBuf>, Receiver<PathBuf>) = mpsc::channel();
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
 

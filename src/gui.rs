@@ -1,5 +1,6 @@
 use core::f32;
 use std::ops::RangeInclusive;
+use std::path::PathBuf;
 use std::sync::mpsc::{Sender};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -71,7 +72,7 @@ pub struct MyApp {
     plotting_range: i32,
     console: Vec<Print>,
     dropped_files: Vec<egui::DroppedFile>,
-    picked_path: String,
+    picked_path: PathBuf,
     data: DataContainer,
     gui_conf: GuiSettingsContainer,
     print_lock: Arc<RwLock<Vec<Print>>>,
@@ -80,7 +81,7 @@ pub struct MyApp {
     baud_lock: Arc<RwLock<u32>>,
     connected_lock: Arc<RwLock<bool>>,
     data_lock: Arc<RwLock<DataContainer>>,
-    save_tx: Sender<String>,
+    save_tx: Sender<PathBuf>,
     send_tx: Sender<String>,
     clear_tx: Sender<bool>,
     eol: String,
@@ -97,7 +98,7 @@ impl MyApp {
                baud_lock: Arc<RwLock<u32>>,
                connected_lock: Arc<RwLock<bool>>,
                gui_conf: GuiSettingsContainer,
-               save_tx: Sender<String>,
+               save_tx: Sender<PathBuf>,
                send_tx: Sender<String>,
                clear_tx: Sender<bool>,
     ) -> Self {
@@ -105,7 +106,7 @@ impl MyApp {
             dark_mode: true,
             ready: false,
             dropped_files: vec![],
-            picked_path: "".to_string(),
+            picked_path: PathBuf::new(),
             device: "".to_string(),
             data: DataContainer::default(),
             console: vec![Print::MESSAGE(format!("waiting for serial connection..,").to_string())],
@@ -381,20 +382,22 @@ impl eframe::App for MyApp {
                             ui.end_row();
                             if ui.button("Save to file").clicked() {
                                 match rfd::FileDialog::new().save_file() {
-                                    Some(path) =>
-                                    // TODO: here we should really include .csv as extension!
+                                    Some(mut path) =>
                                         {
-                                            let extension = ".csv".to_string();
-                                            let mut final_path: String;
-                                            if path.display().to_string().ends_with(".csv") {
-                                                final_path = path.display().to_string();
-                                            } else {
-                                                final_path = path.display().to_string();
-                                                final_path.push_str(&extension);
+                                            let extension = "csv";
+                                            match path.extension() {
+                                                None => {
+                                                    path.set_extension(&extension);
+                                                }
+                                                Some(ext) => {
+                                                    if ext != "csv" {
+                                                        path.set_extension(&extension);
+                                                    }
+                                                }
                                             }
-                                            self.picked_path = final_path;
+                                            self.picked_path = path;
                                         }
-                                    None => self.picked_path = "".to_string()
+                                    None => self.picked_path = PathBuf::new()
                                 }
                                 match self.save_tx.send(self.picked_path.clone()) {
                                     Ok(_) => {}

@@ -1,9 +1,10 @@
 use std::error::Error;
+use std::path::PathBuf;
 use csv::{WriterBuilder};
 use crate::DataContainer;
 
 
-pub fn save_to_csv(data: &DataContainer, file_path: &String) -> Result<(), Box<dyn Error>> {
+pub fn save_to_csv(data: &DataContainer, file_path: &PathBuf) -> Result<(), Box<dyn Error>> {
     let mut wtr = WriterBuilder::new()
         .has_headers(false)
         .from_path(file_path)?;
