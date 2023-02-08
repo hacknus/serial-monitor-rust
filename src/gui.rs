@@ -279,7 +279,7 @@ impl eframe::App for MyApp {
             });
         });
 
-        egui::SidePanel::new(Side::Right, 3)
+        egui::SidePanel::new(Side::Right, "settings panel")
             .min_width(right_panel_width)
             .max_width(right_panel_width)
             .resizable(false)
