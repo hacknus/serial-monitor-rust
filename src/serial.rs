@@ -140,7 +140,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             }
 
             // perform writes
-            match send_rx.recv_timeout(Duration::from_millis(10)) {
+            match send_rx.recv_timeout(Duration::from_millis(1)) {
                 Ok(cmd) => {
                     let output = cmd.as_bytes();
                     serial_write(&mut port, &output);
