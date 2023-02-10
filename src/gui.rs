@@ -84,6 +84,8 @@ pub struct MyApp {
     save_tx: Sender<PathBuf>,
     send_tx: Sender<String>,
     clear_tx: Sender<bool>,
+    history: Vec<String>,
+    index: usize,
     eol: String,
     show_sent_cmds: bool,
     show_timestamps: bool,
@@ -127,6 +129,8 @@ impl MyApp {
             show_timestamps: true,
             save_raw: true,
             eol: "\\r\\n".to_string(),
+            history: vec![],
+            index: 0,
         }
     }
 }
@@ -261,11 +265,31 @@ impl eframe::App for MyApp {
                     let mut button_triggered = false;
                     ui.add_space(spacing / 2.0);
                     ui.horizontal(|ui| {
-                        text_triggered = ui.add(egui::TextEdit::singleline(&mut self.command).desired_width(width - 50.0)).lost_focus();
+                        ui.add(egui::TextEdit::singleline(&mut self.command).desired_width(width - 50.0));
                         button_triggered = ui.button("Send").clicked();
                     });
+
+                    if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                        text_triggered = true;
+                    }
+
+                    if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                        if self.index > 0 {
+                            self.index -= 1;
+                        }
+                        self.command = self.history[self.index].clone();
+                    }
+                    if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+                        if self.index < self.history.len() - 1 {
+                            self.index += 1;
+                        }
+                        self.command = self.history[self.index].clone();
+                    }
+
                     if text_triggered || button_triggered {
                         // send command
+                        self.history.push(self.command.clone());
+                        self.index = self.history.len() - 1;
                         match self.send_tx.send(self.command.clone() + &self.eol.clone()) {
                             Ok(_) => {}
                             Err(err) => {
@@ -309,7 +333,7 @@ impl eframe::App for MyApp {
                     if let Ok(read_guard) = self.devices_lock.read() {
                         devices = read_guard.clone();
                     }
-                    if !devices.contains(&self.device){
+                    if !devices.contains(&self.device) {
                         self.device = "".to_string();
                     }
 

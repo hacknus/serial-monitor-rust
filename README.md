@@ -1,15 +1,26 @@
 # serial-monitor-rust
-A cross-plattform serial monitor/plotter written entirely in rust, the GUI is written using [egui](https://github.com/emilk/egui).  
+A cross-platform serial monitor/plotter written entirely in rust, the GUI is written using [egui](https://github.com/emilk/egui).  
 Inspired by the serial monitor/plotter from the Arduino IDE, but both plotting and reading the traffic can be done simultaneously.  
 Additionally, the output of the plot and the traffic can be saved to a file (TBD). The window of the plot can also be adjusted.  
 Data points in the received string between ", " or "," or ":" or ": " that can be parsed into floats will be plotted as lines, everything else will be discarded without raising an error.  
   
+Features:
+* Plotting and printing of data simultaneously 
+* Smart data parser, works with ", " or "," or ":" or ": "
+* History of the past sent commands
+* Low CPU Usage, lightweight
+* Clear history options
+* Window width is adjustable
+* Cross-platform, fully written in Rust
+
 TODOs:
 * Save text to file
-* Save Plot to file
+* Save Plot to file (needs egui plot feature?)
 * Smarter data parser
+* COM-Port names on Windows (display manufacturer, name, pid or vid of device?)
 * make side panel and plot/serial prompt be resizeable (snappy?)
-* implement a history of past commands for the prompt (use arrow up/down key to navigate)
+* current command entered is lost when navigating through the history
+* command history is currently unlimited (needs an upper limit to prevent huge memory usage)
 * ...  
 
 
