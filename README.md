@@ -10,7 +10,7 @@ Features:
 * History of the past sent commands
 * Low CPU Usage, lightweight
 * Clear history options
-* Window width is adjustable
+* Data Window width is adjustable
 * Cross-platform, fully written in Rust
 
 TODOs:
