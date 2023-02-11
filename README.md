@@ -17,6 +17,7 @@ TODOs:
 * Save text to file
 * Save Plot to file (needs egui plot feature?)
 * Smarter data parser
+* make serial print selectable and show corresponding datapoint in plot
 * COM-Port names on Windows (display manufacturer, name, pid or vid of device?)
 * make side panel and plot/serial prompt be resizeable (snappy?)
 * current command entered is lost when navigating through the history
