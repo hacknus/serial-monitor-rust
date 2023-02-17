@@ -10,13 +10,15 @@ Features:
 * History of the past sent commands
 * Low CPU Usage, lightweight
 * Clear history options
-* Window width is adjustable
+* Data Window width is adjustable
 * Cross-platform, fully written in Rust
 
 TODOs:
 * Save text to file
 * Save Plot to file (needs egui plot feature?)
 * Smarter data parser
+* allow to put in labels for the different data columns (instead of column 1, 2, ...)
+* make serial print selectable and show corresponding datapoint in plot
 * COM-Port names on Windows (display manufacturer, name, pid or vid of device?)
 * make side panel and plot/serial prompt be resizeable (snappy?)
 * current command entered is lost when navigating through the history
