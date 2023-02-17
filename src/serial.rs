@@ -49,6 +49,15 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
     let mut baud_rate = 115_200;
     let mut connected;
     loop {
+
+        let _not_awake = keepawake::Builder::new()
+            .display(false)
+            .reason("Serial Connection")
+            .app_name("Serial Monitor")
+            //.app_reverse_domain("io.github.myprog")
+            .create()
+            .unwrap();
+
         connected = false;
         if let Ok(mut write_guard) = connected_lock.write() {
             *write_guard = connected.clone();
@@ -99,6 +108,14 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
         print_to_console(&print_lock, Print::OK(format!("connected to serial port: {} @ baud = {}", device, baud_rate)));
 
         let mut reconnect = false;
+
+        let _awake = keepawake::Builder::new()
+            .display(true)
+            .reason("Serial Connection")
+            .app_name("Serial Monitor")
+            //.app_reverse_domain("io.github.myprog")
+            .create()
+            .unwrap();
 
         'connected_loop: loop {
 
