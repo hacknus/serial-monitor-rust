@@ -265,13 +265,17 @@ impl eframe::App for MyApp {
                     let mut button_triggered = false;
                     ui.add_space(spacing / 2.0);
                     ui.horizontal(|ui| {
-                        ui.add(egui::TextEdit::singleline(&mut self.command).desired_width(width - 50.0));
+                        if ui.add(
+                            egui::TextEdit::singleline(&mut self.command)
+                                .desired_width(width - 50.0)
+
+                        ).has_focus() {
+                            if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                                text_triggered = true;
+                            }
+                        };
                         button_triggered = ui.button("Send").clicked();
                     });
-
-                    if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                        text_triggered = true;
-                    }
 
                     if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
                         if self.index > 0 {
