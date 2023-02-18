@@ -24,11 +24,11 @@ pub struct Packet {
 
 impl Default for Packet {
     fn default() -> Packet {
-        return Packet {
+        Packet {
             time: 0,
             direction: SerialDirection::SEND,
             payload: "".to_string(),
-        };
+        }
     }
 }
 
@@ -41,10 +41,10 @@ pub struct DataContainer {
 
 impl Default for DataContainer {
     fn default() -> DataContainer {
-        return DataContainer {
+        DataContainer {
             time: vec![],
             dataset: vec![vec![]],
             raw_traffic: vec![],
-        };
+        }
     }
 }

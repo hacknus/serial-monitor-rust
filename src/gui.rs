@@ -53,13 +53,13 @@ pub struct GuiSettingsContainer {
 
 impl GuiSettingsContainer {
     pub fn default() -> GuiSettingsContainer {
-        return GuiSettingsContainer {
+        GuiSettingsContainer {
             device: "".to_string(),
             baud: 115_200,
             debug: true,
             x: 1600.0,
             y: 900.0,
-        };
+        }
     }
 }
 
