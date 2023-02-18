@@ -138,7 +138,7 @@ impl MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if let Ok(read_guard) = self.connected_lock.read() {
-            self.ready = read_guard.clone();
+            self.ready = *read_guard;
         }
         let right_panel_width = 350.0;
 
@@ -358,7 +358,7 @@ impl eframe::App for MyApp {
                             for baud_rate in baud_rates.iter() {
                                 ui.selectable_value(
                                     &mut self.baud_rate,
-                                    baud_rate.clone(),
+                                    *baud_rate,
                                     format!("{}", baud_rate),
                                 );
                             }
@@ -382,7 +382,7 @@ impl eframe::App for MyApp {
                             if self.ready {
                                 // do nothing
                             } else {
-                                *write_guard = self.baud_rate.clone();
+                                *write_guard = self.baud_rate;
                             }
                         }
                     }

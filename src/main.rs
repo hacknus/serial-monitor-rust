@@ -173,7 +173,7 @@ fn main() {
 
     let device_lock = Arc::new(RwLock::new(gui_settings.device.clone()));
     let devices_lock = Arc::new(RwLock::new(vec![gui_settings.device.clone()]));
-    let baud_lock = Arc::new(RwLock::new(gui_settings.baud.clone()));
+    let baud_lock = Arc::new(RwLock::new(gui_settings.baud));
     let raw_data_lock = Arc::new(RwLock::new(vec![Packet::default()]));
     let data_lock = Arc::new(RwLock::new(DataContainer::default()));
     let print_lock = Arc::new(RwLock::new(vec![Print::EMPTY]));
