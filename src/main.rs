@@ -28,36 +28,15 @@ use crate::serial::serial_thread;
 const APP_INFO: AppInfo = AppInfo { name: "Serial Monitor", author: "Linus Leo Stöckli" };
 
 fn split(payload: &str) -> Vec<&str> {
-    let delimiter_1;
-    if payload.contains(": ") {
-        delimiter_1 = ": ";
-    } else {
-        delimiter_1 = ":";
-    }
-    let delimiter_2;
-    if payload.contains(", ") {
-        delimiter_2 = ", ";
-    } else {
-        delimiter_2 = ",";
-    }
     let mut split_data: Vec<&str> = vec![];
-    let first_split = payload.split(delimiter_1).collect::<Vec<&str>>();
-    for s in first_split.iter() {
-        let s_split = s.split(delimiter_2).collect::<Vec<&str>>();
-        for si in s_split.iter() {
-            let mut contains_value = false;
-            for char in si.bytes() {
-                if b"-0.123456789".contains(&char) {
-                    contains_value = true;
-                    break;
-                }
-            }
-            if contains_value {
-                split_data.push(si);
-            }
-        }
+    for s in payload.split(':') {
+        split_data.extend(s.split(','));
     }
     split_data
+        .iter()
+        .map(|x| x.trim())
+        .filter(|x| x.parse::<f32>().is_ok())
+        .collect()
 }
 
 fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
