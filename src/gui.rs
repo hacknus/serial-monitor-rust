@@ -219,12 +219,11 @@ impl eframe::App for MyApp {
                                    |ui, row_range| {
                                        for row in row_range {
                                            let packet = self.data.raw_traffic[row].clone();
-                                           let color;
-                                           if self.dark_mode {
-                                               color = egui::Color32::WHITE;
+                                           let color = if self.dark_mode {
+                                               egui::Color32::WHITE
                                            } else {
-                                               color = egui::Color32::BLACK;
-                                           }
+                                               egui::Color32::BLACK
+                                           };
                                            ui.horizontal_wrapped(|ui| {
                                                let text;
                                                if self.show_sent_cmds {
@@ -365,12 +364,11 @@ impl eframe::App for MyApp {
                             }
                         });
 
-                    let connect_text: &str;
-                    if self.ready {
-                        connect_text = "Disconnect";
+                    let connect_text = if self.ready {
+                        "Disconnect"
                     } else {
-                        connect_text = "Connect";
-                    }
+                        "Connect"
+                    };
                     if ui.button(connect_text).clicked() {
                         if let Ok(mut write_guard) = self.device_lock.write() {
                             if self.ready {
@@ -481,12 +479,11 @@ impl eframe::App for MyApp {
                                            Print::MESSAGE(s) => {
                                                let text = "[MSG] ".to_string();
                                                ui.horizontal_wrapped(|ui| {
-                                                   let color: egui::Color32;
-                                                   if self.dark_mode {
-                                                       color = egui::Color32::WHITE;
+                                                   let color = if self.dark_mode {
+                                                       egui::Color32::WHITE
                                                    } else {
-                                                       color = egui::Color32::BLACK;
-                                                   }
+                                                       egui::Color32::BLACK
+                                                   };
                                                    ui.label(RichText::new(text).color(color).font(
                                                        FontId::new(14.0, FontFamily::Monospace)));
                                                    let text = format!("{}", s);
@@ -506,12 +503,11 @@ impl eframe::App for MyApp {
                                            }
                                            Print::DEBUG(s) => {
                                                if self.gui_conf.debug {
-                                                   let color: egui::Color32;
-                                                   if self.dark_mode {
-                                                       color = egui::Color32::YELLOW;
+                                                   let color = if self.dark_mode {
+                                                       egui::Color32::YELLOW
                                                    } else {
-                                                       color = egui::Color32::LIGHT_RED;
-                                                   }
+                                                       egui::Color32::LIGHT_RED
+                                                   };                                                   
                                                    ui.horizontal_wrapped(|ui| {
                                                        let text = "[DBG] ".to_string();
                                                        ui.label(RichText::new(text).color(color).font(

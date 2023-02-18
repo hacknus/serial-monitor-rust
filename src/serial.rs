@@ -185,12 +185,11 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             if serial_read(&mut port, &mut serial_buf) {
                 if let Ok(mut write_guard) = raw_data_lock.write() {
                     // println!("received: {:?}", serial_buf);
-                    let payloads: Vec<&str>;
-                    if serial_buf.contains("\r\n") {
-                        payloads = serial_buf.split("\r\n").collect::<Vec<&str>>();
+                    let payloads: Vec<&str> = if serial_buf.contains("\r\n") {
+                        serial_buf.split("\r\n").collect()
                     } else {
-                        payloads = serial_buf.split("\0\0").collect::<Vec<&str>>();
-                    }
+                        serial_buf.split("\0\0").collect()
+                    };
                     // println!("received split2: {:?}", payloads);
                     for payload in payloads.iter() {
                         let payload_string = payload.to_string();
