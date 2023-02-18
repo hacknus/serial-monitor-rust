@@ -33,7 +33,9 @@ Currently [cargo bundle](https://github.com/burtonageo/cargo-bundle) only suppor
 As a work-around we can use [cargo wix](https://github.com/volks73/cargo-wix) to create a windows installer.  
 It can be compiled and run on all platforms.
 Tested on:
-- MacOS 12.4 Monterey x86
+- macOS 12.4 Monterey x86
+- macOS 13.2.1 Ventura ARM
+- Windows 10 x86
 - ...  
 
 On Debian 12 (Testing) the following error occurred:
