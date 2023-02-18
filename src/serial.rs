@@ -93,7 +93,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                     *write_guard = "".to_string();
                 }
                 device = "".to_string();
-                print_to_console(&print_lock, Print::ERROR(format!("Error connecting: {}", err.to_string())));
+                print_to_console(&print_lock, Print::ERROR(format!("Error connecting: {}", err)));
                 continue;
             }
         }
