@@ -166,7 +166,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                             Ok(v) => {
                                 let packet = Packet {
                                     time: Instant::now().duration_since(t_zero).as_millis(),
-                                    direction: SerialDirection::SEND,
+                                    direction: SerialDirection::Send,
                                     payload: v.to_string(),
                                 };
                                 write_guard.push(packet);
@@ -196,7 +196,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                         if !payload_string.contains("\0\0") && payload_string != "".to_string() {
                             let packet = Packet {
                                 time: Instant::now().duration_since(t_zero).as_millis(),
-                                direction: SerialDirection::RECEIVE,
+                                direction: SerialDirection::Receive,
                                 payload: payload_string,
                             };
                             write_guard.push(packet);
