@@ -85,9 +85,8 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
         }
         let port_builder = serialport::new(&device, baud_rate)
             .timeout(Duration::from_millis(100));
-        let port;
-        match port_builder.open() {
-            Ok(p) => {port=p}
+        let mut port = match port_builder.open() {
+            Ok(p) => BufReader::new(p),
             Err(err) => {
                 if let Ok(mut write_guard) = device_lock.write() {
                     *write_guard = "".to_string();
@@ -96,8 +95,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                 print_to_console(&print_lock, Print::ERROR(format!("Error connecting: {}", err)));
                 continue;
             }
-        }
-        let mut port = BufReader::new(port);
+        };
 
         if let Ok(mut write_guard) = connected_lock.write() {
             *write_guard = connected;
