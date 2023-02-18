@@ -60,12 +60,12 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
 
         connected = false;
         if let Ok(mut write_guard) = connected_lock.write() {
-            *write_guard = connected.clone();
+            *write_guard = connected;
         }
 
         while !connected {
             if let Ok(read_guard) = baud_lock.read() {
-                baud_rate = read_guard.clone()
+                baud_rate = *read_guard
             }
             if let Ok(read_guard) = device_lock.read() {
                 device = read_guard.clone();
@@ -100,7 +100,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
         let mut port = BufReader::new(port);
 
         if let Ok(mut write_guard) = connected_lock.write() {
-            *write_guard = connected.clone();
+            *write_guard = connected;
         }
 
         let t_zero = Instant::now();
@@ -130,7 +130,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
 
             if let Ok(read_guard) = baud_lock.read() {
                 if baud_rate != *read_guard {
-                    baud_rate = read_guard.clone();
+                    baud_rate = *read_guard;
                     reconnect = true;
                 }
             }
