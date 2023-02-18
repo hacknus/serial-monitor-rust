@@ -2,15 +2,15 @@ use std::fmt;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SerialDirection {
-    SEND,
-    RECEIVE,
+    Send,
+    Receive,
 }
 
 impl fmt::Display for SerialDirection {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            SerialDirection::SEND => write!(f, "SEND"),
-            SerialDirection::RECEIVE => write!(f, "RECV"),
+            SerialDirection::Send => write!(f, "SEND"),
+            SerialDirection::Receive => write!(f, "RECV"),
         }
     }
 }
@@ -26,7 +26,7 @@ impl Default for Packet {
     fn default() -> Packet {
         Packet {
             time: 0,
-            direction: SerialDirection::SEND,
+            direction: SerialDirection::Send,
             payload: "".to_string(),
         }
     }

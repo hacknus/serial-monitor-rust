@@ -242,7 +242,7 @@ impl eframe::App for MyApp {
                                                            FontId::new(14.0, FontFamily::Monospace)));
                                                    }
                                                } else {
-                                                   if packet.direction == SerialDirection::RECEIVE {
+                                                   if packet.direction == SerialDirection::Receive {
                                                        if self.show_timestamps {
                                                            text = format!("t + {:.3}s: {}",
                                                                           packet.time as f32 / 1000.0,
