@@ -165,9 +165,8 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
 fn main() {
     let mut gui_settings = GuiSettingsContainer::default();
     let prefs_key = "config/gui";
-    let load_result = GuiSettingsContainer::load(&APP_INFO, prefs_key);
-    if load_result.is_ok() {
-        gui_settings = load_result.unwrap();
+    if let Ok(load_result) = GuiSettingsContainer::load(&APP_INFO, prefs_key) {
+        gui_settings = load_result;
     } else {
         // save default settings
         match gui_settings.save(&APP_INFO, prefs_key) {
