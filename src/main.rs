@@ -71,14 +71,11 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
     let mut data = DataContainer::default();
     let mut failed_format_counter = 0;
     loop {
-        match clear_rx.recv_timeout(Duration::from_millis(10)) {
-            Ok(cl) => {
-                if cl {
-                    data = DataContainer::default();
-                    failed_format_counter = 0;
-                }
+        if let Ok(cl) = clear_rx.recv_timeout(Duration::from_millis(10)) {
+            if cl {
+                data = DataContainer::default();
+                failed_format_counter = 0;
             }
-            Err(..) => ()
         }
         if let Ok(read_guard) = raw_data_lock.read() {
             let packets = read_guard.clone();
@@ -132,12 +129,9 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
             *write_guard = vec![Packet::default()];
         }
 
-        match save_rx.recv_timeout(Duration::from_millis(10)) {
-            Ok(fp) => {
-                file_path = fp;
-                acquire = true
-            }
-            Err(..) => ()
+        if let Ok(fp) = save_rx.recv_timeout(Duration::from_millis(10)) {
+            file_path = fp;
+            acquire = true;
         }
 
         if acquire == true {
