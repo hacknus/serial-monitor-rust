@@ -412,11 +412,11 @@ impl eframe::App for MyApp {
                                             let extension = "csv";
                                             match path.extension() {
                                                 None => {
-                                                    path.set_extension(&extension);
+                                                    path.set_extension(extension);
                                                 }
                                                 Some(ext) => {
                                                     if ext != "csv" {
-                                                        path.set_extension(&extension);
+                                                        path.set_extension(extension);
                                                     }
                                                 }
                                             }
