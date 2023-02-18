@@ -111,7 +111,7 @@ impl MyApp {
             picked_path: PathBuf::new(),
             device: "".to_string(),
             data: DataContainer::default(),
-            console: vec![Print::MESSAGE(format!("waiting for serial connection..,").to_string())],
+            console: vec![Print::MESSAGE("waiting for serial connection..,".to_owned())],
             connected_lock,
             device_lock,
             devices_lock,
