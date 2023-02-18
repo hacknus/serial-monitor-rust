@@ -160,9 +160,9 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             match send_rx.recv_timeout(Duration::from_millis(1)) {
                 Ok(cmd) => {
                     let output = cmd.as_bytes();
-                    serial_write(&mut port, &output);
+                    serial_write(&mut port, output);
                     if let Ok(mut write_guard) = raw_data_lock.write() {
-                        match std::str::from_utf8(&output) {
+                        match std::str::from_utf8(output) {
                             Ok(v) => {
                                 let packet = Packet {
                                     time: Instant::now().duration_since(t_zero).as_millis(),
