@@ -27,7 +27,7 @@ use crate::serial::serial_thread;
 
 const APP_INFO: AppInfo = AppInfo { name: "Serial Monitor", author: "Linus Leo Stöckli" };
 
-fn split(payload: &str) -> Vec<&str> {
+fn split(payload: &str) -> Vec<f32> {
     let mut split_data: Vec<&str> = vec![];
     for s in payload.split(':') {
         split_data.extend(s.split(','));
@@ -35,7 +35,7 @@ fn split(payload: &str) -> Vec<&str> {
     split_data
         .iter()
         .map(|x| x.trim())
-        .filter(|x| x.parse::<f32>().is_ok())
+        .flat_map(|x| x.parse::<f32>())
         .collect()
 }
 
@@ -68,38 +68,20 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                         data.dataset = vec![vec![]; max(split_data.len(), 1)];
                         failed_format_counter = 0;
                         // println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
-                    } else {
-                        if split_data.len() == data.dataset.len() {
-                            let mut parse_state = false;
-                            for (i, set) in data.dataset.iter_mut().enumerate() {
-                                match split_data[i].parse::<f32>() {
-                                    Ok(r) => {
-                                        // println!("success parsing {} -> {}", split_data[i], r);
-                                        set.push(r);
-                                        parse_state = true;
-                                        failed_format_counter = 0;
-                                    }
-                                    Err(_) => {
-                                        // if failed_format_counter != 0 {
-                                        //     println!("failed to parse i={i} @ count={failed_format_counter}");
-                                        // }
-                                        // set.push(f32::NAN);
-                                        failed_format_counter += 1;
-                                    }
-                                }
-                            }
-                            if parse_state {
-                                data.time.push(packet.time);
-                            }
-                            if data.time.len() != data.dataset[0].len() {
-                                data.time = vec![];
-                                data.dataset = vec![vec![]; max(split_data.len(), 1)];
-                            }
-                        } else {
-                            // not same length
-                            failed_format_counter += 1;
-                            // println!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
+                    } else if split_data.len() == data.dataset.len() {
+                        for (i, set) in data.dataset.iter_mut().enumerate() {
+                            set.push(split_data[i]);
+                            failed_format_counter = 0;
                         }
+                        data.time.push(packet.time);
+                        if data.time.len() != data.dataset[0].len() {
+                            data.time = vec![];
+                            data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                        }
+                    } else {
+                        // not same length
+                        failed_format_counter += 1;
+                        // println!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
                     }
                 }
             }
