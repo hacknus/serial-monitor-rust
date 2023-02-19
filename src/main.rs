@@ -209,7 +209,7 @@ fn main() {
     let gui_connected_lock = connected_lock.clone();
     let gui_print_lock = print_lock.clone();
 
-    eframe::run_native(
+    if let Err(e) = eframe::run_native(
         "Serial Monitor",
         options,
         Box::new(|_cc| {
@@ -227,7 +227,9 @@ fn main() {
                 clear_tx,
             ))
         }),
-    );
+    ) {
+        println!("error: {e:?}");
+    }
 
 
 }
