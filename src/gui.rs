@@ -383,7 +383,7 @@ impl eframe::App for MyApp {
                         }
                     }
                     if ui.button("Clear Data").clicked() {
-                        print_to_console(&self.print_lock, Print::OK(format!("Cleared recorded data")));
+                        print_to_console(&self.print_lock, Print::OK("Cleared recorded data".to_string()));
                         match self.clear_tx.send(true) {
                             Ok(_) => {}
                             Err(err) => {
