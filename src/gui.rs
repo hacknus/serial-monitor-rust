@@ -17,6 +17,8 @@ use crate::data::{DataContainer, SerialDirection};
 
 const MAX_FPS: f64 = 24.0;
 
+const DEFAULT_FONT_ID: FontId = FontId::new(14.0, FontFamily::Monospace);
+
 #[derive(Clone)]
 pub enum Print {
     EMPTY,
@@ -133,6 +135,25 @@ impl MyApp {
             index: 0,
         }
     }
+
+    fn console_text(&self, packet: &crate::data::Packet) -> Option<String> {
+        match (self.show_sent_cmds, self.show_timestamps, &packet.direction) {
+            (true, true, _) => Some(format!(
+                "[{}] t + {:.3}s: {}",
+                packet.direction,
+                packet.time as f32 / 1000.0,
+                packet.payload
+            )),
+            (true, false, _) => Some(format!("[{}]: {}", packet.direction, packet.payload)),
+            (false, true, SerialDirection::Receive) => Some(format!(
+                "t + {:.3}s: {}",
+                packet.time as f32 / 1000.0,
+                packet.payload
+            )),
+            (false, false, SerialDirection::Receive) => Some(packet.payload.clone()),
+            (_, _, _) => None,
+        }
+    }
 }
 
 impl eframe::App for MyApp {
@@ -218,46 +239,21 @@ impl eframe::App for MyApp {
                         .show_rows(ui, row_height, num_rows,
                                    |ui, row_range| {
                                        for row in row_range {
-                                           let packet = self.data.raw_traffic[row].clone();
+                                           let packet = &self.data.raw_traffic[row];
                                            let color = if self.dark_mode {
                                                egui::Color32::WHITE
                                            } else {
                                                egui::Color32::BLACK
                                            };
-                                           ui.horizontal_wrapped(|ui| {
-                                               let text;
-                                               if self.show_sent_cmds {
-                                                   if self.show_timestamps {
-                                                       text = format!("[{}] t + {:.3}s: {}",
-                                                                      packet.direction,
-                                                                      packet.time as f32 / 1000.0,
-                                                                      packet.payload);
-                                                       ui.label(RichText::new(text).color(color).font(
-                                                           FontId::new(14.0, FontFamily::Monospace)));
-                                                   } else {
-                                                       text = format!("[{}]: {}",
-                                                                      packet.direction,
-                                                                      packet.payload);
-                                                       ui.label(RichText::new(text).color(color).font(
-                                                           FontId::new(14.0, FontFamily::Monospace)));
-                                                   }
-                                               } else {
-                                                   if packet.direction == SerialDirection::Receive {
-                                                       if self.show_timestamps {
-                                                           text = format!("t + {:.3}s: {}",
-                                                                          packet.time as f32 / 1000.0,
-                                                                          packet.payload);
-                                                           ui.label(RichText::new(text).color(color).font(
-                                                               FontId::new(14.0, FontFamily::Monospace)));
-                                                       } else {
-                                                           text = format!("{}",
-                                                                          packet.payload);
-                                                           ui.label(RichText::new(text).color(color).font(
-                                                               FontId::new(14.0, FontFamily::Monospace)));
-                                                       }
-                                                   }
-                                               }
-                                           });
+                                            ui.horizontal_wrapped(|ui| {
+                                                if let Some(text) = self.console_text(packet) {
+                                                    ui.label(
+                                                        RichText::new(text)
+                                                            .color(color)
+                                                            .font(DEFAULT_FONT_ID),
+                                                    );
+                                                }
+                                            });
                                        }
                                    });
                     let mut text_triggered = false;
