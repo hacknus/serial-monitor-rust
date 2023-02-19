@@ -45,8 +45,6 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
                save_rx: Receiver<PathBuf>,
                clear_rx: Receiver<bool>) {
     // reads data from mutex, samples and saves if needed
-    let mut acquire = false;
-    let mut file_path = PathBuf::from("serial_monitor_test.csv");
     let mut data = DataContainer::default();
     let mut failed_format_counter = 0;
     loop {
@@ -90,24 +88,16 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
             *write_guard = vec![Packet::default()];
         }
 
-        if let Ok(fp) = save_rx.recv_timeout(Duration::from_millis(10)) {
-            file_path = fp;
-            acquire = true;
-        }
-
-        if acquire == true {
-            // save file
-            let print_index = print_to_console(&print_lock, Print::TASK(format!("saving data file to {:?} ...", file_path).to_string()));
-            let save_result = save_to_csv(&data, &file_path);
-            match save_result {
+        if let Ok(file_path) = save_rx.recv_timeout(Duration::from_millis(10)) {
+            let print_index = print_to_console(&print_lock, Print::TASK(format!("saving data file to {:?} ...", file_path)));
+            match save_to_csv(&data, &file_path) {
                 Ok(_) => {
-                    update_in_console(&print_lock, Print::OK(format!("saved data file to {:?} ", file_path).to_string()), print_index);
+                    update_in_console(&print_lock, Print::OK(format!("saved data file to {:?} ", file_path)), print_index);
                 }
                 Err(e) => {
-                    print_to_console(&print_lock, Print::ERROR(format!("failed to save file: {e:?}").to_string()));
+                    print_to_console(&print_lock, Print::ERROR(format!("failed to save file: {e:?}")));
                 }
             }
-            acquire = false;
         }
 
         if let Ok(mut write_guard) = data_lock.write() {
