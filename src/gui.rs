@@ -179,16 +179,14 @@ impl eframe::App for MyApp {
                     }
 
                     let mut graphs: Vec<Vec<[f64; 2]>> = vec![vec![]; self.data.dataset.len()];
-                    let window: usize;
-                    if self.plotting_range == -1 {
-                        window = 0;
+                    let window: usize = if self.plotting_range == -1
+                        || self.data.dataset[0].len() <= self.plotting_range as usize
+                    {
+                        0
                     } else {
-                        if self.data.dataset[0].len() <= self.plotting_range as usize {
-                            window = 0;
-                        } else {
-                            window = self.data.dataset[0].len() - self.plotting_range as usize;
-                        }
-                    }
+                        self.data.dataset[0].len() - self.plotting_range as usize
+                    };
+
                     for i in window..self.data.dataset[0].len() {
                         for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
                             //graph.push([i as f64, data[i] as f64]);
