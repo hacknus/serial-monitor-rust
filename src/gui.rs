@@ -1,19 +1,18 @@
+use crate::data::{DataContainer, SerialDirection};
+use crate::toggle::toggle;
+use crate::{vec2, APP_INFO};
 use core::f32;
+use eframe::egui::panel::Side;
+use eframe::egui::plot::{Legend, Line, Plot, PlotPoints};
+use eframe::egui::{global_dark_light_mode_buttons, FontFamily, FontId, RichText, Visuals};
+use eframe::{egui, Storage};
+use preferences::Preferences;
+use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use std::sync::mpsc::{Sender};
+use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use eframe::{egui, Storage};
-use eframe::egui::panel::{Side};
-use eframe::egui::plot::{Legend, Line, Plot, PlotPoints};
-use eframe::egui::{FontId, FontFamily, RichText, global_dark_light_mode_buttons, Visuals};
-use crate::toggle::toggle;
-use preferences::{Preferences};
-use crate::{APP_INFO, vec2};
-use serde::{Deserialize, Serialize};
-use crate::data::{DataContainer, SerialDirection};
-
 
 const MAX_FPS: f64 = 24.0;
 
@@ -95,16 +94,17 @@ pub struct MyApp {
 }
 
 impl MyApp {
-    pub fn new(print_lock: Arc<RwLock<Vec<Print>>>,
-               data_lock: Arc<RwLock<DataContainer>>,
-               device_lock: Arc<RwLock<String>>,
-               devices_lock: Arc<RwLock<Vec<String>>>,
-               baud_lock: Arc<RwLock<u32>>,
-               connected_lock: Arc<RwLock<bool>>,
-               gui_conf: GuiSettingsContainer,
-               save_tx: Sender<PathBuf>,
-               send_tx: Sender<String>,
-               clear_tx: Sender<bool>,
+    pub fn new(
+        print_lock: Arc<RwLock<Vec<Print>>>,
+        data_lock: Arc<RwLock<DataContainer>>,
+        device_lock: Arc<RwLock<String>>,
+        devices_lock: Arc<RwLock<Vec<String>>>,
+        baud_lock: Arc<RwLock<u32>>,
+        connected_lock: Arc<RwLock<bool>>,
+        gui_conf: GuiSettingsContainer,
+        save_tx: Sender<PathBuf>,
+        send_tx: Sender<String>,
+        clear_tx: Sender<bool>,
     ) -> Self {
         Self {
             dark_mode: true,
@@ -113,7 +113,9 @@ impl MyApp {
             picked_path: PathBuf::new(),
             device: "".to_string(),
             data: DataContainer::default(),
-            console: vec![Print::MESSAGE("waiting for serial connection..,".to_owned())],
+            console: vec![Print::MESSAGE(
+                "waiting for serial connection..,".to_owned(),
+            )],
             connected_lock,
             device_lock,
             devices_lock,
@@ -199,12 +201,9 @@ impl eframe::App for MyApp {
                         }
                     }
 
-                    let t_fmt = |x, _range: &RangeInclusive<f64>| {
-                        format!("{:4.2} s", x)
-                    };
-                    let s_fmt = move |y, _range: &RangeInclusive<f64>| {
-                        format!("{:4.2} [a.u.]", y as f64)
-                    };
+                    let t_fmt = |x, _range: &RangeInclusive<f64>| format!("{:4.2} s", x);
+                    let s_fmt =
+                        move |y, _range: &RangeInclusive<f64>| format!("{:4.2} [a.u.]", y as f64);
                     let signal_plot = Plot::new("data")
                         .height(height)
                         .width(width)
@@ -213,11 +212,12 @@ impl eframe::App for MyApp {
                         .x_axis_formatter(t_fmt)
                         .min_size(vec2(50.0, 100.0));
 
-
                     signal_plot.show(ui, |signal_plot_ui| {
                         for (i, graph) in graphs.iter().enumerate() {
-                            signal_plot_ui.line(Line::new(PlotPoints::from(graph.clone()))
-                                .name(format!("Column {}", i)));
+                            signal_plot_ui.line(
+                                Line::new(PlotPoints::from(graph.clone()))
+                                    .name(format!("Column {}", i)),
+                            );
                         }
                     });
 
@@ -236,26 +236,23 @@ impl eframe::App for MyApp {
                         .max_height(height)
                         .min_scrolled_height(height)
                         .max_width(width)
-                        .show_rows(ui, row_height, num_rows,
-                                   |ui, row_range| {
-                                       for row in row_range {
-                                           let packet = &self.data.raw_traffic[row];
-                                           let color = if self.dark_mode {
-                                               egui::Color32::WHITE
-                                           } else {
-                                               egui::Color32::BLACK
-                                           };
-                                            ui.horizontal_wrapped(|ui| {
-                                                if let Some(text) = self.console_text(packet) {
-                                                    ui.label(
-                                                        RichText::new(text)
-                                                            .color(color)
-                                                            .font(DEFAULT_FONT_ID),
-                                                    );
-                                                }
-                                            });
-                                       }
-                                   });
+                        .show_rows(ui, row_height, num_rows, |ui, row_range| {
+                            for row in row_range {
+                                let packet = &self.data.raw_traffic[row];
+                                let color = if self.dark_mode {
+                                    egui::Color32::WHITE
+                                } else {
+                                    egui::Color32::BLACK
+                                };
+                                ui.horizontal_wrapped(|ui| {
+                                    if let Some(text) = self.console_text(packet) {
+                                        ui.label(
+                                            RichText::new(text).color(color).font(DEFAULT_FONT_ID),
+                                        );
+                                    }
+                                });
+                            }
+                        });
                     let mut text_triggered = false;
                     let mut button_triggered = false;
                     ui.add_space(spacing / 2.0);
@@ -263,7 +260,7 @@ impl eframe::App for MyApp {
                         ui.add(
                             egui::TextEdit::singleline(&mut self.command)
                                 .desired_width(width - 50.0)
-                                .code_editor()
+                                .code_editor(),
                         );
                         if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                             text_triggered = true;
@@ -291,7 +288,10 @@ impl eframe::App for MyApp {
                         match self.send_tx.send(self.command.clone() + &self.eol.clone()) {
                             Ok(_) => {}
                             Err(err) => {
-                                print_to_console(&self.print_lock, Print::ERROR(format!("send_tx thread send failed: {:?}", err)));
+                                print_to_console(
+                                    &self.print_lock,
+                                    Print::ERROR(format!("send_tx thread send failed: {:?}", err)),
+                                );
                             }
                         }
                     }
@@ -322,9 +322,16 @@ impl eframe::App for MyApp {
                             color_stroke = egui::Color32::GREEN;
                         }
                         let radius = &ui.spacing().interact_size.y * 0.375;
-                        let center = egui::pos2(ui.next_widget_position().x + &ui.spacing().interact_size.x * 0.5, ui.next_widget_position().y);
-                        ui.painter()
-                            .circle(center, radius, color, egui::Stroke::new(1.0, color_stroke));
+                        let center = egui::pos2(
+                            ui.next_widget_position().x + &ui.spacing().interact_size.x * 0.5,
+                            ui.next_widget_position().y,
+                        );
+                        ui.painter().circle(
+                            center,
+                            radius,
+                            color,
+                            egui::Stroke::new(1.0, color_stroke),
+                        );
                     });
 
                     let mut devices: Vec<String> = Vec::new();
@@ -347,9 +354,8 @@ impl eframe::App for MyApp {
                         .selected_text(&format!("{}", self.baud_rate))
                         .show_ui(ui, |ui| {
                             let baud_rates = vec![
-                                300, 1200, 2400, 4800, 9600, 19200,
-                                38400, 57600, 74880, 115200, 230400, 128000,
-                                460800, 576000, 921600,
+                                300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 74880, 115200,
+                                230400, 128000, 460800, 576000, 921600,
                             ];
                             for baud_rate in baud_rates.iter() {
                                 ui.selectable_value(
@@ -360,11 +366,7 @@ impl eframe::App for MyApp {
                             }
                         });
 
-                    let connect_text = if self.ready {
-                        "Disconnect"
-                    } else {
-                        "Connect"
-                    };
+                    let connect_text = if self.ready { "Disconnect" } else { "Connect" };
                     if ui.button(connect_text).clicked() {
                         if let Ok(mut write_guard) = self.device_lock.write() {
                             if self.ready {
@@ -383,11 +385,17 @@ impl eframe::App for MyApp {
                         }
                     }
                     if ui.button("Clear Data").clicked() {
-                        print_to_console(&self.print_lock, Print::OK("Cleared recorded data".to_string()));
+                        print_to_console(
+                            &self.print_lock,
+                            Print::OK("Cleared recorded data".to_string()),
+                        );
                         match self.clear_tx.send(true) {
                             Ok(_) => {}
                             Err(err) => {
-                                print_to_console(&self.print_lock, Print::ERROR(format!("clear_tx thread send failed: {:?}", err)));
+                                print_to_console(
+                                    &self.print_lock,
+                                    Print::ERROR(format!("clear_tx thread send failed: {:?}", err)),
+                                );
                             }
                         }
                     }
@@ -397,33 +405,41 @@ impl eframe::App for MyApp {
                         .striped(true)
                         .show(ui, |ui| {
                             ui.label("Plotting range [#]: ");
-                            if ui.add(egui::DragValue::new(&mut self.plotting_range)).lost_focus() {
+                            if ui
+                                .add(egui::DragValue::new(&mut self.plotting_range))
+                                .lost_focus()
+                            {
                                 //gui_states.push(GuiState::TBegin(self.tera_flash_conf.t_begin));
                             };
                             ui.end_row();
                             if ui.button("Save to file").clicked() {
                                 match rfd::FileDialog::new().save_file() {
-                                    Some(mut path) =>
-                                        {
-                                            let extension = "csv";
-                                            match path.extension() {
-                                                None => {
+                                    Some(mut path) => {
+                                        let extension = "csv";
+                                        match path.extension() {
+                                            None => {
+                                                path.set_extension(extension);
+                                            }
+                                            Some(ext) => {
+                                                if ext != "csv" {
                                                     path.set_extension(extension);
                                                 }
-                                                Some(ext) => {
-                                                    if ext != "csv" {
-                                                        path.set_extension(extension);
-                                                    }
-                                                }
                                             }
-                                            self.picked_path = path;
                                         }
-                                    None => self.picked_path = PathBuf::new()
+                                        self.picked_path = path;
+                                    }
+                                    None => self.picked_path = PathBuf::new(),
                                 }
                                 match self.save_tx.send(self.picked_path.clone()) {
                                     Ok(_) => {}
                                     Err(err) => {
-                                        print_to_console(&self.print_lock, Print::ERROR(format!("save_tx thread send failed: {:?}", err)));
+                                        print_to_console(
+                                            &self.print_lock,
+                                            Print::ERROR(format!(
+                                                "save_tx thread send failed: {:?}",
+                                                err
+                                            )),
+                                        );
                                     }
                                 }
                             }
@@ -446,7 +462,10 @@ impl eframe::App for MyApp {
                             }
                             ui.end_row();
                             ui.label("EOL character");
-                            ui.add(egui::TextEdit::singleline(&mut self.eol).desired_width(ui.available_width() * 0.9));
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.eol)
+                                    .desired_width(ui.available_width() * 0.9),
+                            );
                             // ui.checkbox(&mut self.gui_conf.debug, "Debug Mode");
                             ui.end_row();
                             global_dark_light_mode_buttons(ui);
@@ -467,76 +486,100 @@ impl eframe::App for MyApp {
                     .auto_shrink([false; 2])
                     .stick_to_bottom(true)
                     .max_height(row_height * 15.5)
-                    .show_rows(ui, row_height, num_rows,
-                               |ui, row_range| {
-                                   for row in row_range {
-                                       match self.console[row].clone() {
-                                           Print::EMPTY => {}
-                                           Print::MESSAGE(s) => {
-                                               let text = "[MSG] ".to_string();
-                                               ui.horizontal_wrapped(|ui| {
-                                                   let color = if self.dark_mode {
-                                                       egui::Color32::WHITE
-                                                   } else {
-                                                       egui::Color32::BLACK
-                                                   };
-                                                   ui.label(RichText::new(text).color(color).font(
-                                                       FontId::new(14.0, FontFamily::Monospace)));
-                                                   let text = format!("{}", s);
-                                                   ui.label(RichText::new(text).font(
-                                                       FontId::new(14.0, FontFamily::Monospace)));
-                                               });
-                                           }
-                                           Print::ERROR(s) => {
-                                               ui.horizontal_wrapped(|ui| {
-                                                   let text = "[ERR] ".to_string();
-                                                   ui.label(RichText::new(text).color(egui::Color32::RED).font(
-                                                       FontId::new(14.0, FontFamily::Monospace)));
-                                                   let text = format!("{}", s);
-                                                   ui.label(RichText::new(text).font(
-                                                       FontId::new(14.0, FontFamily::Monospace)));
-                                               });
-                                           }
-                                           Print::DEBUG(s) => {
-                                               if self.gui_conf.debug {
-                                                   let color = if self.dark_mode {
-                                                       egui::Color32::YELLOW
-                                                   } else {
-                                                       egui::Color32::LIGHT_RED
-                                                   };                                                   
-                                                   ui.horizontal_wrapped(|ui| {
-                                                       let text = "[DBG] ".to_string();
-                                                       ui.label(RichText::new(text).color(color).font(
-                                                           FontId::new(14.0, FontFamily::Monospace)));
-                                                       let text = format!("{}", s);
-                                                       ui.label(RichText::new(text).font(
-                                                           FontId::new(14.0, FontFamily::Monospace)));
-                                                   });
-                                               }
-                                           }
-                                           Print::TASK(s) => {
-                                               ui.horizontal_wrapped(|ui| {
-                                                   let text = "[  ] ".to_string();
-                                                   ui.label(RichText::new(text).color(egui::Color32::WHITE).font(
-                                                       FontId::new(14.0, FontFamily::Monospace)));
-                                                   let text = format!("{}", s);
-                                                   ui.label(RichText::new(text).font(
-                                                       FontId::new(14.0, FontFamily::Monospace)));
-                                               });
-                                           }
-                                           Print::OK(s) => {
-                                               ui.horizontal_wrapped(|ui| {
-                                                   let text = "[OK] ".to_string();
-                                                   ui.label(RichText::new(text).color(egui::Color32::GREEN).font(
-                                                       FontId::new(14.0, FontFamily::Monospace)));
-                                                   let text = format!("{}", s);
-                                                   ui.label(RichText::new(text).font(
-                                                       FontId::new(14.0, FontFamily::Monospace)));
-                                               });
-                                           }
-                                       }
-                                   }
-                               });
+                    .show_rows(ui, row_height, num_rows, |ui, row_range| {
+                        for row in row_range {
+                            match self.console[row].clone() {
+                                Print::EMPTY => {}
+                                Print::MESSAGE(s) => {
+                                    let text = "[MSG] ".to_string();
+                                    ui.horizontal_wrapped(|ui| {
+                                        let color = if self.dark_mode {
+                                            egui::Color32::WHITE
+                                        } else {
+                                            egui::Color32::BLACK
+                                        };
+                                        ui.label(
+                                            RichText::new(text)
+                                                .color(color)
+                                                .font(FontId::new(14.0, FontFamily::Monospace)),
+                                        );
+                                        let text = format!("{}", s);
+                                        ui.label(
+                                            RichText::new(text)
+                                                .font(FontId::new(14.0, FontFamily::Monospace)),
+                                        );
+                                    });
+                                }
+                                Print::ERROR(s) => {
+                                    ui.horizontal_wrapped(|ui| {
+                                        let text = "[ERR] ".to_string();
+                                        ui.label(
+                                            RichText::new(text)
+                                                .color(egui::Color32::RED)
+                                                .font(FontId::new(14.0, FontFamily::Monospace)),
+                                        );
+                                        let text = format!("{}", s);
+                                        ui.label(
+                                            RichText::new(text)
+                                                .font(FontId::new(14.0, FontFamily::Monospace)),
+                                        );
+                                    });
+                                }
+                                Print::DEBUG(s) => {
+                                    if self.gui_conf.debug {
+                                        let color = if self.dark_mode {
+                                            egui::Color32::YELLOW
+                                        } else {
+                                            egui::Color32::LIGHT_RED
+                                        };
+                                        ui.horizontal_wrapped(|ui| {
+                                            let text = "[DBG] ".to_string();
+                                            ui.label(
+                                                RichText::new(text)
+                                                    .color(color)
+                                                    .font(FontId::new(14.0, FontFamily::Monospace)),
+                                            );
+                                            let text = format!("{}", s);
+                                            ui.label(
+                                                RichText::new(text)
+                                                    .font(FontId::new(14.0, FontFamily::Monospace)),
+                                            );
+                                        });
+                                    }
+                                }
+                                Print::TASK(s) => {
+                                    ui.horizontal_wrapped(|ui| {
+                                        let text = "[  ] ".to_string();
+                                        ui.label(
+                                            RichText::new(text)
+                                                .color(egui::Color32::WHITE)
+                                                .font(FontId::new(14.0, FontFamily::Monospace)),
+                                        );
+                                        let text = format!("{}", s);
+                                        ui.label(
+                                            RichText::new(text)
+                                                .font(FontId::new(14.0, FontFamily::Monospace)),
+                                        );
+                                    });
+                                }
+                                Print::OK(s) => {
+                                    ui.horizontal_wrapped(|ui| {
+                                        let text = "[OK] ".to_string();
+                                        ui.label(
+                                            RichText::new(text)
+                                                .color(egui::Color32::GREEN)
+                                                .font(FontId::new(14.0, FontFamily::Monospace)),
+                                        );
+                                        let text = format!("{}", s);
+                                        ui.label(
+                                            RichText::new(text)
+                                                .font(FontId::new(14.0, FontFamily::Monospace)),
+                                        );
+                                    });
+                                }
+                            }
+                        }
+                    });
             });
 
         self.gui_conf.x = ctx.used_size().x;
