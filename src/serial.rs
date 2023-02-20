@@ -146,12 +146,7 @@ pub fn serial_thread(
                 }
             }
 
-            let mut dev_is_con = false;
-            for dev in devices.iter() {
-                if device == *dev {
-                    dev_is_con = true;
-                }
-            }
+            let dev_is_con = devices.contains(&device);
 
             if reconnect || !dev_is_con {
                 print_to_console(
