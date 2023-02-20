@@ -1,11 +1,10 @@
-use std::io::{BufRead, BufReader};
-use std::sync::{Arc, RwLock};
-use std::sync::mpsc::Receiver;
-use std::time::{Duration, Instant};
-use serialport::SerialPort;
-use crate::{GuiSettingsContainer, Packet, Print, print_to_console};
 use crate::data::SerialDirection;
-
+use crate::{print_to_console, GuiSettingsContainer, Packet, Print};
+use serialport::SerialPort;
+use std::io::{BufRead, BufReader};
+use std::sync::mpsc::Receiver;
+use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
 fn serial_write(port: &mut BufReader<Box<dyn SerialPort>>, cmd: &[u8]) -> bool {
     let write_port = port.get_mut();
@@ -21,13 +20,13 @@ fn serial_write(port: &mut BufReader<Box<dyn SerialPort>>, cmd: &[u8]) -> bool {
                 false
             }
         }
-        Err(_) => { false }
+        Err(_) => false,
     }
 }
 
 fn serial_read(port: &mut BufReader<Box<dyn SerialPort>>, serial_buf: &mut String) -> bool {
     match port.read_line(serial_buf) {
-        Ok(_) => { true }
+        Ok(_) => true,
         Err(_) => {
             // this probably means that either there is no data,
             // or it could not be decoded to a String (binary stuff...)
@@ -36,20 +35,21 @@ fn serial_read(port: &mut BufReader<Box<dyn SerialPort>>, serial_buf: &mut Strin
     }
 }
 
-pub fn serial_thread(gui_settings: GuiSettingsContainer,
-                     send_rx: Receiver<String>,
-                     device_lock: Arc<RwLock<String>>,
-                     devices_lock: Arc<RwLock<Vec<String>>>,
-                     baud_lock: Arc<RwLock<u32>>,
-                     raw_data_lock: Arc<RwLock<Vec<Packet>>>,
-                     print_lock: Arc<RwLock<Vec<Print>>>,
-                     connected_lock: Arc<RwLock<bool>>) {
+pub fn serial_thread(
+    gui_settings: GuiSettingsContainer,
+    send_rx: Receiver<String>,
+    device_lock: Arc<RwLock<String>>,
+    devices_lock: Arc<RwLock<Vec<String>>>,
+    baud_lock: Arc<RwLock<u32>>,
+    raw_data_lock: Arc<RwLock<Vec<Packet>>>,
+    print_lock: Arc<RwLock<Vec<Print>>>,
+    connected_lock: Arc<RwLock<bool>>,
+) {
     let mut device = "".to_string();
     let mut devices: Vec<String>;
     let mut baud_rate = 115_200;
     let mut connected;
     loop {
-
         let _not_awake = keepawake::Builder::new()
             .display(false)
             .reason("Serial Connection")
@@ -83,8 +83,7 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             }
             std::thread::sleep(Duration::from_millis(100));
         }
-        let port_builder = serialport::new(&device, baud_rate)
-            .timeout(Duration::from_millis(100));
+        let port_builder = serialport::new(&device, baud_rate).timeout(Duration::from_millis(100));
         let mut port = match port_builder.open() {
             Ok(p) => BufReader::new(p),
             Err(err) => {
@@ -92,7 +91,10 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
                     *write_guard = "".to_string();
                 }
                 device = "".to_string();
-                print_to_console(&print_lock, Print::ERROR(format!("Error connecting: {}", err)));
+                print_to_console(
+                    &print_lock,
+                    Print::ERROR(format!("Error connecting: {}", err)),
+                );
                 continue;
             }
         };
@@ -103,7 +105,13 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
 
         let t_zero = Instant::now();
 
-        print_to_console(&print_lock, Print::OK(format!("connected to serial port: {} @ baud = {}", device, baud_rate)));
+        print_to_console(
+            &print_lock,
+            Print::OK(format!(
+                "connected to serial port: {} @ baud = {}",
+                device, baud_rate
+            )),
+        );
 
         let mut reconnect = false;
 
@@ -116,7 +124,6 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             .unwrap();
 
         'connected_loop: loop {
-
             // check for reconnection
             devices = vec![];
             for p in serialport::available_ports().unwrap().iter() {
@@ -147,7 +154,10 @@ pub fn serial_thread(gui_settings: GuiSettingsContainer,
             }
 
             if reconnect || !dev_is_con {
-                print_to_console(&print_lock, Print::ERROR(format!("disconnected from serial port: {}", device)));
+                print_to_console(
+                    &print_lock,
+                    Print::ERROR(format!("disconnected from serial port: {}", device)),
+                );
                 if let Ok(mut write_guard) = device_lock.write() {
                     *write_guard = "".to_string();
                 }

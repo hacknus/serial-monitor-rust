@@ -1,31 +1,34 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 // hide console window on Windows in release
-extern crate serde;
-extern crate preferences;
 extern crate core;
 extern crate csv;
+extern crate preferences;
+extern crate serde;
 
+mod data;
 mod gui;
-mod toggle;
 mod io;
 mod serial;
-mod data;
+mod toggle;
 
+use crate::data::{DataContainer, Packet};
+use eframe::egui::{vec2, Visuals};
+use preferences::{AppInfo, Preferences};
 use std::cmp::max;
 use std::path::PathBuf;
-use std::thread;
-use eframe::egui::{vec2, Visuals};
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{Arc, mpsc, RwLock};
-use std::time::{Duration};
-use preferences::{AppInfo, Preferences};
-use crate::data::{DataContainer, Packet};
+use std::sync::{mpsc, Arc, RwLock};
+use std::thread;
+use std::time::Duration;
 
-use crate::gui::{GuiSettingsContainer, MyApp, Print, print_to_console, update_in_console};
+use crate::gui::{print_to_console, update_in_console, GuiSettingsContainer, MyApp, Print};
 use crate::io::save_to_csv;
 use crate::serial::serial_thread;
 
-const APP_INFO: AppInfo = AppInfo { name: "Serial Monitor", author: "Linus Leo Stöckli" };
+const APP_INFO: AppInfo = AppInfo {
+    name: "Serial Monitor",
+    author: "Linus Leo Stöckli",
+};
 
 fn split(payload: &str) -> Vec<f32> {
     let mut split_data: Vec<&str> = vec![];
@@ -39,11 +42,13 @@ fn split(payload: &str) -> Vec<f32> {
         .collect()
 }
 
-fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
-               raw_data_lock: Arc<RwLock<Vec<Packet>>>,
-               print_lock: Arc<RwLock<Vec<Print>>>,
-               save_rx: Receiver<PathBuf>,
-               clear_rx: Receiver<bool>) {
+fn main_thread(
+    data_lock: Arc<RwLock<DataContainer>>,
+    raw_data_lock: Arc<RwLock<Vec<Packet>>>,
+    print_lock: Arc<RwLock<Vec<Print>>>,
+    save_rx: Receiver<PathBuf>,
+    clear_rx: Receiver<bool>,
+) {
     // reads data from mutex, samples and saves if needed
     let mut data = DataContainer::default();
     let mut failed_format_counter = 0;
@@ -89,13 +94,23 @@ fn main_thread(data_lock: Arc<RwLock<DataContainer>>,
         }
 
         if let Ok(file_path) = save_rx.recv_timeout(Duration::from_millis(10)) {
-            let print_index = print_to_console(&print_lock, Print::TASK(format!("saving data file to {:?} ...", file_path)));
+            let print_index = print_to_console(
+                &print_lock,
+                Print::TASK(format!("saving data file to {:?} ...", file_path)),
+            );
             match save_to_csv(&data, &file_path) {
                 Ok(_) => {
-                    update_in_console(&print_lock, Print::OK(format!("saved data file to {:?} ", file_path)), print_index);
+                    update_in_console(
+                        &print_lock,
+                        Print::OK(format!("saved data file to {:?} ", file_path)),
+                        print_index,
+                    );
                 }
                 Err(e) => {
-                    print_to_console(&print_lock, Print::ERROR(format!("failed to save file: {e:?}")));
+                    print_to_console(
+                        &print_lock,
+                        Print::ERROR(format!("failed to save file: {e:?}")),
+                    );
                 }
             }
         }
@@ -144,14 +159,16 @@ fn main() {
 
     println!("starting connection thread..");
     let serial_thread = thread::spawn(|| {
-        serial_thread(serial_gui_settings,
-                      send_rx,
-                      serial_device_lock,
-                      serial_devices_lock,
-                      serial_baud_lock,
-                      serial_raw_data_lock,
-                      serial_print_lock,
-                      serial_connected_lock);
+        serial_thread(
+            serial_gui_settings,
+            send_rx,
+            serial_device_lock,
+            serial_devices_lock,
+            serial_baud_lock,
+            serial_raw_data_lock,
+            serial_print_lock,
+            serial_connected_lock,
+        );
     });
 
     let main_data_lock = data_lock.clone();
@@ -160,13 +177,14 @@ fn main() {
 
     println!("starting main thread..");
     let main_thread_handler = thread::spawn(|| {
-        main_thread(main_data_lock,
-                    main_raw_data_lock,
-                    main_print_lock,
-                    save_rx,
-                    clear_rx);
+        main_thread(
+            main_data_lock,
+            main_raw_data_lock,
+            main_print_lock,
+            save_rx,
+            clear_rx,
+        );
     });
-
 
     let options = eframe::NativeOptions {
         drag_and_drop_support: true,
@@ -202,6 +220,4 @@ fn main() {
     ) {
         println!("error: {e:?}");
     }
-
-
 }
