@@ -6,22 +6,12 @@ use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-fn serial_write(port: &mut BufReader<Box<dyn SerialPort>>, cmd: &[u8]) -> bool {
+fn serial_write(
+    port: &mut BufReader<Box<dyn SerialPort>>,
+    cmd: &[u8],
+) -> Result<usize, std::io::Error> {
     let write_port = port.get_mut();
-    match write_port.write(cmd) {
-        Ok(_) => {
-            let mut response = "".to_string();
-            serial_read(port, &mut response);
-            println!("sent a command!");
-            if response.contains("OK") {
-                true
-            } else {
-                println!("cmd not acknowledged!!!");
-                false
-            }
-        }
-        Err(_) => false,
-    }
+    write_port.write(cmd)
 }
 
 fn serial_read(port: &mut BufReader<Box<dyn SerialPort>>, serial_buf: &mut String) -> bool {
@@ -161,21 +151,14 @@ pub fn serial_thread(
 
             // perform writes
             if let Ok(cmd) = send_rx.recv_timeout(Duration::from_millis(1)) {
-                let output = cmd.as_bytes();
-                serial_write(&mut port, output);
-                if let Ok(mut write_guard) = raw_data_lock.write() {
-                    match std::str::from_utf8(output) {
-                        Ok(v) => {
-                            let packet = Packet {
-                                time: Instant::now().duration_since(t_zero).as_millis(),
-                                direction: SerialDirection::Send,
-                                payload: v.to_string(),
-                            };
-                            write_guard.push(packet);
-                        }
-                        Err(_) => {
-                            // println!("output encode fail");
-                        }
+                if serial_write(&mut port, cmd.as_bytes()).is_ok() {
+                    if let Ok(mut write_guard) = raw_data_lock.write() {
+                        let packet = Packet {
+                            time: Instant::now().duration_since(t_zero).as_millis(),
+                            direction: SerialDirection::Send,
+                            payload: cmd,
+                        };
+                        write_guard.push(packet);
                     }
                 }
             }
