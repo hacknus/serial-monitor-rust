@@ -96,7 +96,7 @@ fn main_thread(
         if let Ok(file_path) = save_rx.recv_timeout(Duration::from_millis(10)) {
             let print_index = print_to_console(
                 &print_lock,
-                Print::TASK(format!("saving data file to {:?} ...", file_path)),
+                Print::Task(format!("saving data file to {:?} ...", file_path)),
             );
             match save_to_csv(&data, &file_path) {
                 Ok(_) => {
@@ -109,7 +109,7 @@ fn main_thread(
                 Err(e) => {
                     print_to_console(
                         &print_lock,
-                        Print::ERROR(format!("failed to save file: {e:?}")),
+                        Print::Error(format!("failed to save file: {e:?}")),
                     );
                 }
             }
@@ -142,7 +142,7 @@ fn main() {
     let baud_lock = Arc::new(RwLock::new(gui_settings.baud));
     let raw_data_lock = Arc::new(RwLock::new(vec![Packet::default()]));
     let data_lock = Arc::new(RwLock::new(DataContainer::default()));
-    let print_lock = Arc::new(RwLock::new(vec![Print::EMPTY]));
+    let print_lock = Arc::new(RwLock::new(vec![Print::Empty]));
     let connected_lock = Arc::new(RwLock::new(false));
 
     let (save_tx, save_rx): (Sender<PathBuf>, Receiver<PathBuf>) = mpsc::channel();
