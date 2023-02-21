@@ -20,11 +20,11 @@ const DEFAULT_FONT_ID: FontId = FontId::new(14.0, FontFamily::Monospace);
 
 #[derive(Clone)]
 pub enum Print {
-    EMPTY,
-    MESSAGE(String),
-    ERROR(String),
-    DEBUG(String),
-    TASK(String),
+    Empty,
+    Message(String),
+    Error(String),
+    Debug(String),
+    Task(String),
     OK(String),
 }
 
@@ -113,7 +113,7 @@ impl MyApp {
             picked_path: PathBuf::new(),
             device: "".to_string(),
             data: DataContainer::default(),
-            console: vec![Print::MESSAGE(
+            console: vec![Print::Message(
                 "waiting for serial connection..,".to_owned(),
             )],
             connected_lock,
@@ -288,7 +288,7 @@ impl eframe::App for MyApp {
                             Err(err) => {
                                 print_to_console(
                                     &self.print_lock,
-                                    Print::ERROR(format!("send_tx thread send failed: {:?}", err)),
+                                    Print::Error(format!("send_tx thread send failed: {:?}", err)),
                                 );
                             }
                         }
@@ -392,7 +392,7 @@ impl eframe::App for MyApp {
                             Err(err) => {
                                 print_to_console(
                                     &self.print_lock,
-                                    Print::ERROR(format!("clear_tx thread send failed: {:?}", err)),
+                                    Print::Error(format!("clear_tx thread send failed: {:?}", err)),
                                 );
                             }
                         }
@@ -433,7 +433,7 @@ impl eframe::App for MyApp {
                                     Err(err) => {
                                         print_to_console(
                                             &self.print_lock,
-                                            Print::ERROR(format!(
+                                            Print::Error(format!(
                                                 "save_tx thread send failed: {:?}",
                                                 err
                                             )),
@@ -487,8 +487,8 @@ impl eframe::App for MyApp {
                     .show_rows(ui, row_height, num_rows, |ui, row_range| {
                         for row in row_range {
                             match self.console[row].clone() {
-                                Print::EMPTY => {}
-                                Print::MESSAGE(s) => {
+                                Print::Empty => {}
+                                Print::Message(s) => {
                                     let text = "[MSG] ".to_string();
                                     ui.horizontal_wrapped(|ui| {
                                         let color = if self.dark_mode {
@@ -508,7 +508,7 @@ impl eframe::App for MyApp {
                                         );
                                     });
                                 }
-                                Print::ERROR(s) => {
+                                Print::Error(s) => {
                                     ui.horizontal_wrapped(|ui| {
                                         let text = "[ERR] ".to_string();
                                         ui.label(
@@ -523,7 +523,7 @@ impl eframe::App for MyApp {
                                         );
                                     });
                                 }
-                                Print::DEBUG(s) => {
+                                Print::Debug(s) => {
                                     if self.gui_conf.debug {
                                         let color = if self.dark_mode {
                                             egui::Color32::YELLOW
@@ -545,7 +545,7 @@ impl eframe::App for MyApp {
                                         });
                                     }
                                 }
-                                Print::TASK(s) => {
+                                Print::Task(s) => {
                                     ui.horizontal_wrapped(|ui| {
                                         let text = "[  ] ".to_string();
                                         ui.label(

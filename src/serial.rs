@@ -93,7 +93,7 @@ pub fn serial_thread(
                 device = "".to_string();
                 print_to_console(
                     &print_lock,
-                    Print::ERROR(format!("Error connecting: {}", err)),
+                    Print::Error(format!("Error connecting: {}", err)),
                 );
                 continue;
             }
@@ -151,7 +151,7 @@ pub fn serial_thread(
             if reconnect || !dev_is_con {
                 print_to_console(
                     &print_lock,
-                    Print::ERROR(format!("disconnected from serial port: {}", device)),
+                    Print::Error(format!("disconnected from serial port: {}", device)),
                 );
                 if let Ok(mut write_guard) = device_lock.write() {
                     *write_guard = "".to_string();
