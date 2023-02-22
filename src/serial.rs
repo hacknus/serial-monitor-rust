@@ -14,15 +14,11 @@ fn serial_write(
     write_port.write(cmd)
 }
 
-fn serial_read(port: &mut BufReader<Box<dyn SerialPort>>, serial_buf: &mut String) -> bool {
-    match port.read_line(serial_buf) {
-        Ok(_) => true,
-        Err(_) => {
-            // this probably means that either there is no data,
-            // or it could not be decoded to a String (binary stuff...)
-            false
-        }
-    }
+fn serial_read(
+    port: &mut BufReader<Box<dyn SerialPort>>,
+    serial_buf: &mut String,
+) -> Result<usize, std::io::Error> {
+    port.read_line(serial_buf)
 }
 
 pub fn serial_thread(
@@ -165,7 +161,7 @@ pub fn serial_thread(
 
             // perform reads
             let mut serial_buf = "".to_string();
-            if serial_read(&mut port, &mut serial_buf) {
+            if serial_read(&mut port, &mut serial_buf).is_ok() {
                 if let Ok(mut write_guard) = raw_data_lock.write() {
                     // println!("received: {:?}", serial_buf);
                     let payloads: Vec<&str> = if serial_buf.contains("\r\n") {
