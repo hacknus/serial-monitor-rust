@@ -164,23 +164,23 @@ pub fn serial_thread(
             if serial_read(&mut port, &mut serial_buf).is_ok() {
                 if let Ok(mut write_guard) = raw_data_lock.write() {
                     // println!("received: {:?}", serial_buf);
-                    let payloads: Vec<&str> = if serial_buf.contains("\r\n") {
-                        serial_buf.split("\r\n").collect()
+                    let delimiter = if serial_buf.contains("\r\n") {
+                        "\r\n"
                     } else {
-                        serial_buf.split("\0\0").collect()
+                        "\0\0"
                     };
-                    // println!("received split2: {:?}", payloads);
-                    for payload in payloads.iter() {
-                        let payload_string = payload.to_string();
-                        if !payload_string.contains("\0\0") && payload_string != "".to_string() {
+
+                    serial_buf
+                        .split(delimiter)
+                        .filter(|&s| !s.is_empty() && !s.contains("\0\0"))
+                        .for_each(|s| {
                             let packet = Packet {
                                 time: Instant::now().duration_since(t_zero).as_millis(),
                                 direction: SerialDirection::Receive,
-                                payload: payload_string,
+                                payload: s.to_owned(),
                             };
-                            write_guard.push(packet);
-                        }
-                    }
+                            write_guard.push(packet)
+                        });
                 }
             }
 
