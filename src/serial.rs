@@ -1,5 +1,5 @@
 use crate::data::SerialDirection;
-use crate::{print_to_console, GuiSettingsContainer, Packet, Print};
+use crate::{print_to_console, Packet, Print};
 use serialport::SerialPort;
 use std::io::{BufRead, BufReader};
 use std::sync::mpsc::Receiver;
@@ -22,7 +22,6 @@ fn serial_read(
 }
 
 pub fn serial_thread(
-    gui_settings: GuiSettingsContainer,
     send_rx: Receiver<String>,
     device_lock: Arc<RwLock<String>>,
     devices_lock: Arc<RwLock<Vec<String>>>,
