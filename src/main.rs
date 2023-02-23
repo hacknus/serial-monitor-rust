@@ -62,9 +62,7 @@ fn main_thread(
         if let Ok(read_guard) = raw_data_lock.read() {
             let packets = read_guard.clone();
             for packet in packets.iter() {
-                if packet.payload == "".to_string() {
-                    // empty dataset
-                } else {
+                if !packet.payload.is_empty() {
                     data.raw_traffic.push(packet.clone());
                     let split_data = split(&packet.payload);
                     if data.dataset.is_empty() || failed_format_counter > 10 {
@@ -129,11 +127,8 @@ fn main() {
         gui_settings = load_result;
     } else {
         // save default settings
-        match gui_settings.save(&APP_INFO, prefs_key) {
-            Ok(_) => {}
-            Err(_) => {
-                println!("failed to save gui_settings");
-            }
+        if gui_settings.save(&APP_INFO, prefs_key).is_err() {
+            println!("failed to save gui_settings");
         }
     }
 
