@@ -15,6 +15,7 @@ Features:
 * Ability to save text to file
 
 TODOs:
+* Save raw data to file (at least as an option)
 * Save Plot to file (needs egui plot feature?)
 * Smarter data parser
 * allow to put in labels for the different data columns (instead of column 1, 2, ...)
