@@ -12,9 +12,9 @@ Features:
 * Clear history options
 * Data Window width is adjustable
 * Cross-platform, fully written in Rust
+* Ability to save text to file
 
 TODOs:
-* Save text to file
 * Save Plot to file (needs egui plot feature?)
 * Smarter data parser
 * allow to put in labels for the different data columns (instead of column 1, 2, ...)

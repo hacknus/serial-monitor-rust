@@ -8,22 +8,17 @@ pub fn save_to_csv(data: &DataContainer, file_path: &PathBuf) -> Result<(), Box<
         .has_headers(false)
         .from_path(file_path)?;
     // serialize does not work, so we do it with a loop..
-    wtr.write_record([
-        "time",
-        "t1",
-        "t2",
-        "t3",
-        "t4",
-        "t5",
-        "pump_state",
-        "pump",
-        "heater_1_state",
-        "heater_1",
-        "heater_2_state",
-        "heater_2",
-    ])?;
-    for i in 0..data.time.len() {
-        wtr.write_record(&[data.time[i].to_string()])?;
+    let mut header = vec!["time".to_string()];
+    for (i, _value) in data.dataset.iter().enumerate() {
+        header.push(format!("value {i}"));
+    }
+    wtr.write_record(header)?;
+    for j in 0..data.dataset[0].len() {
+        let mut data_to_write = vec![data.time[j].to_string()];
+        for (i, _value) in data.dataset.iter().enumerate() {
+            data_to_write.push(data.dataset[i][j].to_string());
+        }
+        wtr.write_record(&data_to_write)?;
     }
     wtr.flush()?;
     Ok(())
