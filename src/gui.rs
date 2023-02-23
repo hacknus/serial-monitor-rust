@@ -28,6 +28,71 @@ pub enum Print {
     OK(String),
 }
 
+impl Print {
+    pub fn scroll_area_message(
+        &self,
+        gui_conf: &GuiSettingsContainer,
+    ) -> Option<ScrollAreaMessage> {
+        match self {
+            Print::Empty => None,
+            Print::Message(s) => {
+                let color = if gui_conf.dark_mode {
+                    egui::Color32::WHITE
+                } else {
+                    egui::Color32::BLACK
+                };
+                Some(ScrollAreaMessage {
+                    label: "[MSG] ".to_owned(),
+                    content: s.to_owned(),
+                    color,
+                })
+            }
+            Print::Error(s) => {
+                let color = egui::Color32::RED;
+                Some(ScrollAreaMessage {
+                    label: "[ERR] ".to_owned(),
+                    content: s.to_owned(),
+                    color,
+                })
+            }
+            Print::Debug(s) => {
+                let color = if gui_conf.dark_mode {
+                    egui::Color32::YELLOW
+                } else {
+                    egui::Color32::LIGHT_RED
+                };
+                Some(ScrollAreaMessage {
+                    label: "[DBG] ".to_owned(),
+                    content: s.to_owned(),
+                    color,
+                })
+            }
+            Print::Task(s) => {
+                let color = egui::Color32::WHITE;
+                Some(ScrollAreaMessage {
+                    label: "[   ] ".to_owned(),
+                    content: s.to_owned(),
+                    color,
+                })
+            }
+            Print::OK(s) => {
+                let color = egui::Color32::GREEN;
+                Some(ScrollAreaMessage {
+                    label: "[OK] ".to_owned(),
+                    content: s.to_owned(),
+                    color,
+                })
+            }
+        }
+    }
+}
+
+pub struct ScrollAreaMessage {
+    label: String,
+    content: String,
+    color: egui::Color32,
+}
+
 pub fn print_to_console(print_lock: &Arc<RwLock<Vec<Print>>>, message: Print) -> usize {
     let mut length: usize = 0;
     if let Ok(mut write_guard) = print_lock.write() {
@@ -50,6 +115,7 @@ pub struct GuiSettingsContainer {
     pub debug: bool,
     pub x: f32,
     pub y: f32,
+    pub dark_mode: bool,
 }
 
 impl GuiSettingsContainer {
@@ -60,12 +126,12 @@ impl GuiSettingsContainer {
             debug: true,
             x: 1600.0,
             y: 900.0,
+            dark_mode: true,
         }
     }
 }
 
 pub struct MyApp {
-    dark_mode: bool,
     ready: bool,
     command: String,
     device: String,
@@ -107,7 +173,6 @@ impl MyApp {
         clear_tx: Sender<bool>,
     ) -> Self {
         Self {
-            dark_mode: true,
             ready: false,
             dropped_files: vec![],
             picked_path: PathBuf::new(),
@@ -237,7 +302,7 @@ impl eframe::App for MyApp {
                         .show_rows(ui, row_height, num_rows, |ui, row_range| {
                             for row in row_range {
                                 let packet = &self.data.raw_traffic[row];
-                                let color = if self.dark_mode {
+                                let color = if self.gui_conf.dark_mode {
                                     egui::Color32::WHITE
                                 } else {
                                     egui::Color32::BLACK
@@ -467,7 +532,7 @@ impl eframe::App for MyApp {
                             // ui.checkbox(&mut self.gui_conf.debug, "Debug Mode");
                             ui.end_row();
                             global_dark_light_mode_buttons(ui);
-                            self.dark_mode = ui.visuals() == &Visuals::dark();
+                            self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
                             ui.end_row();
                             ui.label("");
                             ui.end_row();
@@ -486,95 +551,17 @@ impl eframe::App for MyApp {
                     .max_height(row_height * 15.5)
                     .show_rows(ui, row_height, num_rows, |ui, row_range| {
                         for row in row_range {
-                            match self.console[row].clone() {
-                                Print::Empty => {}
-                                Print::Message(s) => {
-                                    let text = "[MSG] ".to_string();
-                                    ui.horizontal_wrapped(|ui| {
-                                        let color = if self.dark_mode {
-                                            egui::Color32::WHITE
-                                        } else {
-                                            egui::Color32::BLACK
-                                        };
-                                        ui.label(
-                                            RichText::new(text)
-                                                .color(color)
-                                                .font(FontId::new(14.0, FontFamily::Monospace)),
-                                        );
-                                        let text = format!("{}", s);
-                                        ui.label(
-                                            RichText::new(text)
-                                                .font(FontId::new(14.0, FontFamily::Monospace)),
-                                        );
-                                    });
-                                }
-                                Print::Error(s) => {
-                                    ui.horizontal_wrapped(|ui| {
-                                        let text = "[ERR] ".to_string();
-                                        ui.label(
-                                            RichText::new(text)
-                                                .color(egui::Color32::RED)
-                                                .font(FontId::new(14.0, FontFamily::Monospace)),
-                                        );
-                                        let text = format!("{}", s);
-                                        ui.label(
-                                            RichText::new(text)
-                                                .font(FontId::new(14.0, FontFamily::Monospace)),
-                                        );
-                                    });
-                                }
-                                Print::Debug(s) => {
-                                    if self.gui_conf.debug {
-                                        let color = if self.dark_mode {
-                                            egui::Color32::YELLOW
-                                        } else {
-                                            egui::Color32::LIGHT_RED
-                                        };
-                                        ui.horizontal_wrapped(|ui| {
-                                            let text = "[DBG] ".to_string();
-                                            ui.label(
-                                                RichText::new(text)
-                                                    .color(color)
-                                                    .font(FontId::new(14.0, FontFamily::Monospace)),
-                                            );
-                                            let text = format!("{}", s);
-                                            ui.label(
-                                                RichText::new(text)
-                                                    .font(FontId::new(14.0, FontFamily::Monospace)),
-                                            );
-                                        });
-                                    }
-                                }
-                                Print::Task(s) => {
-                                    ui.horizontal_wrapped(|ui| {
-                                        let text = "[  ] ".to_string();
-                                        ui.label(
-                                            RichText::new(text)
-                                                .color(egui::Color32::WHITE)
-                                                .font(FontId::new(14.0, FontFamily::Monospace)),
-                                        );
-                                        let text = format!("{}", s);
-                                        ui.label(
-                                            RichText::new(text)
-                                                .font(FontId::new(14.0, FontFamily::Monospace)),
-                                        );
-                                    });
-                                }
-                                Print::OK(s) => {
-                                    ui.horizontal_wrapped(|ui| {
-                                        let text = "[OK] ".to_string();
-                                        ui.label(
-                                            RichText::new(text)
-                                                .color(egui::Color32::GREEN)
-                                                .font(FontId::new(14.0, FontFamily::Monospace)),
-                                        );
-                                        let text = format!("{}", s);
-                                        ui.label(
-                                            RichText::new(text)
-                                                .font(FontId::new(14.0, FontFamily::Monospace)),
-                                        );
-                                    });
-                                }
+                            if let Some(msg) =
+                                &self.console[row].scroll_area_message(&self.gui_conf)
+                            {
+                                ui.horizontal_wrapped(|ui| {
+                                    ui.label(
+                                        RichText::new(&msg.label)
+                                            .color(msg.color)
+                                            .font(DEFAULT_FONT_ID),
+                                    );
+                                    ui.label(RichText::new(&msg.content).font(DEFAULT_FONT_ID));
+                                });
                             }
                         }
                     });
