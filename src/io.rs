@@ -15,8 +15,8 @@ pub fn save_to_csv(data: &DataContainer, file_path: &PathBuf) -> Result<(), Box<
     wtr.write_record(header)?;
     for j in 0..data.dataset[0].len() {
         let mut data_to_write = vec![data.time[j].to_string()];
-        for (i, _value) in data.dataset.iter().enumerate() {
-            data_to_write.push(data.dataset[i][j].to_string());
+        for value in data.dataset.iter() {
+            data_to_write.push(value[j].to_string());
         }
         wtr.write_record(&data_to_write)?;
     }
