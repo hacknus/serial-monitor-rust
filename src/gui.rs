@@ -332,15 +332,11 @@ impl eframe::App for MyApp {
                     });
 
                     if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
-                        if self.index > 0 {
-                            self.index -= 1;
-                        }
+                        self.index = self.index.saturating_sub(1);
                         self.command = self.history[self.index].clone();
                     }
                     if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
-                        if self.index < self.history.len() - 1 {
-                            self.index += 1;
-                        }
+                        self.index = std::cmp::min(self.index + 1, self.history.len() - 1);
                         self.command = self.history[self.index].clone();
                     }
 
