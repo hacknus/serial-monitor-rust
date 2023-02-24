@@ -397,12 +397,14 @@ impl eframe::App for MyApp {
                         );
                     });
 
-                    let mut devices: Vec<String> = Vec::new();
-                    if let Ok(read_guard) = self.devices_lock.read() {
-                        devices = read_guard.clone();
-                    }
+                    let devices: Vec<String> = if let Ok(read_guard) = self.devices_lock.read() {
+                        read_guard.clone()
+                    } else {
+                        vec![]
+                    };
+
                     if !devices.contains(&self.device) {
-                        self.device = "".to_string();
+                        self.device.clear();
                     }
 
                     egui::ComboBox::from_id_source("Device")
