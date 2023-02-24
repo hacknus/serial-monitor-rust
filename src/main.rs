@@ -150,12 +150,10 @@ fn main() {
     let serial_raw_data_lock = raw_data_lock.clone();
     let serial_print_lock = print_lock.clone();
     let serial_connected_lock = connected_lock.clone();
-    let serial_gui_settings = gui_settings.clone();
 
     println!("starting connection thread..");
     let serial_thread = thread::spawn(|| {
         serial_thread(
-            serial_gui_settings,
             send_rx,
             serial_device_lock,
             serial_devices_lock,
