@@ -165,7 +165,7 @@ fn main() {
     });
 
     let main_data_lock = data_lock.clone();
-    let main_raw_data_lock = raw_data_lock.clone();
+    let main_raw_data_lock = raw_data_lock;
     let main_print_lock = print_lock.clone();
 
     println!("starting main thread..");
@@ -185,12 +185,12 @@ fn main() {
         ..Default::default()
     };
 
-    let gui_data_lock = data_lock.clone();
-    let gui_device_lock = device_lock.clone();
-    let gui_devices_lock = devices_lock.clone();
-    let gui_baud_lock = baud_lock.clone();
-    let gui_connected_lock = connected_lock.clone();
-    let gui_print_lock = print_lock.clone();
+    let gui_data_lock = data_lock;
+    let gui_device_lock = device_lock;
+    let gui_devices_lock = devices_lock;
+    let gui_baud_lock = baud_lock;
+    let gui_connected_lock = connected_lock;
+    let gui_print_lock = print_lock;
 
     if let Err(e) = eframe::run_native(
         "Serial Monitor",
