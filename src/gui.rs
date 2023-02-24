@@ -474,31 +474,15 @@ impl eframe::App for MyApp {
                             };
                             ui.end_row();
                             if ui.button("Save to file").clicked() {
-                                match rfd::FileDialog::new().save_file() {
-                                    Some(mut path) => {
-                                        let extension = "csv";
-                                        match path.extension() {
-                                            None => {
-                                                path.set_extension(extension);
-                                            }
-                                            Some(ext) => {
-                                                if ext != "csv" {
-                                                    path.set_extension(extension);
-                                                }
-                                            }
-                                        }
-                                        self.picked_path = path;
-                                    }
-                                    None => self.picked_path = PathBuf::new(),
-                                }
-                                match self.save_tx.send(self.picked_path.clone()) {
-                                    Ok(_) => {}
-                                    Err(err) => {
+                                if let Some(path) = rfd::FileDialog::new().save_file() {
+                                    self.picked_path = path;
+                                    self.picked_path.set_extension("csv");
+                                    if let Err(e) = self.save_tx.send(self.picked_path.clone()) {
                                         print_to_console(
                                             &self.print_lock,
                                             Print::Error(format!(
                                                 "save_tx thread send failed: {:?}",
-                                                err
+                                                e
                                             )),
                                         );
                                     }
