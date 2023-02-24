@@ -55,14 +55,15 @@ pub fn serial_thread(
             if let Ok(read_guard) = device_lock.read() {
                 device = read_guard.clone();
             }
-            devices = vec![];
-            for p in serialport::available_ports().unwrap().iter() {
-                devices.push(p.port_name.clone());
-                if p.port_name == device {
-                    connected = true;
-                    // break;
-                }
-            }
+
+            devices = serialport::available_ports()
+                .unwrap()
+                .iter()
+                .map(|p| p.port_name.clone())
+                .collect();
+
+            connected = devices.contains(&device);
+
             if let Ok(mut write_guard) = devices_lock.write() {
                 *write_guard = devices.clone();
             }
@@ -109,11 +110,12 @@ pub fn serial_thread(
             .unwrap();
 
         'connected_loop: loop {
-            // check for reconnection
-            devices = vec![];
-            for p in serialport::available_ports().unwrap().iter() {
-                devices.push(p.port_name.clone());
-            }
+            devices = serialport::available_ports()
+                .unwrap()
+                .iter()
+                .map(|p| p.port_name.clone())
+                .collect();
+
             if let Ok(mut write_guard) = devices_lock.write() {
                 *write_guard = devices.clone();
             }
