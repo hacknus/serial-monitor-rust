@@ -474,23 +474,10 @@ impl eframe::App for MyApp {
                             };
                             ui.end_row();
                             if ui.button("Save to file").clicked() {
-                                match rfd::FileDialog::new().save_file() {
-                                    Some(mut path) => {
-                                        let extension = "csv";
-                                        match path.extension() {
-                                            None => {
-                                                path.set_extension(extension);
-                                            }
-                                            Some(ext) => {
-                                                if ext != "csv" {
-                                                    path.set_extension(extension);
-                                                }
-                                            }
-                                        }
-                                        self.picked_path = path;
-                                    }
-                                    None => self.picked_path = PathBuf::new(),
-                                }
+                                self.picked_path =
+                                    rfd::FileDialog::new().save_file().unwrap_or_default();
+                                self.picked_path.set_extension("csv");
+
                                 match self.save_tx.send(self.picked_path.clone()) {
                                     Ok(_) => {}
                                     Err(err) => {
