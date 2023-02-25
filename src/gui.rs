@@ -417,7 +417,7 @@ impl eframe::App for MyApp {
                                 }
                             });
                         egui::ComboBox::from_id_source("Baud Rate")
-                            .selected_text(&format!("{}", self.baud_rate))
+                            .selected_text(format!("{}", self.baud_rate))
                             .width(100.0)
                             .show_ui(ui, |ui| {
                                 let baud_rates = vec![
