@@ -4,7 +4,9 @@ use crate::{vec2, APP_INFO};
 use core::f32;
 use eframe::egui::panel::Side;
 use eframe::egui::plot::{Legend, Line, Plot, PlotPoints};
-use eframe::egui::{global_dark_light_mode_buttons, FontFamily, FontId, RichText, Visuals};
+use eframe::egui::{
+    global_dark_light_mode_buttons, FontFamily, FontId, RichText, TextEdit, Vec2, Visuals,
+};
 use eframe::{egui, Storage};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
@@ -403,30 +405,34 @@ impl eframe::App for MyApp {
                         self.device.clear();
                     }
 
-                    egui::ComboBox::from_id_source("Device")
-                        .selected_text(&self.device)
-                        .width(right_panel_width * 0.9)
-                        .show_ui(ui, |ui| {
-                            for dev in devices {
-                                ui.selectable_value(&mut self.device, dev.clone(), dev);
-                            }
-                        });
-                    egui::ComboBox::from_id_source("Baud Rate")
-                        .selected_text(&format!("{}", self.baud_rate))
-                        .show_ui(ui, |ui| {
-                            let baud_rates = vec![
-                                300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 74880, 115200,
-                                230400, 128000, 460800, 576000, 921600,
-                            ];
-                            for baud_rate in baud_rates.iter() {
-                                ui.selectable_value(
-                                    &mut self.baud_rate,
-                                    *baud_rate,
-                                    format!("{}", baud_rate),
-                                );
-                            }
-                        });
+                    ui.add_space(10.0);
 
+                    ui.horizontal(|ui| {
+                        egui::ComboBox::from_id_source("Device")
+                            .selected_text(&self.device)
+                            .width(right_panel_width * 0.92 - 100.0)
+                            .show_ui(ui, |ui| {
+                                for dev in devices {
+                                    ui.selectable_value(&mut self.device, dev.clone(), dev);
+                                }
+                            });
+                        egui::ComboBox::from_id_source("Baud Rate")
+                            .selected_text(&format!("{}", self.baud_rate))
+                            .width(100.0)
+                            .show_ui(ui, |ui| {
+                                let baud_rates = vec![
+                                    300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 74880,
+                                    115200, 230400, 128000, 460800, 576000, 921600,
+                                ];
+                                for baud_rate in baud_rates.iter() {
+                                    ui.selectable_value(
+                                        &mut self.baud_rate,
+                                        *baud_rate,
+                                        format!("{}", baud_rate),
+                                    );
+                                }
+                            });
+                    });
                     let connect_text = if self.ready { "Disconnect" } else { "Connect" };
                     if ui.button(connect_text).clicked() {
                         if let Ok(mut write_guard) = self.device_lock.write() {
@@ -445,24 +451,12 @@ impl eframe::App for MyApp {
                             }
                         }
                     }
-                    if ui.button("Clear Data").clicked() {
-                        print_to_console(
-                            &self.print_lock,
-                            Print::OK("Cleared recorded data".to_string()),
-                        );
-                        match self.clear_tx.send(true) {
-                            Ok(_) => {}
-                            Err(err) => {
-                                print_to_console(
-                                    &self.print_lock,
-                                    Print::Error(format!("clear_tx thread send failed: {:?}", err)),
-                                );
-                            }
-                        }
-                    }
+
+                    ui.add_space(5.0);
 
                     egui::Grid::new("upper")
                         .num_columns(2)
+                        .spacing(Vec2 { x: 10.0, y: 10.0 })
                         .striped(true)
                         .show(ui, |ui| {
                             ui.label("Plotting range [#]: ");
@@ -483,6 +477,24 @@ impl eframe::App for MyApp {
                                             Print::Error(format!(
                                                 "save_tx thread send failed: {:?}",
                                                 e
+                                            )),
+                                        );
+                                    }
+                                }
+                            }
+                            if ui.button("Clear Data").clicked() {
+                                print_to_console(
+                                    &self.print_lock,
+                                    Print::OK("Cleared recorded data".to_string()),
+                                );
+                                match self.clear_tx.send(true) {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        print_to_console(
+                                            &self.print_lock,
+                                            Print::Error(format!(
+                                                "clear_tx thread send failed: {:?}",
+                                                err
                                             )),
                                         );
                                     }
