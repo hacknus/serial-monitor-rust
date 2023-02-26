@@ -275,8 +275,7 @@ impl eframe::App for MyApp {
                     }
 
                     let t_fmt = |x, _range: &RangeInclusive<f64>| format!("{:4.2} s", x);
-                    let s_fmt =
-                        move |y, _range: &RangeInclusive<f64>| format!("{:4.2} [a.u.]", y as f64);
+                    let s_fmt = move |y, _range: &RangeInclusive<f64>| format!("{:4.2} [a.u.]", y);
                     let signal_plot = Plot::new("data")
                         .height(height)
                         .width(width)
