@@ -145,7 +145,7 @@ fn main() {
     let serial_connected_lock = connected_lock.clone();
 
     println!("starting connection thread..");
-    let serial_thread = thread::spawn(|| {
+    let _serial_thread_handler = thread::spawn(|| {
         serial_thread(
             send_rx,
             serial_device_lock,
@@ -162,7 +162,7 @@ fn main() {
     let main_print_lock = print_lock.clone();
 
     println!("starting main thread..");
-    let main_thread_handler = thread::spawn(|| {
+    let _main_thread_handler = thread::spawn(|| {
         main_thread(
             main_data_lock,
             main_raw_data_lock,
