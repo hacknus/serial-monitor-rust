@@ -60,8 +60,7 @@ fn main_thread(
             }
         }
         if let Ok(read_guard) = raw_data_lock.read() {
-            let packets = read_guard.clone();
-            for packet in packets.iter() {
+            for packet in read_guard.iter() {
                 if !packet.payload.is_empty() {
                     data.raw_traffic.push(packet.clone());
                     let split_data = split(&packet.payload);
