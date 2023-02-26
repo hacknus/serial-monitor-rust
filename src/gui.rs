@@ -150,7 +150,6 @@ pub struct MyApp {
     baud_rate: u32,
     plotting_range: i32,
     console: Vec<Print>,
-    dropped_files: Vec<egui::DroppedFile>,
     picked_path: PathBuf,
     data: DataContainer,
     gui_conf: GuiSettingsContainer,
@@ -186,7 +185,6 @@ impl MyApp {
     ) -> Self {
         Self {
             ready: false,
-            dropped_files: vec![],
             picked_path: PathBuf::new(),
             device: "".to_string(),
             data: DataContainer::default(),
