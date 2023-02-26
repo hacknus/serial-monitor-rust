@@ -19,6 +19,7 @@ const MAX_FPS: f64 = 24.0;
 const DEFAULT_FONT_ID: FontId = FontId::new(14.0, FontFamily::Monospace);
 
 #[derive(Clone)]
+#[allow(unused)]
 pub enum Print {
     Empty,
     Message(String),
