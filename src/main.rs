@@ -29,6 +29,7 @@ const APP_INFO: AppInfo = AppInfo {
     name: "Serial Monitor",
     author: "Linus Leo Stöckli",
 };
+const PREFS_KEY: &str = "config/gui";
 
 fn split(payload: &str) -> Vec<f32> {
     let mut split_data: Vec<&str> = vec![];
@@ -120,16 +121,7 @@ fn main_thread(
 }
 
 fn main() {
-    let mut gui_settings = GuiSettingsContainer::default();
-    let prefs_key = "config/gui";
-    if let Ok(load_result) = GuiSettingsContainer::load(&APP_INFO, prefs_key) {
-        gui_settings = load_result;
-    } else {
-        // save default settings
-        if gui_settings.save(&APP_INFO, prefs_key).is_err() {
-            println!("failed to save gui_settings");
-        }
-    }
+    let gui_settings = load_gui_settings();
 
     let device_lock = Arc::new(RwLock::new(gui_settings.device.clone()));
     let devices_lock = Arc::new(RwLock::new(vec![gui_settings.device.clone()]));
@@ -212,4 +204,15 @@ fn main() {
     ) {
         println!("error: {e:?}");
     }
+}
+
+fn load_gui_settings() -> GuiSettingsContainer {
+    let gui_settings = GuiSettingsContainer::load(&APP_INFO, PREFS_KEY).unwrap_or_default();
+    if gui_settings == GuiSettingsContainer::default() {
+        // save default settings
+        if gui_settings.save(&APP_INFO, PREFS_KEY).is_err() {
+            println!("failed to save gui_settings");
+        }
+    }
+    gui_settings
 }
