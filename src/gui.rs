@@ -1,6 +1,6 @@
 use crate::data::{DataContainer, SerialDirection};
 use crate::toggle::toggle;
-use crate::{vec2, APP_INFO};
+use crate::{vec2, APP_INFO, PREFS_KEY};
 use core::f32;
 use eframe::egui::panel::Side;
 use eframe::egui::plot::{Legend, Line, Plot, PlotPoints};
@@ -568,12 +568,8 @@ impl eframe::App for MyApp {
     }
 
     fn save(&mut self, _storage: &mut dyn Storage) {
-        let prefs_key = "config/gui";
-        match self.gui_conf.save(&APP_INFO, prefs_key) {
-            Ok(_) => {}
-            Err(err) => {
-                println!("gui settings save failed: {:?}", err);
-            }
+        if let Err(err) = self.gui_conf.save(&APP_INFO, PREFS_KEY) {
+            println!("gui settings save failed: {:?}", err);
         }
     }
 }
