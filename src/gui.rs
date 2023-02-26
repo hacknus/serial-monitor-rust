@@ -4,11 +4,9 @@ use crate::{vec2, APP_INFO, PREFS_KEY};
 use core::f32;
 use eframe::egui::panel::Side;
 use eframe::egui::plot::{Legend, Line, Plot, PlotPoints};
-use eframe::egui::{
-    global_dark_light_mode_buttons, FontFamily, FontId, RichText, TextEdit, Vec2, Visuals,
-};
+use eframe::egui::{global_dark_light_mode_buttons, FontFamily, FontId, RichText, Vec2, Visuals};
 use eframe::{egui, Storage};
-use preferences::{Preferences, PreferencesError};
+use preferences::Preferences;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
