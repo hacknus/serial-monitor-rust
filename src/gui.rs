@@ -120,9 +120,9 @@ pub struct GuiSettingsContainer {
     pub dark_mode: bool,
 }
 
-impl GuiSettingsContainer {
-    pub fn default() -> GuiSettingsContainer {
-        GuiSettingsContainer {
+impl Default for GuiSettingsContainer {
+    fn default() -> Self {
+        Self {
             device: "".to_string(),
             baud: 115_200,
             debug: true,
