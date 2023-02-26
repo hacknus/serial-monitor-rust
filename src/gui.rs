@@ -8,7 +8,7 @@ use eframe::egui::{
     global_dark_light_mode_buttons, FontFamily, FontId, RichText, TextEdit, Vec2, Visuals,
 };
 use eframe::{egui, Storage};
-use preferences::Preferences;
+use preferences::{Preferences, PreferencesError};
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
@@ -131,6 +131,17 @@ impl Default for GuiSettingsContainer {
             dark_mode: true,
         }
     }
+}
+
+pub fn load_gui_settings() -> GuiSettingsContainer {
+    let gui_settings = GuiSettingsContainer::load(&APP_INFO, PREFS_KEY).unwrap_or_default();
+    if gui_settings == GuiSettingsContainer::default() {
+        // save default settings
+        if gui_settings.save(&APP_INFO, PREFS_KEY).is_err() {
+            println!("failed to save gui_settings");
+        }
+    }
+    gui_settings
 }
 
 pub struct MyApp {

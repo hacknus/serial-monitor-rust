@@ -21,7 +21,9 @@ use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
-use crate::gui::{print_to_console, update_in_console, GuiSettingsContainer, MyApp, Print};
+use crate::gui::{
+    load_gui_settings, print_to_console, update_in_console, GuiSettingsContainer, MyApp, Print,
+};
 use crate::io::save_to_csv;
 use crate::serial::serial_thread;
 
@@ -204,15 +206,4 @@ fn main() {
     ) {
         println!("error: {e:?}");
     }
-}
-
-fn load_gui_settings() -> GuiSettingsContainer {
-    let gui_settings = GuiSettingsContainer::load(&APP_INFO, PREFS_KEY).unwrap_or_default();
-    if gui_settings == GuiSettingsContainer::default() {
-        // save default settings
-        if gui_settings.save(&APP_INFO, PREFS_KEY).is_err() {
-            println!("failed to save gui_settings");
-        }
-    }
-    gui_settings
 }
