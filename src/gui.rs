@@ -134,14 +134,14 @@ impl Default for GuiSettingsContainer {
 }
 
 pub fn load_gui_settings() -> GuiSettingsContainer {
-    let gui_settings = GuiSettingsContainer::load(&APP_INFO, PREFS_KEY).unwrap_or_default();
-    if gui_settings == GuiSettingsContainer::default() {
+    GuiSettingsContainer::load(&APP_INFO, PREFS_KEY).unwrap_or_else(|_| {
+        let gui_settings = GuiSettingsContainer::default();
         // save default settings
         if gui_settings.save(&APP_INFO, PREFS_KEY).is_err() {
             println!("failed to save gui_settings");
         }
-    }
-    gui_settings
+        gui_settings
+    })
 }
 
 pub struct MyApp {
