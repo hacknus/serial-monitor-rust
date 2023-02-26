@@ -1,14 +1,10 @@
 use crate::data::{DataContainer, SerialDirection};
 use crate::toggle::toggle;
-use crate::{vec2, APP_INFO};
-use core::f32;
+use crate::vec2;
+use eframe::egui;
 use eframe::egui::panel::Side;
 use eframe::egui::plot::{Legend, Line, Plot, PlotPoints};
-use eframe::egui::{
-    global_dark_light_mode_buttons, FontFamily, FontId, RichText, TextEdit, Vec2, Visuals,
-};
-use eframe::{egui, Storage};
-use preferences::Preferences;
+use eframe::egui::{global_dark_light_mode_buttons, FontFamily, FontId, RichText, Vec2, Visuals};
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
@@ -565,15 +561,5 @@ impl eframe::App for MyApp {
         self.gui_conf.y = ctx.used_size().y;
 
         std::thread::sleep(Duration::from_millis((1000.0 / MAX_FPS) as u64));
-    }
-
-    fn save(&mut self, _storage: &mut dyn Storage) {
-        let prefs_key = "config/gui";
-        match self.gui_conf.save(&APP_INFO, prefs_key) {
-            Ok(_) => {}
-            Err(err) => {
-                println!("gui settings save failed: {:?}", err);
-            }
-        }
     }
 }
