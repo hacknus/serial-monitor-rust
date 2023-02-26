@@ -13,7 +13,7 @@ mod toggle;
 
 use crate::data::{DataContainer, Packet};
 use eframe::egui::{vec2, Visuals};
-use preferences::{AppInfo, Preferences};
+use preferences::AppInfo;
 use std::cmp::max;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -21,9 +21,7 @@ use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
-use crate::gui::{
-    load_gui_settings, print_to_console, update_in_console, GuiSettingsContainer, MyApp, Print,
-};
+use crate::gui::{load_gui_settings, print_to_console, update_in_console, MyApp, Print};
 use crate::io::save_to_csv;
 use crate::serial::serial_thread;
 
