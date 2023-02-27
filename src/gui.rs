@@ -91,7 +91,7 @@ pub fn print_to_console(print_lock: &Arc<RwLock<Vec<Print>>>, message: Print) {
             write_guard.push(message);
         }
         Err(e) => {
-            eprintln!("Error while writing to print_lock: {}", e);
+            println!("Error while writing to print_lock: {}", e);
         }
     }
 }
