@@ -342,11 +342,15 @@ impl eframe::App for MyApp {
 
                     if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
                         self.index = self.index.saturating_sub(1);
-                        self.command = self.history[self.index].clone();
+                        if !self.history.is_empty() {
+                            self.command = self.history[self.index].clone();
+                        }
                     }
                     if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
                         self.index = std::cmp::min(self.index + 1, self.history.len() - 1);
-                        self.command = self.history[self.index].clone();
+                        if !self.history.is_empty() {
+                            self.command = self.history[self.index].clone();
+                        }
                     }
 
                     if text_triggered || button_triggered {
