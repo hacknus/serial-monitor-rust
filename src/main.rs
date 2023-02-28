@@ -96,7 +96,7 @@ fn main_thread(
                 Ok(_) => {
                     print_to_console(
                         &print_lock,
-                        Print::OK(format!("saved data file to {:?} ", file_path)),
+                        Print::Ok(format!("saved data file to {:?} ", file_path)),
                     );
                 }
                 Err(e) => {

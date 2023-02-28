@@ -25,7 +25,7 @@ pub enum Print {
     Message(String),
     Error(String),
     Debug(String),
-    OK(String),
+    Ok(String),
 }
 
 impl Print {
@@ -67,7 +67,7 @@ impl Print {
                     color,
                 })
             }
-            Print::OK(s) => {
+            Print::Ok(s) => {
                 let color = egui::Color32::GREEN;
                 Some(ScrollAreaMessage {
                     label: "[OK] ".to_owned(),
@@ -493,7 +493,7 @@ impl eframe::App for MyApp {
                             if ui.button("Clear Data").clicked() {
                                 print_to_console(
                                     &self.print_lock,
-                                    Print::OK("Cleared recorded data".to_string()),
+                                    Print::Ok("Cleared recorded data".to_string()),
                                 );
                                 match self.clear_tx.send(true) {
                                     Ok(_) => {}
