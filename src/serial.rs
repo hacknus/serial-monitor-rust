@@ -133,8 +133,6 @@ pub fn serial_thread(
                 }
             }
 
-            let dev_is_con = devices.contains(&device);
-
             if reconnect {
                 print_to_console(
                     &print_lock,
@@ -146,7 +144,7 @@ pub fn serial_thread(
                 break 'connected_loop;
             }
 
-            if !dev_is_con {
+            if !devices.contains(&device) {
                 print_to_console(
                     &print_lock,
                     Print::Error(format!(
