@@ -410,7 +410,7 @@ impl eframe::App for MyApp {
                     ui.horizontal(|ui| {
                         let dev_text = self.device.replace("/dev/tty.", "");
                         egui::ComboBox::from_id_source("Device")
-                            .selected_text(&dev_text)
+                            .selected_text(dev_text)
                             .width(right_panel_width * 0.92 - 155.0)
                             .show_ui(ui, |ui| {
                                 for dev in devices {
