@@ -94,7 +94,7 @@ pub fn serial_thread(
         print_to_console(
             &print_lock,
             Print::OK(format!(
-                "connected to serial port: {} @ baud = {}",
+                "Connected to serial port: {} @ baud = {}",
                 device, baud_rate
             )),
         );
@@ -135,10 +135,24 @@ pub fn serial_thread(
 
             let dev_is_con = devices.contains(&device);
 
-            if reconnect || !dev_is_con {
+            if reconnect {
                 print_to_console(
                     &print_lock,
-                    Print::Error(format!("disconnected from serial port: {}", device)),
+                    Print::OK(format!("Disconnected from serial port: {}", device)),
+                );
+                if let Ok(mut write_guard) = device_lock.write() {
+                    *write_guard = "".to_string();
+                }
+                break 'connected_loop;
+            }
+
+            if !dev_is_con {
+                print_to_console(
+                    &print_lock,
+                    Print::Error(format!(
+                        "Device has disconnected from serial port: {}",
+                        device
+                    )),
                 );
                 if let Ok(mut write_guard) = device_lock.write() {
                     *write_guard = "".to_string();
