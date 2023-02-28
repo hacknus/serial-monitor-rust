@@ -13,10 +13,10 @@ Features:
 * Data Window width is adjustable
 * Cross-platform, fully written in Rust
 * Ability to save text to file
+* Ability to save the plot (Attention: uses unsafe code, experimental)
 
 TODOs:
 * Save raw data to file (at least as an option)
-* Save Plot to file (needs egui plot feature?)
 * Smarter data parser
 * allow to put in labels for the different data columns (instead of column 1, 2, ...)
 * make serial print selectable and show corresponding datapoint in plot
