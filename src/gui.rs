@@ -9,7 +9,7 @@ use eframe::egui::{
 };
 use eframe::glow::HasContext;
 use eframe::{egui, glow, Storage};
-use image::RgbaImage;
+use image::{ImageResult, RgbaImage};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
 use std::ops::RangeInclusive;
@@ -602,8 +602,25 @@ impl eframe::App for MyApp {
         self.gui_conf.y = ctx.used_size().y;
 
         if let Some(plot_to_save) = self.plot_to_save.take() {
-            println!("saving plot...");
-            save_image(&plot_to_save, &self.picked_path_plot);
+            // maybe we should put this in a different thread, so that the GUI
+            // doesn't lag during saving
+            match save_image(&plot_to_save, &self.picked_path_plot) {
+                Ok(_) => {
+                    print_to_console(
+                        &self.print_lock,
+                        Print::Ok(format!("saved data file to {:?} ", self.picked_path_plot)),
+                    );
+                }
+                Err(e) => {
+                    print_to_console(
+                        &self.print_lock,
+                        Print::Error(format!(
+                            "failed to save file to {:?}: {:?}",
+                            self.picked_path_plot, e
+                        )),
+                    );
+                }
+            }
         }
 
         std::thread::sleep(Duration::from_millis((1000.0 / MAX_FPS) as u64));
@@ -667,7 +684,7 @@ impl eframe::App for MyApp {
     }
 }
 
-fn save_image(img: &ColorImage, file_path: &PathBuf) {
+fn save_image(img: &ColorImage, file_path: &PathBuf) -> ImageResult<()> {
     let height = img.height();
     let width = img.width();
     let mut raw: Vec<u8> = vec![];
@@ -679,10 +696,5 @@ fn save_image(img: &ColorImage, file_path: &PathBuf) {
     }
     let img_to_save = RgbaImage::from_raw(width as u32, height as u32, raw)
         .expect("container should have the right size for the image dimensions");
-    match img_to_save.save(file_path) {
-        Ok(_) => {}
-        Err(err) => {
-            println!("error in saving image: {err:?}");
-        }
-    }
+    img_to_save.save(file_path)
 }
