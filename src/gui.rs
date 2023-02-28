@@ -408,17 +408,25 @@ impl eframe::App for MyApp {
                     ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
+                        let dev_text = self.device.replace("/dev/tty.", "");
                         egui::ComboBox::from_id_source("Device")
-                            .selected_text(&self.device)
-                            .width(right_panel_width * 0.92 - 100.0)
+                            .selected_text(&dev_text)
+                            .width(right_panel_width * 0.92 - 155.0)
                             .show_ui(ui, |ui| {
                                 for dev in devices {
-                                    ui.selectable_value(&mut self.device, dev.clone(), dev);
+                                    if dev.contains("cu") {
+                                        // on macOS each device appears as /dev/tty.* and /dev/cu.*
+                                        // we only display the /dev/tty.* here
+                                        continue;
+                                    }
+                                    // this makes the names shorter in the UI on UNIX and UNIX-like platforms
+                                    let dev_text = dev.replace("/dev/tty.", "");
+                                    ui.selectable_value(&mut self.device, dev.clone(), dev_text);
                                 }
                             });
                         egui::ComboBox::from_id_source("Baud Rate")
                             .selected_text(format!("{}", self.baud_rate))
-                            .width(100.0)
+                            .width(80.0)
                             .show_ui(ui, |ui| {
                                 let baud_rates = vec![
                                     300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 74880,
@@ -432,27 +440,27 @@ impl eframe::App for MyApp {
                                     );
                                 }
                             });
+                        let connect_text = if self.ready { "Disconnect" } else { "Connect" };
+                        if ui.button(connect_text).clicked() {
+                            if let Ok(mut write_guard) = self.device_lock.write() {
+                                if self.ready {
+                                    *write_guard = "".to_string();
+                                    self.device = "".to_string();
+                                } else {
+                                    *write_guard = self.device.clone();
+                                }
+                            }
+                            if let Ok(mut write_guard) = self.baud_lock.write() {
+                                if self.ready {
+                                    // do nothing
+                                } else {
+                                    *write_guard = self.baud_rate;
+                                }
+                            }
+                        }
                     });
-                    let connect_text = if self.ready { "Disconnect" } else { "Connect" };
-                    if ui.button(connect_text).clicked() {
-                        if let Ok(mut write_guard) = self.device_lock.write() {
-                            if self.ready {
-                                *write_guard = "".to_string();
-                                self.device = "".to_string();
-                            } else {
-                                *write_guard = self.device.clone();
-                            }
-                        }
-                        if let Ok(mut write_guard) = self.baud_lock.write() {
-                            if self.ready {
-                                // do nothing
-                            } else {
-                                *write_guard = self.baud_rate;
-                            }
-                        }
-                    }
 
-                    ui.add_space(5.0);
+                    ui.add_space(20.0);
 
                     egui::Grid::new("upper")
                         .num_columns(2)
