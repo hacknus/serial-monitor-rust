@@ -609,6 +609,12 @@ impl eframe::App for MyApp {
         std::thread::sleep(Duration::from_millis((1000.0 / MAX_FPS) as u64));
     }
 
+    fn save(&mut self, _storage: &mut dyn Storage) {
+        if let Err(err) = self.gui_conf.save(&APP_INFO, PREFS_KEY) {
+            println!("gui settings save failed: {:?}", err);
+        }
+    }
+
     #[allow(unsafe_code)]
     fn post_rendering(&mut self, screen_size_px: [u32; 2], frame: &eframe::Frame) {
         // this is inspired by the Egui screenshot example
@@ -657,12 +663,6 @@ impl eframe::App for MyApp {
                 [w as usize, h as usize],
                 &buf[..],
             ));
-        }
-    }
-
-    fn save(&mut self, _storage: &mut dyn Storage) {
-        if let Err(err) = self.gui_conf.save(&APP_INFO, PREFS_KEY) {
-            println!("gui settings save failed: {:?}", err);
         }
     }
 }
