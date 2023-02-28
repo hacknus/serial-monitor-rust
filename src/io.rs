@@ -8,9 +8,9 @@ pub fn save_to_csv(data: &DataContainer, file_path: &PathBuf) -> Result<(), Box<
         .has_headers(false)
         .from_path(file_path)?;
     // serialize does not work, so we do it with a loop..
-    let mut header = vec!["time".to_string()];
+    let mut header = vec!["Time".to_string()];
     for (i, _value) in data.dataset.iter().enumerate() {
-        header.push(format!("value {i}"));
+        header.push(format!("Column {i}"));
     }
     wtr.write_record(header)?;
     for j in 0..data.dataset[0].len() {
