@@ -608,14 +608,14 @@ impl eframe::App for MyApp {
                 Ok(_) => {
                     print_to_console(
                         &self.print_lock,
-                        Print::Ok(format!("saved data file to {:?} ", self.picked_path_plot)),
+                        Print::Ok(format!("saved plot to {:?} ", self.picked_path_plot)),
                     );
                 }
                 Err(e) => {
                     print_to_console(
                         &self.print_lock,
                         Print::Error(format!(
-                            "failed to save file to {:?}: {:?}",
+                            "failed to plot to {:?}: {:?}",
                             self.picked_path_plot, e
                         )),
                     );
