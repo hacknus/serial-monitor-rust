@@ -296,17 +296,19 @@ impl eframe::App for MyApp {
                     let num_rows = self.data.raw_traffic.len();
                     let text_style = egui::TextStyle::Body;
                     let row_height = ui.text_style_height(&text_style);
+
+                    ui.add_space(spacing);
+                    ui.separator();
                     ui.add_space(spacing);
 
-                    ui.separator();
                     egui::ScrollArea::vertical()
                         .id_source("serial_output")
                         .auto_shrink([false; 2])
                         .stick_to_bottom(true)
                         .always_show_scroll(true)
                         .enable_scrolling(true)
-                        .max_height(height)
-                        .min_scrolled_height(height)
+                        .max_height(height - spacing)
+                        .min_scrolled_height(height - spacing)
                         .max_width(width)
                         .show_rows(ui, row_height, num_rows, |ui, row_range| {
                             for row in row_range {
