@@ -25,7 +25,6 @@ pub enum Print {
     Message(String),
     Error(String),
     Debug(String),
-    Task(String),
     OK(String),
 }
 
@@ -68,14 +67,6 @@ impl Print {
                     color,
                 })
             }
-            Print::Task(s) => {
-                let color = egui::Color32::WHITE;
-                Some(ScrollAreaMessage {
-                    label: "[   ] ".to_owned(),
-                    content: s.to_owned(),
-                    color,
-                })
-            }
             Print::OK(s) => {
                 let color = egui::Color32::GREEN;
                 Some(ScrollAreaMessage {
@@ -94,18 +85,14 @@ pub struct ScrollAreaMessage {
     color: egui::Color32,
 }
 
-pub fn print_to_console(print_lock: &Arc<RwLock<Vec<Print>>>, message: Print) -> usize {
-    let mut length: usize = 0;
-    if let Ok(mut write_guard) = print_lock.write() {
-        write_guard.push(message);
-        length = write_guard.len() - 1;
-    }
-    length
-}
-
-pub fn update_in_console(print_lock: &Arc<RwLock<Vec<Print>>>, message: Print, index: usize) {
-    if let Ok(mut write_guard) = print_lock.write() {
-        write_guard[index] = message;
+pub fn print_to_console(print_lock: &Arc<RwLock<Vec<Print>>>, message: Print) {
+    match print_lock.write() {
+        Ok(mut write_guard) => {
+            write_guard.push(message);
+        }
+        Err(e) => {
+            println!("Error while writing to print_lock: {}", e);
+        }
     }
 }
 

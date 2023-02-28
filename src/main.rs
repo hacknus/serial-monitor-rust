@@ -21,7 +21,7 @@ use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
-use crate::gui::{load_gui_settings, print_to_console, update_in_console, MyApp, Print};
+use crate::gui::{load_gui_settings, print_to_console, MyApp, Print};
 use crate::io::save_to_csv;
 use crate::serial::serial_thread;
 
@@ -92,22 +92,17 @@ fn main_thread(
         }
 
         if let Ok(file_path) = save_rx.recv_timeout(Duration::from_millis(10)) {
-            let print_index = print_to_console(
-                &print_lock,
-                Print::Task(format!("saving data file to {:?} ...", file_path)),
-            );
             match save_to_csv(&data, &file_path) {
                 Ok(_) => {
-                    update_in_console(
+                    print_to_console(
                         &print_lock,
                         Print::OK(format!("saved data file to {:?} ", file_path)),
-                        print_index,
                     );
                 }
                 Err(e) => {
                     print_to_console(
                         &print_lock,
-                        Print::Error(format!("failed to save file: {e:?}")),
+                        Print::Error(format!("failed to save file to {:?}: {:?}", file_path, e)),
                     );
                 }
             }
