@@ -4,9 +4,7 @@ use crate::{vec2, APP_INFO, PREFS_KEY};
 use core::f32;
 use eframe::egui::panel::Side;
 use eframe::egui::plot::{Legend, Line, Plot, PlotPoints};
-use eframe::egui::{
-    global_dark_light_mode_buttons, ColorImage, FontFamily, FontId, RichText, Vec2, Visuals,
-};
+use eframe::egui::{global_dark_light_mode_buttons, ColorImage, FontFamily, FontId, Vec2, Visuals};
 use eframe::glow::HasContext;
 use eframe::{egui, glow, Storage};
 use image::{ImageResult, RgbaImage};
@@ -314,22 +312,28 @@ impl eframe::App for MyApp {
                         .max_height(height - spacing)
                         .min_scrolled_height(height - spacing)
                         .max_width(width)
-                        .show_rows(ui, row_height, num_rows, |ui, row_range| {
-                            for row in row_range {
-                                let packet = &self.data.raw_traffic[row];
-                                let color = if self.gui_conf.dark_mode {
-                                    egui::Color32::WHITE
-                                } else {
-                                    egui::Color32::BLACK
-                                };
-                                ui.horizontal_wrapped(|ui| {
-                                    if let Some(text) = self.console_text(packet) {
-                                        ui.label(
-                                            RichText::new(text).color(color).font(DEFAULT_FONT_ID),
-                                        );
-                                    }
-                                });
-                            }
+                        .show_rows(ui, row_height, num_rows, |ui, _row_range| {
+                            let content: String = self
+                                .data
+                                .raw_traffic
+                                .iter()
+                                .map(|packet| match self.console_text(packet) {
+                                    None => "".to_string(),
+                                    Some(text) => text + "\n",
+                                })
+                                .collect();
+                            let color = if self.gui_conf.dark_mode {
+                                egui::Color32::WHITE
+                            } else {
+                                egui::Color32::BLACK
+                            };
+                            ui.add(
+                                egui::TextEdit::multiline(&mut content.as_str())
+                                    .font(DEFAULT_FONT_ID) // for cursor height
+                                    .lock_focus(true)
+                                    .text_color(color)
+                                    .desired_width(width),
+                            );
                         });
                     let mut text_triggered = false;
                     let mut button_triggered = false;
@@ -580,21 +584,20 @@ impl eframe::App for MyApp {
                     .auto_shrink([false; 2])
                     .stick_to_bottom(true)
                     .max_height(row_height * 15.5)
-                    .show_rows(ui, row_height, num_rows, |ui, row_range| {
-                        for row in row_range {
-                            if let Some(msg) =
-                                &self.console[row].scroll_area_message(&self.gui_conf)
-                            {
-                                ui.horizontal_wrapped(|ui| {
-                                    ui.label(
-                                        RichText::new(&msg.label)
-                                            .color(msg.color)
-                                            .font(DEFAULT_FONT_ID),
-                                    );
-                                    ui.label(RichText::new(&msg.content).font(DEFAULT_FONT_ID));
-                                });
-                            }
-                        }
+                    .show_rows(ui, row_height, num_rows, |ui, _row_range| {
+                        let content: String = self
+                            .console
+                            .iter()
+                            .map(|row| match row.scroll_area_message(&self.gui_conf) {
+                                None => "".to_string(),
+                                Some(msg) => msg.label + msg.content.as_str() + "\n",
+                            })
+                            .collect();
+                        ui.add(
+                            egui::TextEdit::multiline(&mut content.as_str())
+                                .font(DEFAULT_FONT_ID) // for cursor height
+                                .lock_focus(true), // TODO: add a layouter to highlight the labels
+                        );
                     });
             });
 
