@@ -688,7 +688,7 @@ fn save_image(img: &ColorImage, file_path: &PathBuf) -> ImageResult<()> {
     let height = img.height();
     let width = img.width();
     let mut raw: Vec<u8> = vec![];
-    for p in img.pixels.clone().iter() {
+    for p in &img.pixels {
         raw.push(p.r());
         raw.push(p.g());
         raw.push(p.b());
