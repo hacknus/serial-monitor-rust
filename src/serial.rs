@@ -138,9 +138,6 @@ pub fn serial_thread(
                     &print_lock,
                     Print::Ok(format!("Disconnected from serial port: {}", device)),
                 );
-                if let Ok(mut write_guard) = device_lock.write() {
-                    *write_guard = "".to_string();
-                }
                 break 'connected_loop;
             }
 
