@@ -21,6 +21,11 @@ fn serial_read(
     port.read_line(serial_buf)
 }
 
+struct Device {
+    name: String,
+    baud_rate: u32,
+}
+
 pub fn serial_thread(
     send_rx: Receiver<String>,
     device_lock: Arc<RwLock<String>>,
@@ -30,10 +35,6 @@ pub fn serial_thread(
     print_lock: Arc<RwLock<Vec<Print>>>,
     connected_lock: Arc<RwLock<bool>>,
 ) {
-    let mut device = "".to_string();
-    let mut devices: Vec<String>;
-    let mut baud_rate = 115_200;
-    let mut connected;
     loop {
         let _not_awake = keepawake::Builder::new()
             .display(false)
@@ -43,40 +44,26 @@ pub fn serial_thread(
             .create()
             .unwrap();
 
-        connected = false;
-        if let Ok(mut write_guard) = connected_lock.write() {
-            *write_guard = connected;
+        if let Ok(mut connected) = connected_lock.write() {
+            *connected = false;
         }
 
-        while !connected {
-            if let Ok(read_guard) = baud_lock.read() {
-                baud_rate = *read_guard
-            }
-            if let Ok(read_guard) = device_lock.read() {
-                device = read_guard.clone();
-            }
+        let device = get_device(devices_lock.clone(), device_lock.clone(), baud_lock.clone());
 
-            devices = serialport::available_ports()
-                .unwrap()
-                .iter()
-                .map(|p| p.port_name.clone())
-                .collect();
-
-            connected = devices.contains(&device);
-
-            if let Ok(mut write_guard) = devices_lock.write() {
-                *write_guard = devices.clone();
+        let mut port = match serialport::new(&device.name, device.baud_rate)
+            .timeout(Duration::from_millis(100))
+            .open()
+        {
+            Ok(p) => {
+                if let Ok(mut connected) = connected_lock.write() {
+                    *connected = true;
+                }
+                BufReader::new(p)
             }
-            std::thread::sleep(Duration::from_millis(100));
-        }
-        let port_builder = serialport::new(&device, baud_rate).timeout(Duration::from_millis(100));
-        let mut port = match port_builder.open() {
-            Ok(p) => BufReader::new(p),
             Err(err) => {
                 if let Ok(mut write_guard) = device_lock.write() {
                     *write_guard = "".to_string();
                 }
-                device = "".to_string();
                 print_to_console(
                     &print_lock,
                     Print::Error(format!("Error connecting: {}", err)),
@@ -85,21 +72,15 @@ pub fn serial_thread(
             }
         };
 
-        if let Ok(mut write_guard) = connected_lock.write() {
-            *write_guard = connected;
-        }
-
         let t_zero = Instant::now();
 
         print_to_console(
             &print_lock,
             Print::Ok(format!(
                 "Connected to serial port: {} @ baud = {}",
-                device, baud_rate
+                device.name, device.baud_rate
             )),
         );
-
-        let mut reconnect = false;
 
         let _awake = keepawake::Builder::new()
             .display(true)
@@ -110,7 +91,7 @@ pub fn serial_thread(
             .unwrap();
 
         'connected_loop: loop {
-            devices = serialport::available_ports()
+            let devices: Vec<String> = serialport::available_ports()
                 .unwrap()
                 .iter()
                 .map(|p| p.port_name.clone())
@@ -120,36 +101,22 @@ pub fn serial_thread(
                 *write_guard = devices.clone();
             }
 
-            if let Ok(read_guard) = baud_lock.read() {
-                if baud_rate != *read_guard {
-                    baud_rate = *read_guard;
-                    reconnect = true;
-                }
-            }
             if let Ok(read_guard) = device_lock.read() {
-                if device != *read_guard {
-                    device = read_guard.clone();
-                    reconnect = true;
+                if device.name != *read_guard {
+                    print_to_console(
+                        &print_lock,
+                        Print::Ok(format!("Disconnected from serial port: {}", device.name)),
+                    );
+                    break 'connected_loop;
                 }
             }
 
-            if reconnect {
-                print_to_console(
-                    &print_lock,
-                    Print::Ok(format!("Disconnected from serial port: {}", device)),
-                );
-                if let Ok(mut write_guard) = device_lock.write() {
-                    *write_guard = "".to_string();
-                }
-                break 'connected_loop;
-            }
-
-            if !devices.contains(&device) {
+            if !devices.contains(&device.name) {
                 print_to_console(
                     &print_lock,
                     Print::Error(format!(
                         "Device has disconnected from serial port: {}",
-                        device
+                        device.name
                     )),
                 );
                 if let Ok(mut write_guard) = device_lock.write() {
@@ -200,5 +167,33 @@ pub fn serial_thread(
             //std::thread::sleep(Duration::from_millis(10));
         }
         std::mem::drop(port);
+    }
+}
+
+fn get_device(
+    devices_lock: Arc<RwLock<Vec<String>>>,
+    device_lock: Arc<RwLock<String>>,
+    baud_lock: Arc<RwLock<u32>>,
+) -> Device {
+    loop {
+        let devices: Vec<String> = serialport::available_ports()
+            .unwrap()
+            .iter()
+            .map(|p| p.port_name.clone())
+            .collect();
+
+        if let Ok(mut write_guard) = devices_lock.write() {
+            *write_guard = devices.clone();
+        }
+
+        if let (Ok(name_guard), Ok(baud_guard)) = (device_lock.read(), baud_lock.read()) {
+            if devices.contains(&name_guard) {
+                return Device {
+                    name: name_guard.clone(),
+                    baud_rate: *baud_guard,
+                };
+            }
+        }
+        std::thread::sleep(Duration::from_millis(100));
     }
 }
