@@ -466,7 +466,6 @@ impl eframe::App for MyApp {
                             if let Ok(mut write_guard) = self.device_lock.write() {
                                 if self.ready {
                                     *write_guard = "".to_string();
-                                    self.device = "".to_string();
                                 } else {
                                     *write_guard = self.device.clone();
                                 }
