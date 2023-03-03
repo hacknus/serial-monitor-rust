@@ -592,6 +592,8 @@ impl eframe::App for MyApp {
                                 Some(msg) => msg.label + msg.content.as_str() + "\n",
                             })
                             .collect();
+                        // we need to add it as one multiline object, such that we can select and copy
+                        // text over multiple lines
                         ui.add(
                             egui::TextEdit::multiline(&mut content.as_str())
                                 .font(DEFAULT_FONT_ID) // for cursor height
