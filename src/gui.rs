@@ -19,6 +19,7 @@ use std::time::Duration;
 const MAX_FPS: f64 = 60.0;
 
 const DEFAULT_FONT_ID: FontId = FontId::new(14.0, FontFamily::Monospace);
+const RIGHT_PANEL_WIDTH: f32 = 350.0;
 
 #[derive(Clone)]
 #[allow(unused)]
@@ -228,20 +229,13 @@ impl MyApp {
             (_, _, _) => None,
         }
     }
-}
 
-impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        if let Ok(read_guard) = self.connected_lock.read() {
-            self.ready = *read_guard;
-        }
-        let right_panel_width = 350.0;
-
+    fn draw_central_panel(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             let height = ui.available_size().y * 0.45;
             let border = 10.0;
             let spacing = (ui.available_size().y - 2.0 * height) / 3.5 - border;
-            let width = ui.available_size().x - 2.0 * border - right_panel_width;
+            let width = ui.available_size().x - 2.0 * border - RIGHT_PANEL_WIDTH;
             // lets set the relative plot size and location for plot saving purposes
             self.plot_size[0] = border / ui.available_size().x; // lower bound x
             self.plot_size[1] = (ui.available_size().y * 0.55 - spacing) / ui.available_size().y; // lower bound y
@@ -382,10 +376,12 @@ impl eframe::App for MyApp {
                 ui.add_space(border);
             });
         });
+    }
 
+    fn draw_side_panel(&mut self, ctx: &egui::Context) {
         egui::SidePanel::new(Side::Right, "settings panel")
-            .min_width(right_panel_width)
-            .max_width(right_panel_width)
+            .min_width(RIGHT_PANEL_WIDTH)
+            .max_width(RIGHT_PANEL_WIDTH)
             .resizable(false)
             //.default_width(right_panel_width)
             .show(ctx, |ui| {
@@ -432,7 +428,7 @@ impl eframe::App for MyApp {
                         let dev_text = self.device.replace("/dev/tty.", "");
                         egui::ComboBox::from_id_source("Device")
                             .selected_text(dev_text)
-                            .width(right_panel_width * 0.92 - 155.0)
+                            .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
                             .show_ui(ui, |ui| {
                                 for dev in devices {
                                     if dev.contains("cu") {
@@ -599,6 +595,17 @@ impl eframe::App for MyApp {
                         );
                     });
             });
+    }
+}
+
+impl eframe::App for MyApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if let Ok(read_guard) = self.connected_lock.read() {
+            self.ready = *read_guard;
+        }
+
+        self.draw_central_panel(ctx);
+        self.draw_side_panel(ctx);
 
         self.gui_conf.x = ctx.used_size().x;
         self.gui_conf.y = ctx.used_size().y;
