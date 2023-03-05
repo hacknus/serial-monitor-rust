@@ -329,8 +329,6 @@ impl MyApp {
                                     .desired_width(width),
                             );
                         });
-                    let mut text_triggered = false;
-                    let mut button_triggered = false;
                     ui.add_space(spacing / 2.0);
                     ui.horizontal(|ui| {
                         ui.add(
@@ -338,10 +336,19 @@ impl MyApp {
                                 .desired_width(width - 50.0)
                                 .code_editor(),
                         );
-                        if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                            text_triggered = true;
+                        if ui.input(|i| i.key_pressed(egui::Key::Enter))
+                            || ui.button("Send").clicked()
+                        {
+                            // send command
+                            self.history.push(self.command.clone());
+                            self.index = self.history.len() - 1;
+                            if let Err(err) = self.send_tx.send(self.command.clone() + &self.eol) {
+                                print_to_console(
+                                    &self.print_lock,
+                                    Print::Error(format!("send_tx thread send failed: {:?}", err)),
+                                );
+                            }
                         }
-                        button_triggered = ui.button("Send").clicked();
                     });
 
                     if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
@@ -357,20 +364,6 @@ impl MyApp {
                         }
                     }
 
-                    if text_triggered || button_triggered {
-                        // send command
-                        self.history.push(self.command.clone());
-                        self.index = self.history.len() - 1;
-                        match self.send_tx.send(self.command.clone() + &self.eol.clone()) {
-                            Ok(_) => {}
-                            Err(err) => {
-                                print_to_console(
-                                    &self.print_lock,
-                                    Print::Error(format!("send_tx thread send failed: {:?}", err)),
-                                );
-                            }
-                        }
-                    }
                     ctx.request_repaint()
                 });
                 ui.add_space(border);
