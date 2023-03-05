@@ -329,7 +329,6 @@ impl MyApp {
                                     .desired_width(width),
                             );
                         });
-
                     ui.add_space(spacing / 2.0);
                     ui.horizontal(|ui| {
                         ui.add(
