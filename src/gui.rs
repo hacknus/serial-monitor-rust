@@ -20,6 +20,10 @@ const MAX_FPS: f64 = 60.0;
 
 const DEFAULT_FONT_ID: FontId = FontId::new(14.0, FontFamily::Monospace);
 const RIGHT_PANEL_WIDTH: f32 = 350.0;
+const BAUD_RATES: &[u32] = &[
+    300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 74880, 115200, 230400, 128000, 460800,
+    576000, 921600,
+];
 
 #[derive(Clone)]
 #[allow(unused)]
@@ -438,17 +442,13 @@ impl MyApp {
                             .selected_text(format!("{}", self.baud_rate))
                             .width(80.0)
                             .show_ui(ui, |ui| {
-                                let baud_rates = vec![
-                                    300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 74880,
-                                    115200, 230400, 128000, 460800, 576000, 921600,
-                                ];
-                                for baud_rate in baud_rates.iter() {
+                                BAUD_RATES.iter().for_each(|baud_rate| {
                                     ui.selectable_value(
                                         &mut self.baud_rate,
                                         *baud_rate,
-                                        format!("{}", baud_rate),
+                                        baud_rate.to_string(),
                                     );
-                                }
+                                });
                             });
                         let connect_text = if self.ready { "Disconnect" } else { "Connect" };
                         if ui.button(connect_text).clicked() {
