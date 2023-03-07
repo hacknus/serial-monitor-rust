@@ -671,13 +671,12 @@ impl eframe::App for MyApp {
             }
 
             // Flip vertically:
-            let mut rows: Vec<Vec<u8>> = buf
+            let buf: Vec<u8> = buf
                 .chunks(w as usize * 4)
-                .into_iter()
-                .map(|chunk| chunk.to_vec())
+                .rev()
+                .flat_map(|chunk| chunk.iter())
+                .copied()
                 .collect();
-            rows.reverse();
-            let buf: Vec<u8> = rows.into_iter().flatten().collect();
             self.plot_to_save = Some(ColorImage::from_rgba_unmultiplied(
                 [w as usize, h as usize],
                 &buf[..],
