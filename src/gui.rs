@@ -688,13 +688,11 @@ impl eframe::App for MyApp {
 fn save_image(img: &ColorImage, file_path: &PathBuf) -> ImageResult<()> {
     let height = img.height();
     let width = img.width();
-    let mut raw: Vec<u8> = vec![];
-    for p in &img.pixels {
-        raw.push(p.r());
-        raw.push(p.g());
-        raw.push(p.b());
-        raw.push(p.a());
-    }
+    let raw: Vec<u8> = img
+        .pixels
+        .iter()
+        .flat_map(|p| vec![p.r(), p.g(), p.b(), p.a()])
+        .collect();
     let img_to_save = RgbaImage::from_raw(width as u32, height as u32, raw)
         .expect("container should have the right size for the image dimensions");
     img_to_save.save(file_path)
