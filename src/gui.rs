@@ -427,16 +427,16 @@ impl MyApp {
                             .selected_text(dev_text)
                             .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
                             .show_ui(ui, |ui| {
-                                for dev in devices {
-                                    if dev.contains("cu") {
-                                        // on macOS each device appears as /dev/tty.* and /dev/cu.*
-                                        // we only display the /dev/tty.* here
-                                        continue;
-                                    }
-                                    // this makes the names shorter in the UI on UNIX and UNIX-like platforms
-                                    let dev_text = dev.replace("/dev/tty.", "");
-                                    ui.selectable_value(&mut self.device, dev.clone(), dev_text);
-                                }
+                                devices
+                                    .into_iter()
+                                    // on macOS each device appears as /dev/tty.* and /dev/cu.*
+                                    // we only display the /dev/tty.* here
+                                    .filter(|dev| !dev.contains("/dev/cu."))
+                                    .for_each(|dev| {
+                                        // this makes the names shorter in the UI on UNIX and UNIX-like platforms
+                                        let dev_text = dev.replace("/dev/tty.", "");
+                                        ui.selectable_value(&mut self.device, dev, dev_text);
+                                    });
                             });
                         egui::ComboBox::from_id_source("Baud Rate")
                             .selected_text(format!("{}", self.baud_rate))
