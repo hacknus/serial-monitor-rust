@@ -1,5 +1,6 @@
 use crate::data::{DataContainer, SerialDirection};
 use crate::toggle::toggle;
+use crate::Device;
 use crate::{vec2, APP_INFO, PREFS_KEY};
 use core::f32;
 use eframe::egui::panel::Side;
@@ -150,9 +151,8 @@ pub struct MyApp {
     data: DataContainer,
     gui_conf: GuiSettingsContainer,
     print_lock: Arc<RwLock<Vec<Print>>>,
-    device_lock: Arc<RwLock<String>>,
+    device_lock: Arc<RwLock<Device>>,
     devices_lock: Arc<RwLock<Vec<String>>>,
-    baud_lock: Arc<RwLock<u32>>,
     connected_lock: Arc<RwLock<bool>>,
     data_lock: Arc<RwLock<DataContainer>>,
     save_tx: Sender<PathBuf>,
@@ -172,9 +172,8 @@ impl MyApp {
     pub fn new(
         print_lock: Arc<RwLock<Vec<Print>>>,
         data_lock: Arc<RwLock<DataContainer>>,
-        device_lock: Arc<RwLock<String>>,
+        device_lock: Arc<RwLock<Device>>,
         devices_lock: Arc<RwLock<Vec<String>>>,
-        baud_lock: Arc<RwLock<u32>>,
         connected_lock: Arc<RwLock<bool>>,
         gui_conf: GuiSettingsContainer,
         save_tx: Sender<PathBuf>,
@@ -193,7 +192,6 @@ impl MyApp {
             connected_lock,
             device_lock,
             devices_lock,
-            baud_lock,
             print_lock,
             gui_conf,
             data_lock,
@@ -294,8 +292,7 @@ impl MyApp {
                     });
 
                     let num_rows = self.data.raw_traffic.len();
-                    let text_style = egui::TextStyle::Body;
-                    let row_height = ui.text_style_height(&text_style);
+                    let row_height = ui.text_style_height(&egui::TextStyle::Body);
 
                     ui.add_space(spacing);
                     ui.separator();
@@ -454,16 +451,10 @@ impl MyApp {
                         if ui.button(connect_text).clicked() {
                             if let Ok(mut write_guard) = self.device_lock.write() {
                                 if self.ready {
-                                    *write_guard = "".to_string();
+                                    write_guard.name.clear();
                                 } else {
-                                    *write_guard = self.device.clone();
-                                }
-                            }
-                            if let Ok(mut write_guard) = self.baud_lock.write() {
-                                if self.ready {
-                                    // do nothing
-                                } else {
-                                    *write_guard = self.baud_rate;
+                                    write_guard.name = self.device.clone();
+                                    write_guard.baud_rate = self.baud_rate;
                                 }
                             }
                         }
@@ -565,8 +556,7 @@ impl MyApp {
                     self.console = read_guard.clone();
                 }
                 let num_rows = self.console.len();
-                let text_style = egui::TextStyle::Body;
-                let row_height = ui.text_style_height(&text_style);
+                let row_height = ui.text_style_height(&egui::TextStyle::Body);
                 egui::ScrollArea::vertical()
                     .id_source("console_scroll_area")
                     .auto_shrink([false; 2])
