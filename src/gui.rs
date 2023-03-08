@@ -294,8 +294,7 @@ impl MyApp {
                     });
 
                     let num_rows = self.data.raw_traffic.len();
-                    let text_style = egui::TextStyle::Body;
-                    let row_height = ui.text_style_height(&text_style);
+                    let row_height = ui.text_style_height(&egui::TextStyle::Body);
 
                     ui.add_space(spacing);
                     ui.separator();
@@ -565,8 +564,7 @@ impl MyApp {
                     self.console = read_guard.clone();
                 }
                 let num_rows = self.console.len();
-                let text_style = egui::TextStyle::Body;
-                let row_height = ui.text_style_height(&text_style);
+                let row_height = ui.text_style_height(&egui::TextStyle::Body);
                 egui::ScrollArea::vertical()
                     .id_source("console_scroll_area")
                     .auto_shrink([false; 2])
