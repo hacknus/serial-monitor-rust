@@ -165,7 +165,7 @@ pub fn serial_thread(
     }
 }
 
-fn get_device(devices_lock: Arc<RwLock<Vec<String>>>, d_lock: Arc<RwLock<Device>>) -> Device {
+fn get_device(devices_lock: Arc<RwLock<Vec<String>>>, device_lock: Arc<RwLock<Device>>) -> Device {
     loop {
         let devices: Vec<String> = serialport::available_ports()
             .unwrap()
@@ -177,7 +177,7 @@ fn get_device(devices_lock: Arc<RwLock<Vec<String>>>, d_lock: Arc<RwLock<Device>
             *write_guard = devices.clone();
         }
 
-        if let Ok(device) = d_lock.read() {
+        if let Ok(device) = device_lock.read() {
             if devices.contains(&device.name) {
                 return Device {
                     name: device.name.clone(),
