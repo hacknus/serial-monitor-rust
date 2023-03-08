@@ -31,6 +31,12 @@ const APP_INFO: AppInfo = AppInfo {
 };
 const PREFS_KEY: &str = "config/gui";
 
+#[derive(Default, Debug)]
+pub struct Device {
+    pub name: String,
+    pub baud_rate: u32,
+}
+
 fn split(payload: &str) -> Vec<f32> {
     let mut split_data: Vec<&str> = vec![];
     for s in payload.split(':') {
@@ -118,9 +124,8 @@ fn main_thread(
 fn main() {
     let gui_settings = load_gui_settings();
 
-    let device_lock = Arc::new(RwLock::new(gui_settings.device.clone()));
+    let device_lock = Arc::new(RwLock::new(Device::default()));
     let devices_lock = Arc::new(RwLock::new(vec![gui_settings.device.clone()]));
-    let baud_lock = Arc::new(RwLock::new(gui_settings.baud));
     let raw_data_lock = Arc::new(RwLock::new(vec![Packet::default()]));
     let data_lock = Arc::new(RwLock::new(DataContainer::default()));
     let print_lock = Arc::new(RwLock::new(vec![Print::Empty]));
@@ -132,7 +137,6 @@ fn main() {
 
     let serial_device_lock = device_lock.clone();
     let serial_devices_lock = devices_lock.clone();
-    let serial_baud_lock = baud_lock.clone();
     let serial_raw_data_lock = raw_data_lock.clone();
     let serial_print_lock = print_lock.clone();
     let serial_connected_lock = connected_lock.clone();
@@ -143,7 +147,6 @@ fn main() {
             send_rx,
             serial_device_lock,
             serial_devices_lock,
-            serial_baud_lock,
             serial_raw_data_lock,
             serial_print_lock,
             serial_connected_lock,
@@ -174,7 +177,6 @@ fn main() {
     let gui_data_lock = data_lock;
     let gui_device_lock = device_lock;
     let gui_devices_lock = devices_lock;
-    let gui_baud_lock = baud_lock;
     let gui_connected_lock = connected_lock;
     let gui_print_lock = print_lock;
 
@@ -188,7 +190,6 @@ fn main() {
                 gui_data_lock,
                 gui_device_lock,
                 gui_devices_lock,
-                gui_baud_lock,
                 gui_connected_lock,
                 gui_settings,
                 save_tx,
