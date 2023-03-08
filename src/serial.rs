@@ -1,4 +1,5 @@
 use crate::data::SerialDirection;
+use crate::Device;
 use crate::{print_to_console, Packet, Print};
 use serialport::SerialPort;
 use std::io::{BufRead, BufReader};
@@ -21,16 +22,10 @@ fn serial_read(
     port.read_line(serial_buf)
 }
 
-struct Device {
-    name: String,
-    baud_rate: u32,
-}
-
 pub fn serial_thread(
     send_rx: Receiver<String>,
-    device_lock: Arc<RwLock<String>>,
+    device_lock: Arc<RwLock<Device>>,
     devices_lock: Arc<RwLock<Vec<String>>>,
-    baud_lock: Arc<RwLock<u32>>,
     raw_data_lock: Arc<RwLock<Vec<Packet>>>,
     print_lock: Arc<RwLock<Vec<Print>>>,
     connected_lock: Arc<RwLock<bool>>,
@@ -48,7 +43,7 @@ pub fn serial_thread(
             *connected = false;
         }
 
-        let device = get_device(devices_lock.clone(), device_lock.clone(), baud_lock.clone());
+        let device = get_device(devices_lock.clone(), device_lock.clone());
 
         let mut port = match serialport::new(&device.name, device.baud_rate)
             .timeout(Duration::from_millis(100))
@@ -62,7 +57,7 @@ pub fn serial_thread(
             }
             Err(err) => {
                 if let Ok(mut write_guard) = device_lock.write() {
-                    *write_guard = "".to_string();
+                    write_guard.name.clear();
                 }
                 print_to_console(
                     &print_lock,
@@ -102,7 +97,7 @@ pub fn serial_thread(
             }
 
             if let Ok(read_guard) = device_lock.read() {
-                if device.name != *read_guard {
+                if device.name != read_guard.name {
                     print_to_console(
                         &print_lock,
                         Print::Ok(format!("Disconnected from serial port: {}", device.name)),
@@ -120,7 +115,7 @@ pub fn serial_thread(
                     )),
                 );
                 if let Ok(mut write_guard) = device_lock.write() {
-                    *write_guard = "".to_string();
+                    write_guard.name.clear();
                 }
                 break 'connected_loop;
             }
@@ -170,11 +165,7 @@ pub fn serial_thread(
     }
 }
 
-fn get_device(
-    devices_lock: Arc<RwLock<Vec<String>>>,
-    device_lock: Arc<RwLock<String>>,
-    baud_lock: Arc<RwLock<u32>>,
-) -> Device {
+fn get_device(devices_lock: Arc<RwLock<Vec<String>>>, d_lock: Arc<RwLock<Device>>) -> Device {
     loop {
         let devices: Vec<String> = serialport::available_ports()
             .unwrap()
@@ -186,11 +177,11 @@ fn get_device(
             *write_guard = devices.clone();
         }
 
-        if let (Ok(name_guard), Ok(baud_guard)) = (device_lock.read(), baud_lock.read()) {
-            if devices.contains(&name_guard) {
+        if let Ok(device) = d_lock.read() {
+            if devices.contains(&device.name) {
                 return Device {
-                    name: name_guard.clone(),
-                    baud_rate: *baud_guard,
+                    name: device.name.clone(),
+                    baud_rate: device.baud_rate,
                 };
             }
         }
