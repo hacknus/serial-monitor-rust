@@ -393,27 +393,7 @@ impl MyApp {
                     ui.set_visible(true);
                     ui.horizontal(|ui| {
                         ui.heading("Serial Monitor");
-                        let color_stroke;
-                        let color;
-                        if !self.ready {
-                            ui.add(egui::Spinner::new());
-                            color = egui::Color32::DARK_RED;
-                            color_stroke = egui::Color32::RED;
-                        } else {
-                            color = egui::Color32::DARK_GREEN;
-                            color_stroke = egui::Color32::GREEN;
-                        }
-                        let radius = &ui.spacing().interact_size.y * 0.375;
-                        let center = egui::pos2(
-                            ui.next_widget_position().x + &ui.spacing().interact_size.x * 0.5,
-                            ui.next_widget_position().y,
-                        );
-                        ui.painter().circle(
-                            center,
-                            radius,
-                            color,
-                            egui::Stroke::new(1.0, color_stroke),
-                        );
+                        self.paint_connection_indicator(ui);
                     });
 
                     let devices: Vec<String> = if let Ok(read_guard) = self.devices_lock.read() {
@@ -588,6 +568,23 @@ impl MyApp {
                         );
                     });
             });
+    }
+
+    fn paint_connection_indicator(&self, ui: &mut egui::Ui) {
+        let (color, color_stroke) = if !self.ready {
+            ui.add(egui::Spinner::new());
+            (egui::Color32::DARK_RED, egui::Color32::RED)
+        } else {
+            (egui::Color32::DARK_GREEN, egui::Color32::GREEN)
+        };
+
+        let radius = ui.spacing().interact_size.y * 0.375;
+        let center = egui::pos2(
+            ui.next_widget_position().x + ui.spacing().interact_size.x * 0.5,
+            ui.next_widget_position().y,
+        );
+        ui.painter()
+            .circle(center, radius, color, egui::Stroke::new(1.0, color_stroke));
     }
 }
 
