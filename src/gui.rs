@@ -138,6 +138,14 @@ pub fn load_gui_settings() -> GuiSettingsContainer {
     })
 }
 
+#[derive(Default)]
+struct PlotSize {
+    lower_bound_x: f32,
+    lower_bound_y: f32,
+    width: f32,
+    height: f32,
+}
+
 pub struct MyApp {
     ready: bool,
     command: String,
@@ -147,7 +155,7 @@ pub struct MyApp {
     console: Vec<Print>,
     picked_path: PathBuf,
     picked_path_plot: PathBuf,
-    plot_size: [f32; 4],
+    plot_size: PlotSize,
     data: DataContainer,
     gui_conf: GuiSettingsContainer,
     print_lock: Arc<RwLock<Vec<Print>>>,
@@ -209,7 +217,7 @@ impl MyApp {
             index: 0,
             save_plot: false,
             plot_to_save: None,
-            plot_size: [0.0; 4],
+            plot_size: PlotSize::default(),
         }
     }
 
@@ -239,10 +247,12 @@ impl MyApp {
             let spacing = (ui.available_size().y - 2.0 * height) / 3.5 - border;
             let width = ui.available_size().x - 2.0 * border - RIGHT_PANEL_WIDTH;
             // lets set the relative plot size and location for plot saving purposes
-            self.plot_size[0] = border / ui.available_size().x; // lower bound x
-            self.plot_size[1] = (ui.available_size().y * 0.55 - spacing) / ui.available_size().y; // lower bound y
-            self.plot_size[2] = width / ui.available_size().x; // width
-            self.plot_size[3] = height / ui.available_size().y; // height
+            self.plot_size.lower_bound_x = border / ui.available_size().x;
+            self.plot_size.lower_bound_y =
+                (ui.available_size().y * 0.55 - spacing) / ui.available_size().y;
+            self.plot_size.width = width / ui.available_size().x;
+            self.plot_size.height = height / ui.available_size().y;
+
             ui.add_space(spacing);
             ui.horizontal(|ui| {
                 ui.add_space(border);
@@ -383,27 +393,7 @@ impl MyApp {
                     ui.set_visible(true);
                     ui.horizontal(|ui| {
                         ui.heading("Serial Monitor");
-                        let color_stroke;
-                        let color;
-                        if !self.ready {
-                            ui.add(egui::Spinner::new());
-                            color = egui::Color32::DARK_RED;
-                            color_stroke = egui::Color32::RED;
-                        } else {
-                            color = egui::Color32::DARK_GREEN;
-                            color_stroke = egui::Color32::GREEN;
-                        }
-                        let radius = &ui.spacing().interact_size.y * 0.375;
-                        let center = egui::pos2(
-                            ui.next_widget_position().x + &ui.spacing().interact_size.x * 0.5,
-                            ui.next_widget_position().y,
-                        );
-                        ui.painter().circle(
-                            center,
-                            radius,
-                            color,
-                            egui::Stroke::new(1.0, color_stroke),
-                        );
+                        self.paint_connection_indicator(ui);
                     });
 
                     let devices: Vec<String> = if let Ok(read_guard) = self.devices_lock.read() {
@@ -581,6 +571,23 @@ impl MyApp {
                     });
             });
     }
+
+    fn paint_connection_indicator(&self, ui: &mut egui::Ui) {
+        let (color, color_stroke) = if !self.ready {
+            ui.add(egui::Spinner::new());
+            (egui::Color32::DARK_RED, egui::Color32::RED)
+        } else {
+            (egui::Color32::DARK_GREEN, egui::Color32::GREEN)
+        };
+
+        let radius = ui.spacing().interact_size.y * 0.375;
+        let center = egui::pos2(
+            ui.next_widget_position().x + ui.spacing().interact_size.x * 0.5,
+            ui.next_widget_position().y,
+        );
+        ui.painter()
+            .circle(center, radius, color, egui::Stroke::new(1.0, color_stroke));
+    }
 }
 
 impl eframe::App for MyApp {
@@ -643,10 +650,10 @@ impl eframe::App for MyApp {
             // calculating with absolut px values does not always work (for example with retina
             // display MacBooks we have different absolute values than with external displays)
             // using relative values, we have a working solution for all cases
-            let w_lower = self.plot_size[0] * window_width as f32;
-            let h_lower = self.plot_size[1] * window_height as f32;
-            let w = self.plot_size[2] * window_width as f32;
-            let h = self.plot_size[3] * window_height as f32;
+            let w_lower = self.plot_size.lower_bound_x * window_width as f32;
+            let h_lower = self.plot_size.lower_bound_y * window_height as f32;
+            let w = self.plot_size.width * window_width as f32;
+            let h = self.plot_size.height * window_height as f32;
 
             let mut buf = vec![0u8; w as usize * h as usize * 4];
             let pixels = glow::PixelPackData::Slice(&mut buf[..]);
