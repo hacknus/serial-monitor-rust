@@ -96,7 +96,7 @@ pub fn serial_thread(
                 *write_guard = devices.clone();
             }
 
-            if let Some(message) = disconnected(&device, &devices, device_lock.clone()) {
+            if let Some(message) = disconnected(&device, &devices, &device_lock) {
                 print_to_console(&print_lock, message);
                 break 'connected_loop;
             }
@@ -173,7 +173,7 @@ fn get_device(devices_lock: Arc<RwLock<Vec<String>>>, device_lock: Arc<RwLock<De
 fn disconnected(
     device: &Device,
     devices: &[String],
-    device_lock: Arc<RwLock<Device>>,
+    device_lock: &Arc<RwLock<Device>>,
 ) -> Option<Print> {
     // disconnection by button press
     if let Ok(read_guard) = device_lock.read() {
