@@ -96,27 +96,8 @@ pub fn serial_thread(
                 *write_guard = devices.clone();
             }
 
-            if let Ok(read_guard) = device_lock.read() {
-                if device.name != read_guard.name {
-                    print_to_console(
-                        &print_lock,
-                        Print::Ok(format!("Disconnected from serial port: {}", device.name)),
-                    );
-                    break 'connected_loop;
-                }
-            }
-
-            if !devices.contains(&device.name) {
-                print_to_console(
-                    &print_lock,
-                    Print::Error(format!(
-                        "Device has disconnected from serial port: {}",
-                        device.name
-                    )),
-                );
-                if let Ok(mut write_guard) = device_lock.write() {
-                    write_guard.name.clear();
-                }
+            if let Some(message) = disconnected(&device, &devices, device_lock.clone()) {
+                print_to_console(&print_lock, message);
                 break 'connected_loop;
             }
 
@@ -187,4 +168,33 @@ fn get_device(devices_lock: Arc<RwLock<Vec<String>>>, device_lock: Arc<RwLock<De
         }
         std::thread::sleep(Duration::from_millis(100));
     }
+}
+
+fn disconnected(
+    device: &Device,
+    devices: &[String],
+    device_lock: Arc<RwLock<Device>>,
+) -> Option<Print> {
+    // disconnection by button press
+    if let Ok(read_guard) = device_lock.read() {
+        if device.name != read_guard.name {
+            return Some(Print::Ok(format!(
+                "Disconnected from serial port: {}",
+                device.name
+            )));
+        }
+    }
+
+    // other types of disconnection (e.g. unplugging, power down)
+    if !devices.contains(&device.name) {
+        if let Ok(mut write_guard) = device_lock.write() {
+            write_guard.name.clear();
+        }
+        return Some(Print::Error(format!(
+            "Device has disconnected from serial port: {}",
+            device.name
+        )));
+    }
+
+    None
 }
