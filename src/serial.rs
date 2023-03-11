@@ -101,19 +101,7 @@ pub fn serial_thread(
                 break 'connected_loop;
             }
 
-            // perform writes
-            if let Ok(cmd) = send_rx.recv_timeout(Duration::from_millis(1)) {
-                if serial_write(&mut port, cmd.as_bytes()).is_ok() {
-                    if let Ok(mut write_guard) = raw_data_lock.write() {
-                        let packet = Packet {
-                            time: Instant::now().duration_since(t_zero).as_millis(),
-                            direction: SerialDirection::Send,
-                            payload: cmd,
-                        };
-                        write_guard.push(packet);
-                    }
-                }
-            }
+            perform_writes(&mut port, &send_rx, &raw_data_lock, t_zero);
 
             // perform reads
             let mut serial_buf = "".to_string();
@@ -197,4 +185,27 @@ fn disconnected(
     }
 
     None
+}
+
+fn perform_writes(
+    port: &mut BufReader<Box<dyn SerialPort>>,
+    send_rx: &Receiver<String>,
+    raw_data_lock: &Arc<RwLock<Vec<Packet>>>,
+    t_zero: Instant,
+) {
+    if let Ok(cmd) = send_rx.recv_timeout(Duration::from_millis(1)) {
+        if let Err(e) = serial_write(port, cmd.as_bytes()) {
+            println!("Error sending command: {e}");
+            return;
+        }
+
+        if let Ok(mut write_guard) = raw_data_lock.write() {
+            let packet = Packet {
+                time: Instant::now().duration_since(t_zero).as_millis(),
+                direction: SerialDirection::Send,
+                payload: cmd,
+            };
+            write_guard.push(packet);
+        }
+    }
 }
