@@ -274,7 +274,7 @@ impl MyApp {
                         for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
                             //graph.push([i as f64, data[i] as f64]);
                             if self.data.time.len() == data.len() {
-                                graph.push([self.data.time[i] as f64, data[i] as f64]);
+                                graph.push([self.data.time[i] as f64 / 1000.0, data[i] as f64]);
                             } else {
                                 // not same length
                                 // println!("not same length in gui! length self.data.time = {}, length data = {}", self.data.time.len(), data.len())
