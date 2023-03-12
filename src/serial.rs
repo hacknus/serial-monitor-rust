@@ -102,31 +102,7 @@ pub fn serial_thread(
             }
 
             perform_writes(&mut port, &send_rx, &raw_data_lock, t_zero);
-
-            // perform reads
-            let mut serial_buf = "".to_string();
-            if serial_read(&mut port, &mut serial_buf).is_ok() {
-                if let Ok(mut write_guard) = raw_data_lock.write() {
-                    // println!("received: {:?}", serial_buf);
-                    let delimiter = if serial_buf.contains("\r\n") {
-                        "\r\n"
-                    } else {
-                        "\0\0"
-                    };
-
-                    serial_buf
-                        .split(delimiter)
-                        .filter(|&s| !s.is_empty() && !s.contains("\0\0"))
-                        .for_each(|s| {
-                            let packet = Packet {
-                                time: Instant::now().duration_since(t_zero).as_millis(),
-                                direction: SerialDirection::Receive,
-                                payload: s.to_owned(),
-                            };
-                            write_guard.push(packet)
-                        });
-                }
-            }
+            perform_reads(&mut port, &raw_data_lock, t_zero);
 
             //std::thread::sleep(Duration::from_millis(10));
         }
@@ -207,5 +183,36 @@ fn perform_writes(
             };
             write_guard.push(packet);
         }
+    }
+}
+
+fn perform_reads(
+    port: &mut BufReader<Box<dyn SerialPort>>,
+    raw_data_lock: &Arc<RwLock<Vec<Packet>>>,
+    t_zero: Instant,
+) {
+    let mut buf = "".to_string();
+    match serial_read(port, &mut buf) {
+        Ok(_) => {}
+        // Timeout is ok, just means there is no data to read
+        Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
+            return;
+        }
+        Err(e) => {
+            println!("Error reading: {:?}", e);
+            return;
+        }
+    }
+
+    if let Ok(mut write_guard) = raw_data_lock.write() {
+        let delimiter = if buf.contains("\r\n") { "\r\n" } else { "\0\0" };
+        buf.split_terminator(delimiter).for_each(|s| {
+            let packet = Packet {
+                time: Instant::now().duration_since(t_zero).as_millis(),
+                direction: SerialDirection::Receive,
+                payload: s.to_owned(),
+            };
+            write_guard.push(packet)
+        });
     }
 }
