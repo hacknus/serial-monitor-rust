@@ -43,7 +43,7 @@ pub fn serial_thread(
             *connected = false;
         }
 
-        let device = get_device(devices_lock.clone(), device_lock.clone());
+        let device = get_device(&devices_lock, &device_lock);
 
         let mut port = match serialport::new(&device.name, device.baud_rate)
             .timeout(Duration::from_millis(100))
@@ -134,7 +134,10 @@ pub fn serial_thread(
     }
 }
 
-fn get_device(devices_lock: Arc<RwLock<Vec<String>>>, device_lock: Arc<RwLock<Device>>) -> Device {
+fn get_device(
+    devices_lock: &Arc<RwLock<Vec<String>>>,
+    device_lock: &Arc<RwLock<Device>>,
+) -> Device {
     loop {
         let devices: Vec<String> = serialport::available_ports()
             .unwrap()
