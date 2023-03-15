@@ -86,12 +86,7 @@ pub fn serial_thread(
             .unwrap();
 
         'connected_loop: loop {
-            let devices: Vec<String> = serialport::available_ports()
-                .unwrap()
-                .iter()
-                .map(|p| p.port_name.clone())
-                .collect();
-
+            let devices = available_devices();
             if let Ok(mut write_guard) = devices_lock.write() {
                 *write_guard = devices.clone();
             }
@@ -134,17 +129,18 @@ pub fn serial_thread(
     }
 }
 
-fn get_device(
-    devices_lock: &Arc<RwLock<Vec<String>>>,
-    device_lock: &Arc<RwLock<Device>>,
-) -> Device {
-    loop {
-        let devices: Vec<String> = serialport::available_ports()
-            .unwrap()
-            .iter()
-            .map(|p| p.port_name.clone())
-            .collect();
 
+fn available_devices() -> Vec<String> {
+    serialport::available_ports()
+        .unwrap()
+        .iter()
+        .map(|p| p.port_name.clone())
+        .collect()
+}
+
+fn get_device(devices_lock: Arc<RwLock<Vec<String>>>, device_lock: Arc<RwLock<Device>>) -> Device {
+    loop {
+        let devices = available_devices();
         if let Ok(mut write_guard) = devices_lock.write() {
             *write_guard = devices.clone();
         }
