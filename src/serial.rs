@@ -43,7 +43,7 @@ pub fn serial_thread(
             *connected = false;
         }
 
-        let device = get_device(devices_lock.clone(), device_lock.clone());
+        let device = get_device(&devices_lock, &device_lock);
 
         let mut port = match serialport::new(&device.name, device.baud_rate)
             .timeout(Duration::from_millis(100))
@@ -128,6 +128,7 @@ pub fn serial_thread(
         std::mem::drop(port);
     }
 }
+
 
 fn available_devices() -> Vec<String> {
     serialport::available_ports()
