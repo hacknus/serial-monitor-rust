@@ -129,7 +129,6 @@ pub fn serial_thread(
     }
 }
 
-
 fn available_devices() -> Vec<String> {
     serialport::available_ports()
         .unwrap()
@@ -138,7 +137,10 @@ fn available_devices() -> Vec<String> {
         .collect()
 }
 
-fn get_device(devices_lock: Arc<RwLock<Vec<String>>>, device_lock: Arc<RwLock<Device>>) -> Device {
+fn get_device(
+    devices_lock: &Arc<RwLock<Vec<String>>>,
+    device_lock: &Arc<RwLock<Device>>,
+) -> Device {
     loop {
         let devices = available_devices();
         if let Ok(mut write_guard) = devices_lock.write() {
