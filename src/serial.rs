@@ -1,11 +1,13 @@
-use crate::data::SerialDirection;
-use crate::Device;
-use crate::{print_to_console, Packet, Print};
-use serialport::SerialPort;
 use std::io::{BufRead, BufReader};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
+
+use serialport::SerialPort;
+
+use crate::data::SerialDirection;
+use crate::Device;
+use crate::{print_to_console, Packet, Print};
 
 fn serial_write(
     port: &mut BufReader<Box<dyn SerialPort>>,
