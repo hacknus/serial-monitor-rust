@@ -55,6 +55,13 @@ pub fn serial_thread(
                 if let Ok(mut connected) = connected_lock.write() {
                     *connected = true;
                 }
+                print_to_console(
+                    &print_lock,
+                    Print::Ok(format!(
+                        "Connected to serial port: {} @ baud = {}",
+                        device.name, device.baud_rate
+                    )),
+                );
                 BufReader::new(p)
             }
             Err(err) => {
@@ -70,14 +77,6 @@ pub fn serial_thread(
         };
 
         let t_zero = Instant::now();
-
-        print_to_console(
-            &print_lock,
-            Print::Ok(format!(
-                "Connected to serial port: {} @ baud = {}",
-                device.name, device.baud_rate
-            )),
-        );
 
         let _awake = keepawake::Builder::new()
             .display(true)
