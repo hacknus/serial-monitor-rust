@@ -5,15 +5,6 @@ extern crate csv;
 extern crate preferences;
 extern crate serde;
 
-mod data;
-mod gui;
-mod io;
-mod serial;
-mod toggle;
-
-use crate::data::{DataContainer, Packet};
-use eframe::egui::{vec2, Visuals};
-use preferences::AppInfo;
 use std::cmp::max;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -21,9 +12,19 @@ use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
+use eframe::egui::{vec2, Visuals};
+use preferences::AppInfo;
+
+use crate::data::{DataContainer, Packet};
 use crate::gui::{load_gui_settings, print_to_console, MyApp, Print};
 use crate::io::save_to_csv;
 use crate::serial::serial_thread;
+
+mod data;
+mod gui;
+mod io;
+mod serial;
+mod toggle;
 
 const APP_INFO: AppInfo = AppInfo {
     name: "Serial Monitor",
@@ -53,7 +54,7 @@ fn main_thread(
     data_lock: Arc<RwLock<DataContainer>>,
     raw_data_lock: Arc<RwLock<Vec<Packet>>>,
     print_lock: Arc<RwLock<Vec<Print>>>,
-    save_rx: Receiver<PathBuf>,
+    save_rx: Receiver<(PathBuf, bool)>,
     clear_rx: Receiver<bool>,
 ) {
     // reads data from mutex, samples and saves if needed
@@ -80,7 +81,8 @@ fn main_thread(
                             set.push(split_data[i]);
                             failed_format_counter = 0;
                         }
-                        data.time.push(packet.time);
+                        data.time.push(packet.relative_time);
+                        data.absolute_time.push(packet.absolute_time);
                         if data.time.len() != data.dataset[0].len() {
                             data.time = vec![];
                             data.dataset = vec![vec![]; max(split_data.len(), 1)];
@@ -97,8 +99,9 @@ fn main_thread(
             *write_guard = vec![Packet::default()];
         }
 
-        if let Ok(file_path) = save_rx.recv_timeout(Duration::from_millis(10)) {
-            match save_to_csv(&data, &file_path) {
+        if let Ok((file_path, save_absolute_time)) = save_rx.recv_timeout(Duration::from_millis(10))
+        {
+            match save_to_csv(&data, &file_path, save_absolute_time) {
                 Ok(_) => {
                     print_to_console(
                         &print_lock,
@@ -131,7 +134,7 @@ fn main() {
     let print_lock = Arc::new(RwLock::new(vec![Print::Empty]));
     let connected_lock = Arc::new(RwLock::new(false));
 
-    let (save_tx, save_rx): (Sender<PathBuf>, Receiver<PathBuf>) = mpsc::channel();
+    let (save_tx, save_rx): (Sender<(PathBuf, bool)>, Receiver<(PathBuf, bool)>) = mpsc::channel();
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
 

@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use serialport::SerialPort;
 
-use crate::data::SerialDirection;
+use crate::data::{get_epoch_ms, SerialDirection};
 use crate::Device;
 use crate::{print_to_console, Packet, Print};
 
@@ -179,7 +179,8 @@ fn perform_writes(
 
         if let Ok(mut write_guard) = raw_data_lock.write() {
             let packet = Packet {
-                time: Instant::now().duration_since(t_zero).as_millis(),
+                relative_time: Instant::now().duration_since(t_zero).as_millis(),
+                absolute_time: get_epoch_ms(),
                 direction: SerialDirection::Send,
                 payload: cmd,
             };
@@ -210,7 +211,8 @@ fn perform_reads(
         let delimiter = if buf.contains("\r\n") { "\r\n" } else { "\0\0" };
         buf.split_terminator(delimiter).for_each(|s| {
             let packet = Packet {
-                time: Instant::now().duration_since(t_zero).as_millis(),
+                relative_time: Instant::now().duration_since(t_zero).as_millis(),
+                absolute_time: get_epoch_ms(),
                 direction: SerialDirection::Receive,
                 payload: s.to_owned(),
             };

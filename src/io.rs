@@ -1,9 +1,15 @@
-use crate::DataContainer;
-use csv::WriterBuilder;
 use std::error::Error;
 use std::path::PathBuf;
 
-pub fn save_to_csv(data: &DataContainer, file_path: &PathBuf) -> Result<(), Box<dyn Error>> {
+use csv::WriterBuilder;
+
+use crate::DataContainer;
+
+pub fn save_to_csv(
+    data: &DataContainer,
+    file_path: &PathBuf,
+    save_absolute_time: bool,
+) -> Result<(), Box<dyn Error>> {
     let mut wtr = WriterBuilder::new()
         .has_headers(false)
         .from_path(file_path)?;
@@ -14,7 +20,12 @@ pub fn save_to_csv(data: &DataContainer, file_path: &PathBuf) -> Result<(), Box<
     }
     wtr.write_record(header)?;
     for j in 0..data.dataset[0].len() {
-        let mut data_to_write = vec![data.time[j].to_string()];
+        let time = if save_absolute_time {
+            data.absolute_time[j].to_string()
+        } else {
+            data.time[j].to_string()
+        };
+        let mut data_to_write = vec![time];
         for value in data.dataset.iter() {
             data_to_write.push(value[j].to_string());
         }

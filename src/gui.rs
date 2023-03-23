@@ -1,8 +1,10 @@
-use crate::data::{DataContainer, SerialDirection};
-use crate::toggle::toggle;
-use crate::Device;
-use crate::{vec2, APP_INFO, PREFS_KEY};
 use core::f32;
+use std::ops::RangeInclusive;
+use std::path::PathBuf;
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, RwLock};
+use std::time::Duration;
+
 use eframe::egui::panel::Side;
 use eframe::egui::plot::{log_grid_spacer, Legend, Line, Plot, PlotPoints};
 use eframe::egui::{global_dark_light_mode_buttons, ColorImage, FontFamily, FontId, Vec2, Visuals};
@@ -11,11 +13,11 @@ use eframe::{egui, glow, Storage};
 use image::{ImageResult, RgbaImage};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
-use std::ops::RangeInclusive;
-use std::path::PathBuf;
-use std::sync::mpsc::Sender;
-use std::sync::{Arc, RwLock};
-use std::time::Duration;
+
+use crate::data::{DataContainer, SerialDirection};
+use crate::toggle::toggle;
+use crate::Device;
+use crate::{vec2, APP_INFO, PREFS_KEY};
 
 const MAX_FPS: f64 = 60.0;
 
@@ -111,6 +113,7 @@ pub struct GuiSettingsContainer {
     pub debug: bool,
     pub x: f32,
     pub y: f32,
+    pub save_absolute_time: bool,
     pub dark_mode: bool,
 }
 
@@ -122,6 +125,7 @@ impl Default for GuiSettingsContainer {
             debug: true,
             x: 1600.0,
             y: 900.0,
+            save_absolute_time: false,
             dark_mode: true,
         }
     }
@@ -163,7 +167,7 @@ pub struct MyApp {
     devices_lock: Arc<RwLock<Vec<String>>>,
     connected_lock: Arc<RwLock<bool>>,
     data_lock: Arc<RwLock<DataContainer>>,
-    save_tx: Sender<PathBuf>,
+    save_tx: Sender<(PathBuf, bool)>,
     send_tx: Sender<String>,
     clear_tx: Sender<bool>,
     history: Vec<String>,
@@ -184,7 +188,7 @@ impl MyApp {
         devices_lock: Arc<RwLock<Vec<String>>>,
         connected_lock: Arc<RwLock<bool>>,
         gui_conf: GuiSettingsContainer,
-        save_tx: Sender<PathBuf>,
+        save_tx: Sender<(PathBuf, bool)>,
         send_tx: Sender<String>,
         clear_tx: Sender<bool>,
     ) -> Self {
@@ -226,13 +230,13 @@ impl MyApp {
             (true, true, _) => Some(format!(
                 "[{}] t + {:.3}s: {}",
                 packet.direction,
-                packet.time as f32 / 1000.0,
+                packet.relative_time as f32 / 1000.0,
                 packet.payload
             )),
             (true, false, _) => Some(format!("[{}]: {}", packet.direction, packet.payload)),
             (false, true, SerialDirection::Receive) => Some(format!(
                 "t + {:.3}s: {}",
-                packet.time as f32 / 1000.0,
+                packet.relative_time as f32 / 1000.0,
                 packet.payload
             )),
             (false, false, SerialDirection::Receive) => Some(packet.payload.clone()),
@@ -466,7 +470,10 @@ impl MyApp {
                                 if let Some(path) = rfd::FileDialog::new().save_file() {
                                     self.picked_path = path;
                                     self.picked_path.set_extension("csv");
-                                    if let Err(e) = self.save_tx.send(self.picked_path.clone()) {
+                                    if let Err(e) = self.save_tx.send((
+                                        self.picked_path.clone(),
+                                        self.gui_conf.save_absolute_time,
+                                    )) {
                                         print_to_console(
                                             &self.print_lock,
                                             Print::Error(format!(
@@ -523,6 +530,14 @@ impl MyApp {
                             ui.label("Show Timestamp");
                             if ui.add(toggle(&mut self.show_timestamps)).changed() {
                                 // gui_states.push(GuiState::Run(self.show_timestamps));
+                            }
+                            ui.end_row();
+                            ui.label("Save Absolute Time");
+                            if ui
+                                .add(toggle(&mut self.gui_conf.save_absolute_time))
+                                .changed()
+                            {
+                                // ...
                             }
                             ui.end_row();
                             ui.label("EOL character");

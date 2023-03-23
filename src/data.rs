@@ -1,4 +1,5 @@
 use std::fmt;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SerialDirection {
@@ -15,9 +16,17 @@ impl fmt::Display for SerialDirection {
     }
 }
 
+pub fn get_epoch_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+}
+
 #[derive(Clone, Debug)]
 pub struct Packet {
-    pub time: u128,
+    pub relative_time: u128,
+    pub absolute_time: u128,
     pub direction: SerialDirection,
     pub payload: String,
 }
@@ -25,7 +34,8 @@ pub struct Packet {
 impl Default for Packet {
     fn default() -> Packet {
         Packet {
-            time: 0,
+            relative_time: 0,
+            absolute_time: get_epoch_ms(),
             direction: SerialDirection::Send,
             payload: "".to_string(),
         }
@@ -35,6 +45,7 @@ impl Default for Packet {
 #[derive(Clone, Debug)]
 pub struct DataContainer {
     pub time: Vec<u128>,
+    pub absolute_time: Vec<u128>,
     pub dataset: Vec<Vec<f32>>,
     pub raw_traffic: Vec<Packet>,
 }
@@ -43,6 +54,7 @@ impl Default for DataContainer {
     fn default() -> DataContainer {
         DataContainer {
             time: vec![],
+            absolute_time: vec![],
             dataset: vec![vec![]],
             raw_traffic: vec![],
         }
