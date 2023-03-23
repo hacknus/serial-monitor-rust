@@ -14,7 +14,7 @@ pub fn save_to_csv(
         .has_headers(false)
         .from_path(file_path)?;
     // serialize does not work, so we do it with a loop..
-    let mut header = vec!["Time".to_string()];
+    let mut header = vec!["Time [ms]".to_string()];
     for (i, _value) in data.dataset.iter().enumerate() {
         header.push(format!("Column {i}"));
     }
