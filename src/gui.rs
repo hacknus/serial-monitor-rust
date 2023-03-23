@@ -4,7 +4,7 @@ use crate::Device;
 use crate::{vec2, APP_INFO, PREFS_KEY};
 use core::f32;
 use eframe::egui::panel::Side;
-use eframe::egui::plot::{Legend, Line, Plot, PlotPoints};
+use eframe::egui::plot::{log_grid_spacer, Legend, Line, Plot, PlotPoints};
 use eframe::egui::{global_dark_light_mode_buttons, ColorImage, FontFamily, FontId, Vec2, Visuals};
 use eframe::glow::HasContext;
 use eframe::{egui, glow, Storage};
@@ -283,12 +283,12 @@ impl MyApp {
                     }
 
                     let t_fmt = |x, _range: &RangeInclusive<f64>| format!("{:4.2} s", x);
-                    let s_fmt = move |y, _range: &RangeInclusive<f64>| format!("{:4.2} [a.u.]", y);
                     let signal_plot = Plot::new("data")
                         .height(height)
                         .width(width)
                         .legend(Legend::default())
-                        .y_axis_formatter(s_fmt)
+                        .x_grid_spacer(log_grid_spacer(10))
+                        .y_grid_spacer(log_grid_spacer(10))
                         .x_axis_formatter(t_fmt)
                         .min_size(vec2(50.0, 100.0));
 
