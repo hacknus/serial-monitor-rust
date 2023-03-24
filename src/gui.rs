@@ -6,7 +6,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use eframe::egui::panel::Side;
-use eframe::egui::plot::{log_grid_spacer, Legend, Line, Plot, PlotPoints};
+use eframe::egui::plot::{log_grid_spacer, Legend, Line, Plot, PlotPoint, PlotPoints};
 use eframe::egui::{global_dark_light_mode_buttons, ColorImage, FontFamily, FontId, Vec2, Visuals};
 use eframe::glow::HasContext;
 use eframe::{egui, glow, Storage};
@@ -265,7 +265,7 @@ impl MyApp {
                         self.data = read_guard.clone();
                     }
 
-                    let mut graphs: Vec<Vec<[f64; 2]>> = vec![vec![]; self.data.dataset.len()];
+                    let mut graphs: Vec<Vec<PlotPoint>> = vec![vec![]; self.data.dataset.len()];
                     let window: usize = if self.plotting_range == -1
                         || self.data.dataset[0].len() <= self.plotting_range as usize
                     {
@@ -278,7 +278,10 @@ impl MyApp {
                         let time = self.data.time[i] as f64 / 1000.0;
                         for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
                             if self.data.time.len() == data.len() {
-                                graph.push([time, data[i] as f64]);
+                                graph.push(PlotPoint {
+                                    x: time,
+                                    y: data[i] as f64,
+                                });
                             }
                         }
                     }
@@ -294,10 +297,9 @@ impl MyApp {
                         .min_size(vec2(50.0, 100.0));
 
                     signal_plot.show(ui, |signal_plot_ui| {
-                        for (i, graph) in graphs.iter().enumerate() {
+                        for (i, graph) in graphs.into_iter().enumerate() {
                             signal_plot_ui.line(
-                                Line::new(PlotPoints::from(graph.clone()))
-                                    .name(format!("Column {}", i)),
+                                Line::new(PlotPoints::Owned(graph)).name(format!("Column {}", i)),
                             );
                         }
                     });
