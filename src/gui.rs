@@ -274,14 +274,13 @@ impl MyApp {
                         self.data.dataset[0].len() - self.plotting_range as usize
                     };
 
-                    for i in window..self.data.dataset[0].len() {
-                        let time = self.data.time[i] as f64 / 1000.0;
+                    for (i, time) in self.data.time[window..].iter().enumerate() {
+                        let x = *time as f64 / 1000.0;
                         for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
                             if self.data.time.len() == data.len() {
-                                graph.push(PlotPoint {
-                                    x: time,
-                                    y: data[i] as f64,
-                                });
+                                if let Some(y) = data.get(i + window) {
+                                    graph.push(PlotPoint { x, y: *y as f64 });
+                                }
                             }
                         }
                     }
