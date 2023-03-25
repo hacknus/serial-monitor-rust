@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::data::{DataContainer, SerialDirection};
 use crate::toggle::toggle;
-use crate::Device;
 use crate::{vec2, APP_INFO, PREFS_KEY};
+use crate::{CsvOptions, Device};
 
 const MAX_FPS: f64 = 60.0;
 
@@ -167,7 +167,7 @@ pub struct MyApp {
     devices_lock: Arc<RwLock<Vec<String>>>,
     connected_lock: Arc<RwLock<bool>>,
     data_lock: Arc<RwLock<DataContainer>>,
-    save_tx: Sender<(PathBuf, bool)>,
+    save_tx: Sender<CsvOptions>,
     send_tx: Sender<String>,
     clear_tx: Sender<bool>,
     history: Vec<String>,
@@ -188,7 +188,7 @@ impl MyApp {
         devices_lock: Arc<RwLock<Vec<String>>>,
         connected_lock: Arc<RwLock<bool>>,
         gui_conf: GuiSettingsContainer,
-        save_tx: Sender<(PathBuf, bool)>,
+        save_tx: Sender<CsvOptions>,
         send_tx: Sender<String>,
         clear_tx: Sender<bool>,
     ) -> Self {
@@ -471,10 +471,10 @@ impl MyApp {
                                 if let Some(path) = rfd::FileDialog::new().save_file() {
                                     self.picked_path = path;
                                     self.picked_path.set_extension("csv");
-                                    if let Err(e) = self.save_tx.send((
-                                        self.picked_path.clone(),
-                                        self.gui_conf.save_absolute_time,
-                                    )) {
+                                    if let Err(e) = self.save_tx.send(CsvOptions {
+                                        file_path: self.picked_path.clone(),
+                                        save_absolute_time: self.gui_conf.save_absolute_time,
+                                    }) {
                                         print_to_console(
                                             &self.print_lock,
                                             Print::Error(format!(

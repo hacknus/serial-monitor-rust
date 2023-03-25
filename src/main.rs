@@ -38,6 +38,13 @@ pub struct Device {
     pub baud_rate: u32,
 }
 
+/// A set of options for saving data to a CSV file.
+#[derive(Debug)]
+pub struct CsvOptions {
+    file_path: PathBuf,
+    save_absolute_time: bool,
+}
+
 fn split(payload: &str) -> Vec<f32> {
     let mut split_data: Vec<&str> = vec![];
     for s in payload.split(':') {
@@ -54,7 +61,7 @@ fn main_thread(
     data_lock: Arc<RwLock<DataContainer>>,
     raw_data_lock: Arc<RwLock<Vec<Packet>>>,
     print_lock: Arc<RwLock<Vec<Print>>>,
-    save_rx: Receiver<(PathBuf, bool)>,
+    save_rx: Receiver<CsvOptions>,
     clear_rx: Receiver<bool>,
 ) {
     // reads data from mutex, samples and saves if needed
@@ -99,19 +106,21 @@ fn main_thread(
             *write_guard = vec![Packet::default()];
         }
 
-        if let Ok((file_path, save_absolute_time)) = save_rx.recv_timeout(Duration::from_millis(10))
-        {
-            match save_to_csv(&data, &file_path, save_absolute_time) {
+        if let Ok(csv_options) = save_rx.recv_timeout(Duration::from_millis(10)) {
+            match save_to_csv(&data, &csv_options) {
                 Ok(_) => {
                     print_to_console(
                         &print_lock,
-                        Print::Ok(format!("saved data file to {:?} ", file_path)),
+                        Print::Ok(format!("saved data file to {:?} ", csv_options.file_path)),
                     );
                 }
                 Err(e) => {
                     print_to_console(
                         &print_lock,
-                        Print::Error(format!("failed to save file to {:?}: {:?}", file_path, e)),
+                        Print::Error(format!(
+                            "failed to save file to {:?}: {:?}",
+                            csv_options.file_path, e
+                        )),
                     );
                 }
             }
@@ -134,7 +143,7 @@ fn main() {
     let print_lock = Arc::new(RwLock::new(vec![Print::Empty]));
     let connected_lock = Arc::new(RwLock::new(false));
 
-    let (save_tx, save_rx): (Sender<(PathBuf, bool)>, Receiver<(PathBuf, bool)>) = mpsc::channel();
+    let (save_tx, save_rx): (Sender<CsvOptions>, Receiver<CsvOptions>) = mpsc::channel();
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
 
