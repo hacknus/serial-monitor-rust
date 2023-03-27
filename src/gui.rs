@@ -155,7 +155,7 @@ pub struct MyApp {
     command: String,
     device: String,
     baud_rate: u32,
-    plotting_range: i32,
+    plotting_range: usize,
     console: Vec<Print>,
     picked_path: PathBuf,
     picked_path_plot: PathBuf,
@@ -210,7 +210,7 @@ impl MyApp {
             save_tx,
             send_tx,
             clear_tx,
-            plotting_range: -1,
+            plotting_range: usize::MAX,
             command: "".to_string(),
             baud_rate: 9600,
             show_sent_cmds: true,
@@ -266,13 +266,9 @@ impl MyApp {
                     }
 
                     let mut graphs: Vec<Vec<PlotPoint>> = vec![vec![]; self.data.dataset.len()];
-                    let window: usize = if self.plotting_range == -1
-                        || self.data.dataset[0].len() <= self.plotting_range as usize
-                    {
-                        0
-                    } else {
-                        self.data.dataset[0].len() - self.plotting_range as usize
-                    };
+                    let window = self.data.dataset[0]
+                        .len()
+                        .saturating_sub(self.plotting_range);
 
                     for (i, time) in self.data.time[window..].iter().enumerate() {
                         let x = *time as f64 / 1000.0;
@@ -460,12 +456,24 @@ impl MyApp {
                         .striped(true)
                         .show(ui, |ui| {
                             ui.label("Plotting range [#]: ");
-                            if ui
-                                .add(egui::DragValue::new(&mut self.plotting_range))
-                                .lost_focus()
-                            {
-                                //gui_states.push(GuiState::TBegin(self.tera_flash_conf.t_begin));
+
+                            let window_fmt = move |val: f64, _range: RangeInclusive<usize>| {
+                                if val != usize::MAX as f64 {
+                                    format!(
+                                        "{}", val,
+                                    )
+                                } else {
+                                    "∞".to_string()
+                                }
                             };
+
+                            ui.horizontal(|ui| {
+                                ui.add(egui::DragValue::new(&mut self.plotting_range).custom_formatter(window_fmt))
+                                    .on_hover_text("select a window of the last datapoints to be displayed in the plot");
+                                if ui.button("full dataset").clicked(){
+                                    self.plotting_range = usize::MAX;
+                                }
+                            });
                             ui.end_row();
                             if ui.button("Save Data").clicked() {
                                 if let Some(path) = rfd::FileDialog::new().save_file() {
