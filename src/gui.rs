@@ -320,11 +320,9 @@ impl MyApp {
                                 .data
                                 .raw_traffic
                                 .iter()
-                                .map(|packet| match self.console_text(packet) {
-                                    None => "".to_string(),
-                                    Some(text) => text + "\n",
-                                })
-                                .collect();
+                                .flat_map(|packet| self.console_text(packet))
+                                .collect::<Vec<_>>()
+                                .join("\n");
                             let color = if self.gui_conf.dark_mode {
                                 egui::Color32::WHITE
                             } else {
@@ -582,11 +580,10 @@ impl MyApp {
                         let content: String = self
                             .console
                             .iter()
-                            .map(|row| match row.scroll_area_message(&self.gui_conf) {
-                                None => "".to_string(),
-                                Some(msg) => msg.label + msg.content.as_str() + "\n",
-                            })
-                            .collect();
+                            .flat_map(|row| row.scroll_area_message(&self.gui_conf))
+                            .map(|msg| msg.label + msg.content.as_str())
+                            .collect::<Vec<_>>()
+                            .join("\n");
                         // we need to add it as one multiline object, such that we can select and copy
                         // text over multiple lines
                         ui.add(
