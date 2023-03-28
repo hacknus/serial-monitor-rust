@@ -467,8 +467,8 @@ impl MyApp {
 
                             ui.horizontal(|ui| {
                                 ui.add(egui::DragValue::new(&mut self.plotting_range).custom_formatter(window_fmt))
-                                    .on_hover_text("select a window of the last datapoints to be displayed in the plot");
-                                if ui.button("full dataset").clicked(){
+                                    .on_hover_text("Select a window of the last datapoints to be displayed in the plot.");
+                                if ui.button("Full Dataset").on_hover_text("Show the full dataset.").clicked(){
                                     self.plotting_range = usize::MAX;
                                 }
                             });
