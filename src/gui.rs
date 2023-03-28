@@ -215,7 +215,7 @@ impl MyApp {
             baud_rate: 9600,
             show_sent_cmds: true,
             show_timestamps: true,
-            save_raw: true,
+            save_raw: false,
             eol: "\\r\\n".to_string(),
             history: vec![],
             index: 0,
@@ -466,14 +466,19 @@ impl MyApp {
                             };
 
                             ui.horizontal(|ui| {
-                                ui.add(egui::DragValue::new(&mut self.plotting_range).custom_formatter(window_fmt))
+                                ui.add(egui::DragValue::new(&mut self.plotting_range)
+                                    .custom_formatter(window_fmt))
                                     .on_hover_text("Select a window of the last datapoints to be displayed in the plot.");
-                                if ui.button("Full Dataset").on_hover_text("Show the full dataset.").clicked(){
+                                if ui.button("Full Dataset")
+                                    .on_hover_text("Show the full dataset.")
+                                    .clicked() {
                                     self.plotting_range = usize::MAX;
                                 }
                             });
                             ui.end_row();
-                            if ui.button("Save Data").clicked() {
+                            if ui.button("Save CSV")
+                                .on_hover_text("Save plot data to CSV.")
+                                .clicked() {
                                 if let Some(path) = rfd::FileDialog::new().save_file() {
                                     self.picked_path = path;
                                     self.picked_path.set_extension("csv");
@@ -503,7 +508,9 @@ impl MyApp {
                                 }
                             }
                             ui.end_row();
-                            if ui.button("Clear Data").clicked() {
+                            if ui.button("Clear Data")
+                                .on_hover_text("Clear Data from plot.")
+                                .clicked() {
                                 print_to_console(
                                     &self.print_lock,
                                     Print::Ok("Cleared recorded data".to_string()),
@@ -523,35 +530,35 @@ impl MyApp {
                             }
                             ui.end_row();
                             ui.label("Save Raw Traffic");
-                            if ui.add(toggle(&mut self.save_raw)).changed() {
-                                // gui_states.push(GuiState::Run(self.show_timestamps));
-                            }
+                            ui.horizontal(|ui| {
+                                ui.set_enabled(false);
+                                if ui.add(toggle(&mut self.save_raw))
+                                    .on_hover_text("Save raw traffic to CSV. - not implemented yet!")
+                                    .changed() {
+                                    // gui_states.push(GuiState::Run(self.show_timestamps));
+                                }
+                                ui.label("Not implemented yet.");
+                            });
                             ui.end_row();
                             ui.label("");
                             ui.end_row();
                             ui.label("Show Sent Commands");
-                            if ui.add(toggle(&mut self.show_sent_cmds)).changed() {
-                                // gui_states.push(GuiState::Run(self.show_sent_cmds));
-                            }
+                            ui.add(toggle(&mut self.show_sent_cmds))
+                                .on_hover_text("Show sent commands in console.");
                             ui.end_row();
                             ui.label("Show Timestamp");
-                            if ui.add(toggle(&mut self.show_timestamps)).changed() {
-                                // gui_states.push(GuiState::Run(self.show_timestamps));
-                            }
+                            ui.add(toggle(&mut self.show_timestamps))
+                                .on_hover_text("Show timestamp in console.");
                             ui.end_row();
                             ui.label("Save Absolute Time");
-                            if ui
-                                .add(toggle(&mut self.gui_conf.save_absolute_time))
-                                .changed()
-                            {
-                                // ...
-                            }
+                            ui.add(toggle(&mut self.gui_conf.save_absolute_time))
+                                .on_hover_text("Save absolute time in CSV.");
                             ui.end_row();
                             ui.label("EOL character");
                             ui.add(
                                 egui::TextEdit::singleline(&mut self.eol)
-                                    .desired_width(ui.available_width() * 0.9),
-                            );
+                                .desired_width(ui.available_width() * 0.9))
+                                .on_hover_text("Configure your EOL character for sent commands..");
                             // ui.checkbox(&mut self.gui_conf.debug, "Debug Mode");
                             ui.end_row();
                             global_dark_light_mode_buttons(ui);
