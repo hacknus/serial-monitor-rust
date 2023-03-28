@@ -457,11 +457,9 @@ impl MyApp {
                         .show(ui, |ui| {
                             ui.label("Plotting range [#]: ");
 
-                            let window_fmt = move |val: f64, _range: RangeInclusive<usize>| {
+                            let window_fmt = |val: f64, _range: RangeInclusive<usize>| {
                                 if val != usize::MAX as f64 {
-                                    format!(
-                                        "{}", val,
-                                    )
+                                    val.to_string()
                                 } else {
                                     "∞".to_string()
                                 }
