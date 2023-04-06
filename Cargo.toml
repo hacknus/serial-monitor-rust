@@ -28,7 +28,7 @@ keepawake = {git = "https://github.com/segevfiner/keepawake-rs"}
 [package.metadata.bundle]
 name = "Serial Monitor"
 identifier = "com.hacknus.serial_monitor"
-icon = ["./icons/icon-128.png", "./icons/icon-128@2x.png"]
+icon = ["./icons/install.png"]
 version = "0.1.1"
 copyright = "Copyright (c) hacknus 2023. All rights reserved."
 category = "Developer Tool"
