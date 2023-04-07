@@ -346,6 +346,11 @@ impl MyApp {
                             egui::TextEdit::singleline(&mut self.command)
                                 .desired_width(width - 50.0)
                                 .code_editor(),
+                        )
+                        .on_hover_text(
+                            "Send commands to the device. \
+                        Navigate through the history of previously sent \
+                        commands with the up and down arrow keys.",
                         );
                         if ui.input(|i| i.key_pressed(egui::Key::Enter))
                             || ui.button("Send").clicked()
@@ -572,15 +577,18 @@ impl MyApp {
                     if self.data.names.len() == 1 {
                         ui.label("Detected 1 dataset:");
                     } else {
-                        ui.label(format!("Detected {} datasets:", self.data.names.len()));
+                        ui.label(format!("Detected {} Datasets:", self.data.names.len()));
                     }
                     for i in 0..self.data.names.len().min(10) {
-                        if ui.text_edit_singleline(&mut self.data.names[i]).changed() {
+                        if ui.add(
+                            egui::TextEdit::singleline(&mut self.data.names[i])
+                                .desired_width(0.95 * RIGHT_PANEL_WIDTH)
+                        ).on_hover_text("Use custom names for your Datasets.").changed() {
                             self.names_tx.send(self.data.names.clone()).expect("Failed to send names");
                         };
                     }
                     if self.data.names.len() > 10 {
-                        ui.label("only renaming 10 datasets is supported.");
+                        ui.label("Only renaming up to 10 Datasets is currently supported.");
                     }
                 });
 
