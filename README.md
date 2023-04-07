@@ -22,9 +22,9 @@ Features:
 - [X] Cross-platform, fully written in Rust
 - [X] Ability to save text to file
 - [X] Ability to save the plot (Attention: uses unsafe code, experimental)
+- [X] allow to put in labels for the different data columns (instead of column 1, 2, ...)
 - [ ] Save raw data to file (at least as an option)
 - [ ] Smarter data parser
-- [ ] allow to put in labels for the different data columns (instead of column 1, 2, ...)
 - [ ] make serial print selectable and show corresponding datapoint in plot
 - [ ] COM-Port names on Windows (display manufacturer, name, pid or vid of device?)
 - [ ] make side panel and plot/serial prompt be resizeable (snappy?)
