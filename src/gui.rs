@@ -575,7 +575,7 @@ impl MyApp {
                             ui.end_row();
                         });
                     if self.data.names.len() == 1 {
-                        ui.label("Detected 1 dataset:");
+                        ui.label("Detected 1 Dataset:");
                     } else {
                         ui.label(format!("Detected {} Datasets:", self.data.names.len()));
                     }
