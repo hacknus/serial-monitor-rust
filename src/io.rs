@@ -10,9 +10,7 @@ pub fn save_to_csv(data: &DataContainer, csv_options: &CsvOptions) -> Result<(),
         .from_path(&csv_options.file_path)?;
     // serialize does not work, so we do it with a loop..
     let mut header = vec!["Time [ms]".to_string()];
-    for (i, _value) in data.dataset.iter().enumerate() {
-        header.push(format!("Column {i}"));
-    }
+    header.extend_from_slice(&data.names);
     wtr.write_record(header)?;
     for j in 0..data.dataset[0].len() {
         let time = if csv_options.save_absolute_time {

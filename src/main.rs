@@ -61,6 +61,7 @@ fn main_thread(
     data_lock: Arc<RwLock<DataContainer>>,
     raw_data_lock: Arc<RwLock<Vec<Packet>>>,
     print_lock: Arc<RwLock<Vec<Print>>>,
+    names_rx: Receiver<Vec<String>>,
     save_rx: Receiver<CsvOptions>,
     clear_rx: Receiver<bool>,
 ) {
@@ -74,16 +75,28 @@ fn main_thread(
                 failed_format_counter = 0;
             }
         }
+
+        if let Ok(names) = names_rx.recv_timeout(Duration::from_millis(10)) {
+            if data.names.len() == names.len() {
+                data.names = names;
+            }
+        }
+
         if let Ok(read_guard) = raw_data_lock.read() {
             for packet in read_guard.iter() {
                 if !packet.payload.is_empty() {
                     data.raw_traffic.push(packet.clone());
                     let split_data = split(&packet.payload);
                     if data.dataset.is_empty() || failed_format_counter > 10 {
+                        // resetting dataset
                         data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                        data.names = (0..max(split_data.len(), 1))
+                            .map(|i| format!("Column {i}"))
+                            .collect();
                         failed_format_counter = 0;
                         // println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
                     } else if split_data.len() == data.dataset.len() {
+                        // appending data
                         for (i, set) in data.dataset.iter_mut().enumerate() {
                             set.push(split_data[i]);
                             failed_format_counter = 0;
@@ -91,8 +104,12 @@ fn main_thread(
                         data.time.push(packet.relative_time);
                         data.absolute_time.push(packet.absolute_time);
                         if data.time.len() != data.dataset[0].len() {
+                            // resetting dataset
                             data.time = vec![];
                             data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                            data.names = (0..max(split_data.len(), 1))
+                                .map(|i| format!("Column {i}"))
+                                .collect();
                         }
                     } else {
                         // not same length
@@ -146,6 +163,7 @@ fn main() {
     let (save_tx, save_rx): (Sender<CsvOptions>, Receiver<CsvOptions>) = mpsc::channel();
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
+    let (names_tx, names_rx): (Sender<Vec<String>>, Receiver<Vec<String>>) = mpsc::channel();
 
     let serial_device_lock = device_lock.clone();
     let serial_devices_lock = devices_lock.clone();
@@ -175,6 +193,7 @@ fn main() {
             main_data_lock,
             main_raw_data_lock,
             main_print_lock,
+            names_rx,
             save_rx,
             clear_rx,
         );
@@ -204,6 +223,7 @@ fn main() {
                 gui_devices_lock,
                 gui_connected_lock,
                 gui_settings,
+                names_tx,
                 save_tx,
                 send_tx,
                 clear_tx,

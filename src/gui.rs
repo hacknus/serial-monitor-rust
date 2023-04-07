@@ -167,6 +167,7 @@ pub struct MyApp {
     devices_lock: Arc<RwLock<Vec<String>>>,
     connected_lock: Arc<RwLock<bool>>,
     data_lock: Arc<RwLock<DataContainer>>,
+    names_tx: Sender<Vec<String>>,
     save_tx: Sender<CsvOptions>,
     send_tx: Sender<String>,
     clear_tx: Sender<bool>,
@@ -188,6 +189,7 @@ impl MyApp {
         devices_lock: Arc<RwLock<Vec<String>>>,
         connected_lock: Arc<RwLock<bool>>,
         gui_conf: GuiSettingsContainer,
+        names_tx: Sender<Vec<String>>,
         save_tx: Sender<CsvOptions>,
         send_tx: Sender<String>,
         clear_tx: Sender<bool>,
@@ -207,6 +209,7 @@ impl MyApp {
             print_lock,
             gui_conf,
             data_lock,
+            names_tx,
             save_tx,
             send_tx,
             clear_tx,
@@ -294,7 +297,7 @@ impl MyApp {
                     signal_plot.show(ui, |signal_plot_ui| {
                         for (i, graph) in graphs.into_iter().enumerate() {
                             signal_plot_ui.line(
-                                Line::new(PlotPoints::Owned(graph)).name(format!("Column {}", i)),
+                                Line::new(PlotPoints::Owned(graph)).name(&self.data.names[i]),
                             );
                         }
                     });
@@ -565,12 +568,30 @@ impl MyApp {
                             ui.label("");
                             ui.end_row();
                         });
+                    if self.data.names.len() == 1 {
+                        ui.label("Detected 1 dataset:");
+                    } else {
+                        ui.label(format!("Detected {} datasets:", self.data.names.len()));
+                    }
+                    for i in 0..self.data.names.len().min(10) {
+                        if ui.text_edit_singleline(&mut self.data.names[i]).changed() {
+                            self.names_tx.send(self.data.names.clone()).expect("Failed to send names");
+                        };
+                    }
+                    if self.data.names.len() > 10 {
+                        ui.label("only renaming 10 datasets is supported.");
+                    }
                 });
+
                 if let Ok(read_guard) = self.print_lock.read() {
                     self.console = read_guard.clone();
                 }
                 let num_rows = self.console.len();
                 let row_height = ui.text_style_height(&egui::TextStyle::Body);
+
+                ui.add_space(20.0);
+                ui.separator();
+                ui.label("Debug Info:");
                 egui::ScrollArea::vertical()
                     .id_source("console_scroll_area")
                     .auto_shrink([false; 2])
