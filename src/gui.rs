@@ -181,6 +181,7 @@ pub struct MyApp {
     plot_to_save: Option<ColorImage>,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl MyApp {
     pub fn new(
         print_lock: Arc<RwLock<Vec<Print>>>,
