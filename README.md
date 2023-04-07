@@ -1,6 +1,8 @@
-# serial-monitor-rust
+# Serial Monitor
 
-A cross-platform serial monitor/plotter written entirely in rust, the GUI is written
+<a href="https://github.com/hacknus/serial-monitor-rust/releases"><img src="icons/icon.png" alt= “” width="100" height="100"> </img> 
+
+A cross-platform serial monitor and plotter written entirely in rust, the GUI is written
 using [egui](https://github.com/emilk/egui).  
 Inspired by the serial monitor/plotter from the Arduino IDE, but both plotting and reading the traffic can be done
 simultaneously.  
