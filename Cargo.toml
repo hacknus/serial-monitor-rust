@@ -9,7 +9,7 @@ homepage = "https://github.com/hacknus/serial-monitor-rust"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = { version = "0.21.0", features = ["persistence"] }
+eframe = { git = "https://github.com/emilk/egui", features = ["persistence"] }
 egui_extras = { version = "0.21.0", features = ["image"] }
 image = { version = "0.24", default-features = false, features = ["png"] }
 rand = "0.8.4"
@@ -23,7 +23,7 @@ serde = { version = "1.0", features = ["derive"] }
 regex = "1"
 csv = "1.1.6"
 serialport = "4.2.0"
-keepawake = {git = "https://github.com/segevfiner/keepawake-rs"}
+keepawake = { git = "https://github.com/segevfiner/keepawake-rs" }
 
 [package.metadata.bundle]
 name = "Serial Monitor"

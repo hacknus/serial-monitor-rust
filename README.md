@@ -21,8 +21,9 @@ Features:
 - [X] Data Window width is adjustable
 - [X] Cross-platform, fully written in Rust
 - [X] Ability to save text to file
-- [X] Ability to save the plot (Attention: uses unsafe code, experimental)
-- [X] allow to put in labels for the different data columns (instead of column 1, 2, ...)
+- [X] Ability to save the plot
+- [X] Allow to put in labels for the different data columns (instead of column 1, 2, ...)
+- [ ] Allow to choose Data-bits, Flow-Control, Parity and Stop-Bits for Serial Connection
 - [ ] Save raw data to file (at least as an option)
 - [ ] Smarter data parser
 - [ ] make serial print selectable and show corresponding datapoint in plot
