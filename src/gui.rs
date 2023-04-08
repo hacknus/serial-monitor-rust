@@ -323,19 +323,15 @@ impl MyApp {
                         });
                     ui.add_space(spacing / 2.0);
                     ui.horizontal(|ui| {
-                        ui.add(
+                        let cmd_line = ui.add(
                             egui::TextEdit::singleline(&mut self.command)
                                 .desired_width(width - 50.0)
+                                .lock_focus(true)
                                 .code_editor(),
-                        )
-                        .on_hover_text(
-                            "Send commands to the device. \
-                        Navigate through the history of previously sent \
-                        commands with the up and down arrow keys.",
                         );
-                        if ui.input(|i| i.key_pressed(egui::Key::Enter))
-                            || ui.button("Send").clicked()
-                        {
+                        let cmd_has_lost_focus = cmd_line.lost_focus();
+                        let key_pressed = ui.input(|i| i.key_pressed(egui::Key::Enter));
+                        if (key_pressed && cmd_has_lost_focus) || ui.button("Send").clicked() {
                             // send command
                             self.history.push(self.command.clone());
                             self.index = self.history.len() - 1;
@@ -345,6 +341,8 @@ impl MyApp {
                                     Print::Error(format!("send_tx thread send failed: {:?}", err)),
                                 );
                             }
+                            // stay in focus!
+                            cmd_line.request_focus();
                         }
                     });
 
