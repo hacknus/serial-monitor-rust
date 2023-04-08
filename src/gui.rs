@@ -8,9 +8,7 @@ use std::time::Duration;
 use eframe::egui::panel::Side;
 use eframe::egui::plot::{log_grid_spacer, Legend, Line, Plot, PlotPoint, PlotPoints};
 use eframe::egui::{global_dark_light_mode_buttons, ColorImage, FontFamily, FontId, Vec2, Visuals};
-use eframe::glow::HasContext;
-use eframe::{egui, glow, Storage};
-use image::{ImageResult, RgbaImage};
+use eframe::{egui, Storage};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
 
@@ -142,14 +140,6 @@ pub fn load_gui_settings() -> GuiSettingsContainer {
     })
 }
 
-#[derive(Default)]
-struct PlotSize {
-    lower_bound_x: f32,
-    lower_bound_y: f32,
-    width: f32,
-    height: f32,
-}
-
 pub struct MyApp {
     ready: bool,
     command: String,
@@ -158,8 +148,7 @@ pub struct MyApp {
     plotting_range: usize,
     console: Vec<Print>,
     picked_path: PathBuf,
-    picked_path_plot: PathBuf,
-    plot_size: PlotSize,
+    plot_location: egui::Rect,
     data: DataContainer,
     gui_conf: GuiSettingsContainer,
     print_lock: Arc<RwLock<Vec<Print>>>,
@@ -177,8 +166,7 @@ pub struct MyApp {
     show_sent_cmds: bool,
     show_timestamps: bool,
     save_raw: bool,
-    save_plot: bool,
-    plot_to_save: Option<ColorImage>,
+    screenshot: Option<ColorImage>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -198,7 +186,6 @@ impl MyApp {
         Self {
             ready: false,
             picked_path: PathBuf::new(),
-            picked_path_plot: PathBuf::new(),
             device: "".to_string(),
             data: DataContainer::default(),
             console: vec![Print::Message(
@@ -223,9 +210,8 @@ impl MyApp {
             eol: "\\r\\n".to_string(),
             history: vec![],
             index: 0,
-            save_plot: false,
-            plot_to_save: None,
-            plot_size: PlotSize::default(),
+            screenshot: None,
+            plot_location: egui::Rect::EVERYTHING,
         }
     }
 
@@ -254,12 +240,6 @@ impl MyApp {
             let border = 10.0;
             let spacing = (ui.available_size().y - 2.0 * height) / 3.5 - border;
             let width = ui.available_size().x - 2.0 * border - RIGHT_PANEL_WIDTH;
-            // lets set the relative plot size and location for plot saving purposes
-            self.plot_size.lower_bound_x = border / ui.available_size().x;
-            self.plot_size.lower_bound_y =
-                (ui.available_size().y * 0.55 - spacing) / ui.available_size().y;
-            self.plot_size.width = width / ui.available_size().x;
-            self.plot_size.height = height / ui.available_size().y;
 
             ui.add_space(spacing);
             ui.horizontal(|ui| {
@@ -295,13 +275,15 @@ impl MyApp {
                         .x_axis_formatter(t_fmt)
                         .min_size(vec2(50.0, 100.0));
 
-                    signal_plot.show(ui, |signal_plot_ui| {
+                    let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
                         for (i, graph) in graphs.into_iter().enumerate() {
                             signal_plot_ui.line(
                                 Line::new(PlotPoints::Owned(graph)).name(&self.data.names[i]),
                             );
                         }
                     });
+
+                    self.plot_location = plot_inner.response.rect;
 
                     let num_rows = self.data.raw_traffic.len();
                     let row_height = ui.text_style_height(&egui::TextStyle::Body);
@@ -314,7 +296,6 @@ impl MyApp {
                         .id_source("serial_output")
                         .auto_shrink([false; 2])
                         .stick_to_bottom(true)
-                        .always_show_scroll(true)
                         .enable_scrolling(true)
                         .max_height(height - spacing)
                         .min_scrolled_height(height - spacing)
@@ -387,7 +368,7 @@ impl MyApp {
         });
     }
 
-    fn draw_side_panel(&mut self, ctx: &egui::Context) {
+    fn draw_side_panel(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         egui::SidePanel::new(Side::Right, "settings panel")
             .min_width(RIGHT_PANEL_WIDTH)
             .max_width(RIGHT_PANEL_WIDTH)
@@ -508,11 +489,7 @@ impl MyApp {
                                 .on_hover_text("Save an image of the plot - this is experimental!")
                                 .clicked()
                             {
-                                if let Some(mut path) = rfd::FileDialog::new().save_file() {
-                                    path.set_extension("png");
-                                    self.save_plot = true;
-                                    self.picked_path_plot = path;
-                                }
+                                frame.request_screenshot();
                             }
                             ui.end_row();
                             if ui.button("Clear Data")
@@ -644,35 +621,47 @@ impl MyApp {
 }
 
 impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if let Ok(read_guard) = self.connected_lock.read() {
             self.ready = *read_guard;
         }
 
         self.draw_central_panel(ctx);
-        self.draw_side_panel(ctx);
+        self.draw_side_panel(ctx, frame);
 
         self.gui_conf.x = ctx.used_size().x;
         self.gui_conf.y = ctx.used_size().y;
 
-        if let Some(plot_to_save) = self.plot_to_save.take() {
-            // maybe we should put this in a different thread, so that the GUI
-            // doesn't lag during saving
-            match save_image(&plot_to_save, &self.picked_path_plot) {
-                Ok(_) => {
-                    print_to_console(
-                        &self.print_lock,
-                        Print::Ok(format!("saved plot to {:?} ", self.picked_path_plot)),
-                    );
-                }
-                Err(e) => {
-                    print_to_console(
-                        &self.print_lock,
-                        Print::Error(format!(
-                            "failed to plot to {:?}: {:?}",
-                            self.picked_path_plot, e
-                        )),
-                    );
+        if let Some(screenshot) = self.screenshot.take() {
+            if let Some(mut path) = rfd::FileDialog::new().save_file() {
+                path.set_extension("png");
+
+                // for a full size application, we should put this in a different thread,
+                // so that the GUI doesn't lag during saving
+
+                let pixels_per_point = frame.info().native_pixels_per_point;
+                let plot = screenshot.region(&self.plot_location, pixels_per_point);
+
+                // save the plot to png
+                match image::save_buffer(
+                    &path,
+                    plot.as_raw(),
+                    plot.width() as u32,
+                    plot.height() as u32,
+                    image::ColorType::Rgba8,
+                ) {
+                    Ok(_) => {
+                        print_to_console(
+                            &self.print_lock,
+                            Print::Ok(format!("saved plot to {:?} ", path)),
+                        );
+                    }
+                    Err(e) => {
+                        print_to_console(
+                            &self.print_lock,
+                            Print::Error(format!("failed to plot to {:?}: {:?}", path, e)),
+                        );
+                    }
                 }
             }
         }
@@ -686,66 +675,10 @@ impl eframe::App for MyApp {
         }
     }
 
-    #[allow(unsafe_code)]
-    fn post_rendering(&mut self, screen_size_px: [u32; 2], frame: &eframe::Frame) {
+    fn post_rendering(&mut self, _screen_size_px: [u32; 2], frame: &eframe::Frame) {
         // this is inspired by the Egui screenshot example
-
-        if !self.save_plot {
-            return;
-        }
-
-        self.save_plot = false;
-        if let Some(gl) = frame.gl() {
-            let [window_width, window_height] = screen_size_px;
-
-            // we needed the relative values here, because we need to have them in relation to the
-            // screen_size_px.
-            // calculating with absolut px values does not always work (for example with retina
-            // display MacBooks we have different absolute values than with external displays)
-            // using relative values, we have a working solution for all cases
-            let w_lower = self.plot_size.lower_bound_x * window_width as f32;
-            let h_lower = self.plot_size.lower_bound_y * window_height as f32;
-            let w = self.plot_size.width * window_width as f32;
-            let h = self.plot_size.height * window_height as f32;
-
-            let mut buf = vec![0u8; w as usize * h as usize * 4];
-            let pixels = glow::PixelPackData::Slice(&mut buf[..]);
-            unsafe {
-                gl.read_pixels(
-                    w_lower as i32,
-                    h_lower as i32,
-                    w as i32,
-                    h as i32,
-                    glow::RGBA,
-                    glow::UNSIGNED_BYTE,
-                    pixels,
-                );
-            }
-
-            // Flip vertically:
-            let buf: Vec<u8> = buf
-                .chunks(w as usize * 4)
-                .rev()
-                .flat_map(|chunk| chunk.iter())
-                .copied()
-                .collect();
-            self.plot_to_save = Some(ColorImage::from_rgba_unmultiplied(
-                [w as usize, h as usize],
-                &buf[..],
-            ));
+        if let Some(screenshot) = frame.screenshot() {
+            self.screenshot = Some(screenshot);
         }
     }
-}
-
-fn save_image(img: &ColorImage, file_path: &PathBuf) -> ImageResult<()> {
-    let height = img.height();
-    let width = img.width();
-    let raw: Vec<u8> = img
-        .pixels
-        .iter()
-        .flat_map(|p| vec![p.r(), p.g(), p.b(), p.a()])
-        .collect();
-    let img_to_save = RgbaImage::from_raw(width as u32, height as u32, raw)
-        .expect("container should have the right size for the image dimensions");
-    img_to_save.save(file_path)
 }
