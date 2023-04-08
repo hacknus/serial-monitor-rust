@@ -11,11 +11,13 @@ use eframe::egui::{global_dark_light_mode_buttons, ColorImage, FontFamily, FontI
 use eframe::{egui, Storage};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
+use serialport::{DataBits, FlowControl, Parity, StopBits};
 
 use crate::data::{DataContainer, SerialDirection};
+use crate::serial::Device;
 use crate::toggle::toggle;
+use crate::CsvOptions;
 use crate::{vec2, APP_INFO, PREFS_KEY};
-use crate::{CsvOptions, Device};
 
 const MAX_FPS: f64 = 60.0;
 
@@ -143,7 +145,7 @@ pub fn load_gui_settings() -> GuiSettingsContainer {
 pub struct MyApp {
     ready: bool,
     command: String,
-    device: String,
+    device: Device,
     baud_rate: u32,
     plotting_range: usize,
     console: Vec<Print>,
@@ -186,7 +188,7 @@ impl MyApp {
         Self {
             ready: false,
             picked_path: PathBuf::new(),
-            device: "".to_string(),
+            device: Device::default(),
             data: DataContainer::default(),
             console: vec![Print::Message(
                 "waiting for serial connection..,".to_owned(),
@@ -386,14 +388,14 @@ impl MyApp {
                         vec![]
                     };
 
-                    if !devices.contains(&self.device) {
-                        self.device.clear();
+                    if !devices.contains(&self.device.name) {
+                        self.device.name.clear();
                     }
 
                     ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
-                        let dev_text = self.device.replace("/dev/tty.", "");
+                        let dev_text = self.device.name.replace("/dev/tty.", "");
                         egui::ComboBox::from_id_source("Device")
                             .selected_text(dev_text)
                             .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
@@ -406,7 +408,7 @@ impl MyApp {
                                     .for_each(|dev| {
                                         // this makes the names shorter in the UI on UNIX and UNIX-like platforms
                                         let dev_text = dev.replace("/dev/tty.", "");
-                                        ui.selectable_value(&mut self.device, dev, dev_text);
+                                        ui.selectable_value(&mut self.device.name, dev, dev_text);
                                     });
                             });
                         egui::ComboBox::from_id_source("Baud Rate")
@@ -423,15 +425,69 @@ impl MyApp {
                             });
                         let connect_text = if self.ready { "Disconnect" } else { "Connect" };
                         if ui.button(connect_text).clicked() {
-                            if let Ok(mut write_guard) = self.device_lock.write() {
+                            if let Ok(mut device) = self.device_lock.write() {
                                 if self.ready {
-                                    write_guard.name.clear();
+                                    device.name.clear();
                                 } else {
-                                    write_guard.name = self.device.clone();
-                                    write_guard.baud_rate = self.baud_rate;
+                                    device.name = self.device.name.clone();
+                                    device.baud_rate = self.baud_rate;
                                 }
                             }
                         }
+                    });
+                    ui.add_space(5.0);
+                    ui.horizontal(|ui| {
+                        ui.label("Data Bits");
+                        ui.add_space(5.0);
+                        ui.label("Parity");
+                        ui.add_space(20.0);
+                        ui.label("Stop Bits");
+                        ui.label("Flow Control");
+                        ui.label("Timeout");
+                    });
+                    ui.horizontal(|ui| {
+                        egui::ComboBox::from_id_source("Data Bits")
+                            .selected_text(self.device.data_bits.to_string())
+                            .width(30.0)
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut self.device.data_bits, DataBits::Eight, DataBits::Eight.to_string());
+                                ui.selectable_value(&mut self.device.data_bits, DataBits::Seven, DataBits::Seven.to_string());
+                                ui.selectable_value(&mut self.device.data_bits, DataBits::Six, DataBits::Six.to_string());
+                                ui.selectable_value(&mut self.device.data_bits, DataBits::Five, DataBits::Five.to_string());
+
+                            });
+                        egui::ComboBox::from_id_source("Parity")
+                            .selected_text(self.device.parity.to_string())
+                            .width(30.0)
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut self.device.parity, Parity::None, Parity::None.to_string());
+                                ui.selectable_value(&mut self.device.parity, Parity::Odd, Parity::Odd.to_string());
+                                ui.selectable_value(&mut self.device.parity, Parity::Even, Parity::Even.to_string());
+                            });
+                        egui::ComboBox::from_id_source("Stop Bits")
+                            .selected_text(self.device.stop_bits.to_string())
+                            .width(30.0)
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut self.device.stop_bits, StopBits::One, StopBits::One.to_string());
+                                ui.selectable_value(&mut self.device.stop_bits, StopBits::Two, StopBits::Two.to_string());
+                            });
+                        egui::ComboBox::from_id_source("Flow Control")
+                            .selected_text(self.device.flow_control.to_string())
+                            .width(75.0)
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut self.device.flow_control, FlowControl::None, FlowControl::None.to_string());
+                                ui.selectable_value(&mut self.device.flow_control, FlowControl::Hardware, FlowControl::Hardware.to_string());
+                                ui.selectable_value(&mut self.device.flow_control, FlowControl::Software, FlowControl::Software.to_string());
+                            });
+                        egui::ComboBox::from_id_source("Timeout")
+                            .selected_text(self.device.timeout.as_millis().to_string())
+                            .width(55.0)
+                            .show_ui(ui, |ui| {
+                                ui.selectable_value(&mut self.device.timeout, Duration::from_millis(0), "0");
+                                ui.selectable_value(&mut self.device.timeout, Duration::from_millis(10), "10");
+                                ui.selectable_value(&mut self.device.timeout, Duration::from_millis(100), "100");
+                                ui.selectable_value(&mut self.device.timeout, Duration::from_millis(1000), "1000");
+                            });
                     });
 
                     ui.add_space(20.0);
@@ -554,6 +610,7 @@ impl MyApp {
                     } else {
                         ui.label(format!("Detected {} Datasets:", self.data.names.len()));
                     }
+                    ui.add_space(5.0);
                     for i in 0..self.data.names.len().min(10) {
                         if ui.add(
                             egui::TextEdit::singleline(&mut self.data.names[i])
@@ -576,6 +633,7 @@ impl MyApp {
                 ui.add_space(20.0);
                 ui.separator();
                 ui.label("Debug Info:");
+                ui.add_space(5.0);
                 egui::ScrollArea::vertical()
                     .id_source("console_scroll_area")
                     .auto_shrink([false; 2])

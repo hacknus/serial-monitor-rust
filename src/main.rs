@@ -18,7 +18,7 @@ use preferences::AppInfo;
 use crate::data::{DataContainer, Packet};
 use crate::gui::{load_gui_settings, print_to_console, MyApp, Print};
 use crate::io::save_to_csv;
-use crate::serial::serial_thread;
+use crate::serial::{serial_thread, Device};
 
 mod data;
 mod gui;
@@ -31,12 +31,6 @@ const APP_INFO: AppInfo = AppInfo {
     author: "Linus Leo Stöckli",
 };
 const PREFS_KEY: &str = "config/gui";
-
-#[derive(Default, Debug)]
-pub struct Device {
-    pub name: String,
-    pub baud_rate: u32,
-}
 
 /// A set of options for saving data to a CSV file.
 #[derive(Debug)]

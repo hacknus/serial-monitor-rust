@@ -3,11 +3,35 @@ use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-use serialport::SerialPort;
+use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 
 use crate::data::{get_epoch_ms, SerialDirection};
-use crate::Device;
 use crate::{print_to_console, Packet, Print};
+
+#[derive(Debug, Clone)]
+pub struct Device {
+    pub name: String,
+    pub baud_rate: u32,
+    pub data_bits: DataBits,
+    pub flow_control: FlowControl,
+    pub parity: Parity,
+    pub stop_bits: StopBits,
+    pub timeout: Duration,
+}
+
+impl Default for Device {
+    fn default() -> Self {
+        Device {
+            name: "".to_string(),
+            baud_rate: 9600,
+            data_bits: DataBits::Eight,
+            flow_control: FlowControl::None,
+            parity: Parity::None,
+            stop_bits: StopBits::One,
+            timeout: Duration::from_millis(0),
+        }
+    }
+}
 
 fn serial_write(
     port: &mut BufReader<Box<dyn SerialPort>>,
@@ -126,10 +150,7 @@ fn get_device(
 
         if let Ok(device) = device_lock.read() {
             if devices.contains(&device.name) {
-                return Device {
-                    name: device.name.clone(),
-                    baud_rate: device.baud_rate,
-                };
+                return device.clone();
             }
         }
         std::thread::sleep(Duration::from_millis(100));
