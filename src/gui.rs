@@ -465,7 +465,7 @@ impl MyApp {
                             });
                             ui.end_row();
                             if ui.button("Save CSV")
-                                .on_hover_text("Save plot data to CSV.")
+                                .on_hover_text("Save Plot Data to CSV.")
                                 .clicked() {
                                 if let Some(path) = rfd::FileDialog::new().save_file() {
                                     self.picked_path = path;
@@ -486,18 +486,18 @@ impl MyApp {
                             };
                             if ui
                                 .button("Save Plot")
-                                .on_hover_text("Save an image of the plot - this is experimental!")
+                                .on_hover_text("Save an image of the Plot.")
                                 .clicked()
                             {
                                 frame.request_screenshot();
                             }
                             ui.end_row();
                             if ui.button("Clear Data")
-                                .on_hover_text("Clear Data from plot.")
+                                .on_hover_text("Clear Data from Plot.")
                                 .clicked() {
                                 print_to_console(
                                     &self.print_lock,
-                                    Print::Ok("Cleared recorded data".to_string()),
+                                    Print::Ok("Cleared recorded Data".to_string()),
                                 );
                                 match self.clear_tx.send(true) {
                                     Ok(_) => {}
