@@ -393,6 +393,11 @@ impl MyApp {
                     }
 
                     ui.add_space(10.0);
+                    ui.horizontal(|ui| {
+                        ui.label("Device");
+                        ui.add_space(130.0);
+                        ui.label("Baud");
+                    });
 
                     ui.horizontal(|ui| {
                         let dev_text = self.device.name.replace("/dev/tty.", "");
