@@ -7,7 +7,9 @@ use std::time::Duration;
 
 use eframe::egui::panel::Side;
 use eframe::egui::plot::{log_grid_spacer, Legend, Line, Plot, PlotPoint, PlotPoints};
-use eframe::egui::{global_dark_light_mode_buttons, ColorImage, FontFamily, FontId, Vec2, Visuals};
+use eframe::egui::{
+    global_dark_light_mode_buttons, ColorImage, FontFamily, FontId, KeyboardShortcut, Vec2, Visuals,
+};
 use eframe::{egui, Storage};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
@@ -27,6 +29,18 @@ const BAUD_RATES: &[u32] = &[
     300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 74880, 115200, 230400, 128000, 460800,
     576000, 921600,
 ];
+
+const SAVE_FILE_SHORTCUT: KeyboardShortcut =
+    KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::S);
+
+// bitOr is not const, so we use plus
+const SAVE_PLOT_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(
+    egui::Modifiers::COMMAND.plus(egui::Modifiers::SHIFT),
+    egui::Key::S,
+);
+
+const CLEAR_PLOT_SHORTCUT: KeyboardShortcut =
+    KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::X);
 
 #[derive(Clone)]
 #[allow(unused)]
@@ -89,6 +103,7 @@ impl Print {
     }
 }
 
+#[allow(dead_code)]
 pub struct ScrollAreaMessage {
     label: String,
     content: String,
@@ -406,7 +421,7 @@ impl MyApp {
                     ui.horizontal(|ui| {
                         let dev_text = self.device.name.replace("/dev/tty.", "");
                         let old_name = self.device.name.clone();
-                        let selected_new_device = egui::ComboBox::from_id_source("Device")
+                        let _selected_new_device = egui::ComboBox::from_id_source("Device")
                             .selected_text(dev_text)
                             .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
                             .show_ui(ui, |ui| {
@@ -550,15 +565,9 @@ impl MyApp {
                             });
                             ui.end_row();
 
-                            let save_file_shortcut =
-                                egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::S);
-
-                            let save_plot_shortcut =
-                                egui::KeyboardShortcut::new(egui::Modifiers::COMMAND | egui::Modifiers::SHIFT, egui::Key::S);
-
                             if ui.button("Save CSV") 
                                 .on_hover_text("Save Plot Data to CSV.")
-                                .clicked() || ui.input_mut(|i| i.consume_shortcut(&save_file_shortcut))
+                                .clicked() || ui.input_mut(|i| i.consume_shortcut(&SAVE_FILE_SHORTCUT))
                             {
                                 if let Some(path) = rfd::FileDialog::new().save_file() {
                                     self.picked_path = path;
@@ -580,7 +589,7 @@ impl MyApp {
                             if ui
                                 .button("Save Plot")
                                 .on_hover_text("Save an image of the Plot.")
-                                .clicked() || ui.input_mut(|i| i.consume_shortcut(&save_plot_shortcut))
+                                .clicked() || ui.input_mut(|i| i.consume_shortcut(&SAVE_PLOT_SHORTCUT))
 
                             {
                                 frame.request_screenshot();
@@ -588,7 +597,7 @@ impl MyApp {
                             ui.end_row();
                             if ui.button("Clear Data")
                                 .on_hover_text("Clear Data from Plot.")
-                                .clicked() {
+                                .clicked() || ui.input_mut(|i| i.consume_shortcut(&CLEAR_PLOT_SHORTCUT)) {
                                 print_to_console(
                                     &self.print_lock,
                                     Print::Ok("Cleared recorded Data".to_string()),
