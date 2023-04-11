@@ -22,7 +22,7 @@ preferences = { git = "https://github.com/andybarron/preferences-rs" }
 serde = { version = "1.0", features = ["derive"] }
 regex = "1"
 csv = "1.1.6"
-serialport = { git = "https://github.com/hacknus/serialport-rs" }
+serialport = { git = "https://github.com/hacknus/serialport-rs", features = ["serde"] }
 keepawake = { git = "https://github.com/segevfiner/keepawake-rs" }
 
 [package.metadata.bundle]

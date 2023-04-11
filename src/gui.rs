@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 
 use crate::data::{DataContainer, SerialDirection};
-use crate::serial::Device;
+use crate::serial::{save_serial_settings, Device, SerialDevices};
 use crate::toggle::toggle;
 use crate::CsvOptions;
 use crate::{vec2, APP_INFO, PREFS_KEY};
@@ -146,7 +146,8 @@ pub struct MyApp {
     ready: bool,
     command: String,
     device: Device,
-    baud_rate: u32,
+    device_idx: usize,
+    serial_devices: SerialDevices,
     plotting_range: usize,
     console: Vec<Print>,
     picked_path: PathBuf,
@@ -178,6 +179,7 @@ impl MyApp {
         data_lock: Arc<RwLock<DataContainer>>,
         device_lock: Arc<RwLock<Device>>,
         devices_lock: Arc<RwLock<Vec<String>>>,
+        devices: SerialDevices,
         connected_lock: Arc<RwLock<bool>>,
         gui_conf: GuiSettingsContainer,
         names_tx: Sender<Vec<String>>,
@@ -196,6 +198,8 @@ impl MyApp {
             connected_lock,
             device_lock,
             devices_lock,
+            device_idx: 0,
+            serial_devices: devices,
             print_lock,
             gui_conf,
             data_lock,
@@ -205,7 +209,6 @@ impl MyApp {
             clear_tx,
             plotting_range: usize::MAX,
             command: "".to_string(),
-            baud_rate: 9600,
             show_sent_cmds: true,
             show_timestamps: true,
             save_raw: false,
@@ -369,6 +372,7 @@ impl MyApp {
     }
 
     fn draw_side_panel(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        let mut init = false;
         egui::SidePanel::new(Side::Right, "settings panel")
             .min_width(RIGHT_PANEL_WIDTH)
             .max_width(RIGHT_PANEL_WIDTH)
@@ -401,7 +405,8 @@ impl MyApp {
 
                     ui.horizontal(|ui| {
                         let dev_text = self.device.name.replace("/dev/tty.", "");
-                        egui::ComboBox::from_id_source("Device")
+                        let old_name = self.device.name.clone();
+                        let selected_new_device = egui::ComboBox::from_id_source("Device")
                             .selected_text(dev_text)
                             .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
                             .show_ui(ui, |ui| {
@@ -415,14 +420,35 @@ impl MyApp {
                                         let dev_text = dev.replace("/dev/tty.", "");
                                         ui.selectable_value(&mut self.device.name, dev, dev_text);
                                     });
-                            });
+                            }).response.changed();  //somehow this does not work
+                        //if selected_new_device {
+                        if old_name != self.device.name {
+                            // new device selected, check in previously used devices
+                            let mut device_is_already_saved = false;
+                            for (idx, dev) in self.serial_devices.devices.iter().enumerate() {
+                                if dev.name == self.device.name {
+                                    // this is the device!
+                                    println!("found the device in history! {:?}", dev.name);
+                                    self.device = dev.clone();
+                                    self.device_idx = idx;
+                                    init = true;
+                                    device_is_already_saved = true;
+                                }
+                            }
+                            if !device_is_already_saved {
+                                self.serial_devices.devices.push(self.device.clone());
+                                self.serial_devices.labels.push(vec!["Column 0".to_string()]);
+                                self.device_idx = self.serial_devices.devices.len() - 1;
+                                save_serial_settings(&self.serial_devices);
+                            }
+                        }
                         egui::ComboBox::from_id_source("Baud Rate")
-                            .selected_text(format!("{}", self.baud_rate))
+                            .selected_text(format!("{}", self.serial_devices.devices[self.device_idx].baud_rate))
                             .width(80.0)
                             .show_ui(ui, |ui| {
                                 BAUD_RATES.iter().for_each(|baud_rate| {
                                     ui.selectable_value(
-                                        &mut self.baud_rate,
+                                        &mut self.serial_devices.devices[self.device_idx].baud_rate,
                                         *baud_rate,
                                         baud_rate.to_string(),
                                     );
@@ -434,8 +460,8 @@ impl MyApp {
                                 if self.ready {
                                     device.name.clear();
                                 } else {
-                                    device.name = self.device.name.clone();
-                                    device.baud_rate = self.baud_rate;
+                                    device.name = self.serial_devices.devices[self.device_idx].name.clone();
+                                    device.baud_rate = self.serial_devices.devices[self.device_idx].baud_rate;
                                 }
                             }
                         }
@@ -452,46 +478,46 @@ impl MyApp {
                     });
                     ui.horizontal(|ui| {
                         egui::ComboBox::from_id_source("Data Bits")
-                            .selected_text(self.device.data_bits.to_string())
+                            .selected_text(self.serial_devices.devices[self.device_idx].data_bits.to_string())
                             .width(30.0)
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.device.data_bits, DataBits::Eight, DataBits::Eight.to_string());
-                                ui.selectable_value(&mut self.device.data_bits, DataBits::Seven, DataBits::Seven.to_string());
-                                ui.selectable_value(&mut self.device.data_bits, DataBits::Six, DataBits::Six.to_string());
-                                ui.selectable_value(&mut self.device.data_bits, DataBits::Five, DataBits::Five.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Eight, DataBits::Eight.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Seven, DataBits::Seven.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Six, DataBits::Six.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Five, DataBits::Five.to_string());
 
                             });
                         egui::ComboBox::from_id_source("Parity")
-                            .selected_text(self.device.parity.to_string())
+                            .selected_text(self.serial_devices.devices[self.device_idx].parity.to_string())
                             .width(30.0)
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.device.parity, Parity::None, Parity::None.to_string());
-                                ui.selectable_value(&mut self.device.parity, Parity::Odd, Parity::Odd.to_string());
-                                ui.selectable_value(&mut self.device.parity, Parity::Even, Parity::Even.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::None, Parity::None.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::Odd, Parity::Odd.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::Even, Parity::Even.to_string());
                             });
                         egui::ComboBox::from_id_source("Stop Bits")
-                            .selected_text(self.device.stop_bits.to_string())
+                            .selected_text(self.serial_devices.devices[self.device_idx].stop_bits.to_string())
                             .width(30.0)
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.device.stop_bits, StopBits::One, StopBits::One.to_string());
-                                ui.selectable_value(&mut self.device.stop_bits, StopBits::Two, StopBits::Two.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].stop_bits, StopBits::One, StopBits::One.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].stop_bits, StopBits::Two, StopBits::Two.to_string());
                             });
                         egui::ComboBox::from_id_source("Flow Control")
-                            .selected_text(self.device.flow_control.to_string())
+                            .selected_text(self.serial_devices.devices[self.device_idx].flow_control.to_string())
                             .width(75.0)
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.device.flow_control, FlowControl::None, FlowControl::None.to_string());
-                                ui.selectable_value(&mut self.device.flow_control, FlowControl::Hardware, FlowControl::Hardware.to_string());
-                                ui.selectable_value(&mut self.device.flow_control, FlowControl::Software, FlowControl::Software.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::None, FlowControl::None.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Hardware, FlowControl::Hardware.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Software, FlowControl::Software.to_string());
                             });
                         egui::ComboBox::from_id_source("Timeout")
-                            .selected_text(self.device.timeout.as_millis().to_string())
+                            .selected_text(self.serial_devices.devices[self.device_idx].timeout.as_millis().to_string())
                             .width(55.0)
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.device.timeout, Duration::from_millis(0), "0");
-                                ui.selectable_value(&mut self.device.timeout, Duration::from_millis(10), "10");
-                                ui.selectable_value(&mut self.device.timeout, Duration::from_millis(100), "100");
-                                ui.selectable_value(&mut self.device.timeout, Duration::from_millis(1000), "1000");
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(0), "0");
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(10), "10");
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(100), "100");
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(1000), "1000");
                             });
                     });
 
@@ -617,11 +643,24 @@ impl MyApp {
                     }
                     ui.add_space(5.0);
                     for i in 0..self.data.names.len().min(10) {
+                        // if init, set names to what has been stored in the device last time
+                        if init {
+                            println!("init");
+                            dbg!(&self.serial_devices.labels[self.device_idx]);
+                            self.data.names = self.serial_devices.labels[self.device_idx].clone();
+                            self.names_tx.send(self.data.names.clone()).expect("Failed to send names");
+                            init = false;
+                        }
+                        if self.data.names.len() <= i {
+                            break;
+                        }
+
                         if ui.add(
                             egui::TextEdit::singleline(&mut self.data.names[i])
                                 .desired_width(0.95 * RIGHT_PANEL_WIDTH)
                         ).on_hover_text("Use custom names for your Datasets.").changed() {
                             self.names_tx.send(self.data.names.clone()).expect("Failed to send names");
+                            self.serial_devices.labels[self.device_idx] = self.data.names.clone();
                         };
                     }
                     if self.data.names.len() > 10 {
@@ -731,6 +770,7 @@ impl eframe::App for MyApp {
     }
 
     fn save(&mut self, _storage: &mut dyn Storage) {
+        save_serial_settings(&self.serial_devices);
         if let Err(err) = self.gui_conf.save(&APP_INFO, PREFS_KEY) {
             println!("gui settings save failed: {:?}", err);
         }

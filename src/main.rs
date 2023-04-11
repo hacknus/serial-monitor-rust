@@ -18,7 +18,7 @@ use preferences::AppInfo;
 use crate::data::{DataContainer, Packet};
 use crate::gui::{load_gui_settings, print_to_console, MyApp, Print};
 use crate::io::save_to_csv;
-use crate::serial::{serial_thread, Device};
+use crate::serial::{load_serial_settings, serial_thread, Device};
 
 mod data;
 mod gui;
@@ -31,6 +31,7 @@ const APP_INFO: AppInfo = AppInfo {
     author: "Linus Leo Stöckli",
 };
 const PREFS_KEY: &str = "config/gui";
+const PREFS_KEY_SERIAL: &str = "config/serial_devices";
 
 /// A set of options for saving data to a CSV file.
 #[derive(Debug)]
@@ -71,9 +72,7 @@ fn main_thread(
         }
 
         if let Ok(names) = names_rx.recv_timeout(Duration::from_millis(10)) {
-            if data.names.len() == names.len() {
-                data.names = names;
-            }
+            data.names = names;
         }
 
         if let Ok(read_guard) = raw_data_lock.read() {
@@ -84,9 +83,11 @@ fn main_thread(
                     if data.dataset.is_empty() || failed_format_counter > 10 {
                         // resetting dataset
                         data.dataset = vec![vec![]; max(split_data.len(), 1)];
-                        data.names = (0..max(split_data.len(), 1))
-                            .map(|i| format!("Column {i}"))
-                            .collect();
+                        if data.names.len() != split_data.len() {
+                            data.names = (0..max(split_data.len(), 1))
+                                .map(|i| format!("Column {i}"))
+                                .collect();
+                        }
                         failed_format_counter = 0;
                         // println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
                     } else if split_data.len() == data.dataset.len() {
@@ -101,9 +102,11 @@ fn main_thread(
                             // resetting dataset
                             data.time = vec![];
                             data.dataset = vec![vec![]; max(split_data.len(), 1)];
-                            data.names = (0..max(split_data.len(), 1))
-                                .map(|i| format!("Column {i}"))
-                                .collect();
+                            if data.names.len() != split_data.len() {
+                                data.names = (0..max(split_data.len(), 1))
+                                    .map(|i| format!("Column {i}"))
+                                    .collect();
+                            }
                         }
                     } else {
                         // not same length
@@ -146,6 +149,7 @@ fn main_thread(
 
 fn main() {
     let gui_settings = load_gui_settings();
+    let saved_serial_device_configs = load_serial_settings();
 
     let device_lock = Arc::new(RwLock::new(Device::default()));
     let devices_lock = Arc::new(RwLock::new(vec![gui_settings.device.clone()]));
@@ -215,6 +219,7 @@ fn main() {
                 gui_data_lock,
                 gui_device_lock,
                 gui_devices_lock,
+                saved_serial_device_configs,
                 gui_connected_lock,
                 gui_settings,
                 names_tx,

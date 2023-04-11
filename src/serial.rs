@@ -3,12 +3,44 @@ use std::sync::mpsc::Receiver;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
+use preferences::Preferences;
+use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 
 use crate::data::{get_epoch_ms, SerialDirection};
-use crate::{print_to_console, Packet, Print};
+use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SerialDevices {
+    pub devices: Vec<Device>,
+    pub labels: Vec<Vec<String>>,
+}
+
+impl Default for SerialDevices {
+    fn default() -> Self {
+        SerialDevices {
+            devices: vec![Device::default()],
+            labels: vec![vec!["Column 0".to_string()]],
+        }
+    }
+}
+
+pub fn load_serial_settings() -> SerialDevices {
+    SerialDevices::load(&APP_INFO, PREFS_KEY_SERIAL).unwrap_or_else(|_| {
+        let serial_configs = SerialDevices::default();
+        // save default settings
+        save_serial_settings(&serial_configs);
+        serial_configs
+    })
+}
+
+pub fn save_serial_settings(serial_configs: &SerialDevices) {
+    if serial_configs.save(&APP_INFO, PREFS_KEY_SERIAL).is_err() {
+        println!("failed to save gui_settings");
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Device {
     pub name: String,
     pub baud_rate: u32,

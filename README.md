@@ -24,6 +24,7 @@ Features:
 - [X] Ability to save the plot
 - [X] Allow to put in labels for the different data columns (instead of column 1, 2, ...)
 - [X] Allow to choose Data-bits, Flow-Control, Parity and Stop-Bits for Serial Connection
+- [X] Saves the configuration for the serial port after closing and reloads them automatically upon selection
 - [ ] Save raw data to file (at least as an option)
 - [ ] Smarter data parser
 - [ ] make serial print selectable and show corresponding datapoint in plot
