@@ -549,9 +549,17 @@ impl MyApp {
                                 }
                             });
                             ui.end_row();
-                            if ui.button("Save CSV")
+
+                            let save_file_shortcut =
+                                egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::S);
+
+                            let save_plot_shortcut =
+                                egui::KeyboardShortcut::new(egui::Modifiers::COMMAND | egui::Modifiers::SHIFT, egui::Key::S);
+
+                            if ui.button("Save CSV") 
                                 .on_hover_text("Save Plot Data to CSV.")
-                                .clicked() {
+                                .clicked() || ui.input_mut(|i| i.consume_shortcut(&save_file_shortcut))
+                            {
                                 if let Some(path) = rfd::FileDialog::new().save_file() {
                                     self.picked_path = path;
                                     self.picked_path.set_extension("csv");
@@ -572,7 +580,8 @@ impl MyApp {
                             if ui
                                 .button("Save Plot")
                                 .on_hover_text("Save an image of the Plot.")
-                                .clicked()
+                                .clicked() || ui.input_mut(|i| i.consume_shortcut(&save_plot_shortcut))
+
                             {
                                 frame.request_screenshot();
                             }
