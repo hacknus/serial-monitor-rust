@@ -158,7 +158,7 @@ pub fn load_gui_settings() -> GuiSettingsContainer {
 }
 
 pub struct MyApp {
-    ready: bool,
+    connected_to_device: bool,
     command: String,
     device: Device,
     device_idx: usize,
@@ -203,7 +203,7 @@ impl MyApp {
         clear_tx: Sender<bool>,
     ) -> Self {
         Self {
-            ready: false,
+            connected_to_device: false,
             picked_path: PathBuf::new(),
             device: Device::default(),
             data: DataContainer::default(),
@@ -423,7 +423,7 @@ impl MyApp {
                         let dev_text = self.device.name.replace("/dev/tty.", "");
                         let old_name = self.device.name.clone();
                         ui.horizontal(|ui| {
-                            ui.set_enabled(!self.ready);
+                            ui.set_enabled(!self.connected_to_device);
                             let _response = egui::ComboBox::from_id_source("Device")
                                 .selected_text(dev_text)
                                 .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
@@ -479,10 +479,10 @@ impl MyApp {
                                     );
                                 });
                             });
-                        let connect_text = if self.ready { "Disconnect" } else { "Connect" };
+                        let connect_text = if self.connected_to_device { "Disconnect" } else { "Connect" };
                         if ui.button(connect_text).clicked() {
                             if let Ok(mut device) = self.device_lock.write() {
-                                if self.ready {
+                                if self.connected_to_device {
                                     device.name.clear();
                                 } else {
                                     device.name = self.serial_devices.devices[self.device_idx].name.clone();
@@ -728,7 +728,7 @@ impl MyApp {
     }
 
     fn paint_connection_indicator(&self, ui: &mut egui::Ui) {
-        let (color, color_stroke) = if !self.ready {
+        let (color, color_stroke) = if !self.connected_to_device {
             ui.add(egui::Spinner::new());
             (egui::Color32::DARK_RED, egui::Color32::RED)
         } else {
@@ -748,7 +748,7 @@ impl MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if let Ok(read_guard) = self.connected_lock.read() {
-            self.ready = *read_guard;
+            self.connected_to_device = *read_guard;
         }
 
         self.draw_central_panel(ctx);
