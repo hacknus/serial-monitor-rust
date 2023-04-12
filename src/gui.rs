@@ -8,7 +8,8 @@ use std::time::Duration;
 use eframe::egui::panel::Side;
 use eframe::egui::plot::{log_grid_spacer, Legend, Line, Plot, PlotPoint, PlotPoints};
 use eframe::egui::{
-    global_dark_light_mode_buttons, ColorImage, FontFamily, FontId, KeyboardShortcut, Vec2, Visuals,
+    global_dark_light_mode_buttons, Align2, ColorImage, FontFamily, FontId, KeyboardShortcut, Pos2,
+    Vec2, Visuals,
 };
 use eframe::{egui, Storage};
 use preferences::Preferences;
@@ -50,6 +51,14 @@ pub enum Print {
     Error(String),
     Debug(String),
     Ok(String),
+}
+
+#[derive(PartialEq)]
+pub enum WindowFeedback {
+    None,
+    Waiting,
+    Clear,
+    Cancel,
 }
 
 impl Print {
@@ -160,7 +169,8 @@ pub fn load_gui_settings() -> GuiSettingsContainer {
 pub struct MyApp {
     connected_to_device: bool,
     command: String,
-    device: Device,
+    device: String,
+    old_device: String,
     device_idx: usize,
     serial_devices: SerialDevices,
     plotting_range: usize,
@@ -184,6 +194,8 @@ pub struct MyApp {
     show_sent_cmds: bool,
     show_timestamps: bool,
     save_raw: bool,
+    show_warning_window: WindowFeedback,
+    do_not_show_clear_warning: bool,
     screenshot: Option<ColorImage>,
 }
 
@@ -205,7 +217,8 @@ impl MyApp {
         Self {
             connected_to_device: false,
             picked_path: PathBuf::new(),
-            device: Device::default(),
+            device: "".to_string(),
+            old_device: "".to_string(),
             data: DataContainer::default(),
             console: vec![Print::Message(
                 "waiting for serial connection..,".to_owned(),
@@ -232,7 +245,39 @@ impl MyApp {
             index: 0,
             screenshot: None,
             plot_location: egui::Rect::EVERYTHING,
+            do_not_show_clear_warning: false,
+            show_warning_window: WindowFeedback::None,
         }
+    }
+
+    pub fn clear_warning_window(&mut self, ctx: &egui::Context) -> WindowFeedback {
+        let mut window_feedback = WindowFeedback::Waiting;
+        egui::Window::new("Attention!")
+            .fixed_pos(Pos2 { x: 800.0, y: 450.0 })
+            .fixed_size(Vec2 { x: 400.0, y: 200.0 })
+            .anchor(Align2::CENTER_CENTER, Vec2 { x: 0.0, y: 0.0 })
+            .collapsible(false)
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(20.0);
+                    ui.label("Changing devices will clear all data.");
+                    ui.label("How do you want to proceed?");
+                    ui.add_space(20.0);
+                    ui.checkbox(&mut self.do_not_show_clear_warning, "Remember my decision.");
+                    ui.add_space(20.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(100.0);
+                        if ui.button("Continue & Clear").clicked() {
+                            window_feedback = WindowFeedback::Clear;
+                        }
+                        if ui.button("Cancel").clicked() {
+                            window_feedback = WindowFeedback::Cancel;
+                        }
+                    });
+                    ui.add_space(5.0);
+                });
+            });
+        window_feedback
     }
 
     fn console_text(&self, packet: &crate::data::Packet) -> Option<String> {
@@ -297,10 +342,12 @@ impl MyApp {
 
                     let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
                         for (i, graph) in graphs.into_iter().enumerate() {
-                            signal_plot_ui.line(
-                                Line::new(PlotPoints::Owned(graph))
-                                    .name(&self.serial_devices.labels[self.device_idx][i]),
-                            );
+                            if i < self.serial_devices.labels[self.device_idx].len() {
+                                signal_plot_ui.line(
+                                    Line::new(PlotPoints::Owned(graph))
+                                        .name(&self.serial_devices.labels[self.device_idx][i]),
+                                );
+                            }
                         }
                     });
 
@@ -408,8 +455,8 @@ impl MyApp {
                         vec![]
                     };
 
-                    if !devices.contains(&self.device.name) {
-                        self.device.name.clear();
+                    if !devices.contains(&self.device) {
+                        self.device.clear();
                     }
 
                     ui.add_space(10.0);
@@ -419,9 +466,9 @@ impl MyApp {
                         ui.label("Baud");
                     });
 
+                    let old_name = self.device.clone();
                     ui.horizontal(|ui| {
-                        let dev_text = self.device.name.replace("/dev/tty.", "");
-                        let old_name = self.device.name.clone();
+                        let dev_text = self.device.replace("/dev/tty.", "");
                         ui.horizontal(|ui| {
                             ui.set_enabled(!self.connected_to_device);
                             let _response = egui::ComboBox::from_id_source("Device")
@@ -436,20 +483,32 @@ impl MyApp {
                                         .for_each(|dev| {
                                             // this makes the names shorter in the UI on UNIX and UNIX-like platforms
                                             let dev_text = dev.replace("/dev/tty.", "");
-                                            ui.selectable_value(&mut self.device.name, dev, dev_text);
+                                            ui.selectable_value(&mut self.device, dev, dev_text);
                                         });
                                 }).response;
                             // let selected_new_device = response.changed();  //somehow this does not work
                             // if selected_new_device {
-                            if old_name != self.device.name {
-                                // TODO: add warning window, to confirm that this will clear all data!
+                            if old_name != self.device {
+                                if !self.data.time.is_empty() {
+                                    self.show_warning_window = WindowFeedback::Waiting;
+                                    self.old_device = old_name;
+                                } else {
+                                    self.show_warning_window = WindowFeedback::Clear;
+                                }
+                            }
+                        });
+                        match self.show_warning_window {
+                            WindowFeedback::None => {}
+                            WindowFeedback::Waiting => {
+                                self.show_warning_window = self.clear_warning_window(ctx);
+                            }
+                            WindowFeedback::Clear => {
                                 // new device selected, check in previously used devices
                                 let mut device_is_already_saved = false;
                                 for (idx, dev) in self.serial_devices.devices.iter().enumerate() {
-                                    if dev.name == self.device.name {
+                                    if dev.name == self.device {
                                         // this is the device!
-                                        println!("found the device in history! {:?}", dev.name);
-                                        self.device = dev.clone();
+                                        self.device = dev.name.clone();
                                         self.device_idx = idx;
                                         init = true;
                                         device_is_already_saved = true;
@@ -457,7 +516,9 @@ impl MyApp {
                                 }
                                 if !device_is_already_saved {
                                     // create new device in the archive
-                                    self.serial_devices.devices.push(self.device.clone());
+                                    let mut device = Device::default();
+                                    device.name = self.device.clone();
+                                    self.serial_devices.devices.push(device);
                                     self.serial_devices.labels.push(vec!["Column 0".to_string()]);
                                     self.device_idx = self.serial_devices.devices.len() - 1;
                                     save_serial_settings(&self.serial_devices);
@@ -465,8 +526,13 @@ impl MyApp {
                                 self.clear_tx.send(true).expect("failed to send clear after choosing new device");
                                 // need to clear the data here such that we don't get errors in the gui (plot)
                                 self.data = DataContainer::default();
+                                self.show_warning_window = WindowFeedback::None;
                             }
-                        });
+                            WindowFeedback::Cancel => {
+                                self.device = self.old_device.clone();
+                                self.show_warning_window = WindowFeedback::None;
+                            }
+                        }
                         egui::ComboBox::from_id_source("Baud Rate")
                             .selected_text(format!("{}", self.serial_devices.devices[self.device_idx].baud_rate))
                             .width(80.0)
