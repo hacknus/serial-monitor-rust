@@ -732,6 +732,9 @@ impl MyApp {
                             ui.label("");
                             ui.end_row();
                         });
+                    if ui.button("Reset Labels").clicked() {
+                        self.serial_devices.labels[self.device_idx] = self.data.names.clone();
+                    }
                     if self.data.names.len() == 1 {
                         ui.label("Detected 1 Dataset:");
                     } else {
