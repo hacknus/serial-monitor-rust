@@ -266,7 +266,7 @@ impl MyApp {
                     ui.checkbox(&mut self.do_not_show_clear_warning, "Remember my decision.");
                     ui.add_space(20.0);
                     ui.horizontal(|ui| {
-                        ui.add_space(100.0);
+                        ui.add_space(130.0);
                         if ui.button("Continue & Clear").clicked() {
                             window_feedback = WindowFeedback::Clear;
                         }
