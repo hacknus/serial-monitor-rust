@@ -298,7 +298,8 @@ impl MyApp {
                     let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
                         for (i, graph) in graphs.into_iter().enumerate() {
                             signal_plot_ui.line(
-                                Line::new(PlotPoints::Owned(graph)).name(&self.data.names[i]),
+                                Line::new(PlotPoints::Owned(graph))
+                                    .name(&self.serial_devices.labels[self.device_idx][i]),
                             );
                         }
                     });
@@ -421,42 +422,51 @@ impl MyApp {
                     ui.horizontal(|ui| {
                         let dev_text = self.device.name.replace("/dev/tty.", "");
                         let old_name = self.device.name.clone();
-                        let _selected_new_device = egui::ComboBox::from_id_source("Device")
-                            .selected_text(dev_text)
-                            .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
-                            .show_ui(ui, |ui| {
-                                devices
-                                    .into_iter()
-                                    // on macOS each device appears as /dev/tty.* and /dev/cu.*
-                                    // we only display the /dev/tty.* here
-                                    .filter(|dev| !dev.contains("/dev/cu."))
-                                    .for_each(|dev| {
-                                        // this makes the names shorter in the UI on UNIX and UNIX-like platforms
-                                        let dev_text = dev.replace("/dev/tty.", "");
-                                        ui.selectable_value(&mut self.device.name, dev, dev_text);
-                                    });
-                            }).response.changed();  //somehow this does not work
-                        //if selected_new_device {
-                        if old_name != self.device.name {
-                            // new device selected, check in previously used devices
-                            let mut device_is_already_saved = false;
-                            for (idx, dev) in self.serial_devices.devices.iter().enumerate() {
-                                if dev.name == self.device.name {
-                                    // this is the device!
-                                    println!("found the device in history! {:?}", dev.name);
-                                    self.device = dev.clone();
-                                    self.device_idx = idx;
-                                    init = true;
-                                    device_is_already_saved = true;
+                        ui.horizontal(|ui| {
+                            ui.set_enabled(!self.ready);
+                            let _response = egui::ComboBox::from_id_source("Device")
+                                .selected_text(dev_text)
+                                .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
+                                .show_ui(ui, |ui| {
+                                    devices
+                                        .into_iter()
+                                        // on macOS each device appears as /dev/tty.* and /dev/cu.*
+                                        // we only display the /dev/tty.* here
+                                        .filter(|dev| !dev.contains("/dev/cu."))
+                                        .for_each(|dev| {
+                                            // this makes the names shorter in the UI on UNIX and UNIX-like platforms
+                                            let dev_text = dev.replace("/dev/tty.", "");
+                                            ui.selectable_value(&mut self.device.name, dev, dev_text);
+                                        });
+                                }).response;
+                            // let selected_new_device = response.changed();  //somehow this does not work
+                            // if selected_new_device {
+                            if old_name != self.device.name {
+                                // TODO: add warning window, to confirm that this will clear all data!
+                                // new device selected, check in previously used devices
+                                let mut device_is_already_saved = false;
+                                for (idx, dev) in self.serial_devices.devices.iter().enumerate() {
+                                    if dev.name == self.device.name {
+                                        // this is the device!
+                                        println!("found the device in history! {:?}", dev.name);
+                                        self.device = dev.clone();
+                                        self.device_idx = idx;
+                                        init = true;
+                                        device_is_already_saved = true;
+                                    }
                                 }
+                                if !device_is_already_saved {
+                                    // create new device in the archive
+                                    self.serial_devices.devices.push(self.device.clone());
+                                    self.serial_devices.labels.push(vec!["Column 0".to_string()]);
+                                    self.device_idx = self.serial_devices.devices.len() - 1;
+                                    save_serial_settings(&self.serial_devices);
+                                }
+                                self.clear_tx.send(true).expect("failed to send clear after choosing new device");
+                                // need to clear the data here such that we don't get errors in the gui (plot)
+                                self.data = DataContainer::default();
                             }
-                            if !device_is_already_saved {
-                                self.serial_devices.devices.push(self.device.clone());
-                                self.serial_devices.labels.push(vec!["Column 0".to_string()]);
-                                self.device_idx = self.serial_devices.devices.len() - 1;
-                                save_serial_settings(&self.serial_devices);
-                            }
-                        }
+                        });
                         egui::ComboBox::from_id_source("Baud Rate")
                             .selected_text(format!("{}", self.serial_devices.devices[self.device_idx].baud_rate))
                             .width(80.0)
@@ -602,18 +612,19 @@ impl MyApp {
                                     &self.print_lock,
                                     Print::Ok("Cleared recorded Data".to_string()),
                                 );
-                                match self.clear_tx.send(true) {
-                                    Ok(_) => {}
-                                    Err(err) => {
-                                        print_to_console(
-                                            &self.print_lock,
-                                            Print::Error(format!(
-                                                "clear_tx thread send failed: {:?}",
-                                                err
-                                            )),
-                                        );
-                                    }
+                                if let Err(err) = self.clear_tx.send(true) {
+                                    print_to_console(
+                                        &self.print_lock,
+                                        Print::Error(format!(
+                                            "clear_tx thread send failed: {:?}",
+                                            err
+                                        )),
+                                    );
                                 }
+                                // need to clear the data here in order to prevent errors in the gui (plot)
+                                self.data = DataContainer::default();
+                                self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
+
                             }
                             ui.end_row();
                             ui.label("Save Raw Traffic");
@@ -663,22 +674,18 @@ impl MyApp {
                     for i in 0..self.data.names.len().min(10) {
                         // if init, set names to what has been stored in the device last time
                         if init {
-                            println!("init");
-                            dbg!(&self.serial_devices.labels[self.device_idx]);
-                            self.data.names = self.serial_devices.labels[self.device_idx].clone();
-                            self.names_tx.send(self.data.names.clone()).expect("Failed to send names");
+                            self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
                             init = false;
                         }
-                        if self.data.names.len() <= i {
+                        if self.serial_devices.labels[self.device_idx].len() <= i {
                             break;
                         }
 
                         if ui.add(
-                            egui::TextEdit::singleline(&mut self.data.names[i])
+                            egui::TextEdit::singleline(&mut self.serial_devices.labels[self.device_idx][i])
                                 .desired_width(0.95 * RIGHT_PANEL_WIDTH)
                         ).on_hover_text("Use custom names for your Datasets.").changed() {
-                            self.names_tx.send(self.data.names.clone()).expect("Failed to send names");
-                            self.serial_devices.labels[self.device_idx] = self.data.names.clone();
+                            self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
                         };
                     }
                     if self.data.names.len() > 10 {
