@@ -16,7 +16,7 @@ use eframe::egui::{vec2, Visuals};
 use preferences::AppInfo;
 
 use crate::data::{DataContainer, Packet};
-use crate::gui::{load_gui_settings, print_to_console, MyApp, Print};
+use crate::gui::{load_gui_settings, print_to_console, MyApp, Print, RIGHT_PANEL_WIDTH};
 use crate::io::save_to_csv;
 use crate::serial::{load_serial_settings, serial_thread, Device};
 
@@ -200,6 +200,7 @@ fn main() {
     let options = eframe::NativeOptions {
         drag_and_drop_support: true,
         initial_window_size: Option::from(vec2(gui_settings.x, gui_settings.y)),
+        min_window_size: Option::from(vec2(2.0 * RIGHT_PANEL_WIDTH, 2.0 * RIGHT_PANEL_WIDTH)),
         ..Default::default()
     };
 

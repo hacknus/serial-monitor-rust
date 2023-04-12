@@ -25,7 +25,7 @@ use crate::{vec2, APP_INFO, PREFS_KEY};
 const MAX_FPS: f64 = 60.0;
 
 const DEFAULT_FONT_ID: FontId = FontId::new(14.0, FontFamily::Monospace);
-const RIGHT_PANEL_WIDTH: f32 = 350.0;
+pub const RIGHT_PANEL_WIDTH: f32 = 350.0;
 const BAUD_RATES: &[u32] = &[
     300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 74880, 115200, 230400, 128000, 460800,
     576000, 921600,
