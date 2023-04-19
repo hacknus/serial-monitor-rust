@@ -9,21 +9,21 @@ homepage = "https://github.com/hacknus/serial-monitor-rust"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+csv = "1.1.6"
 eframe = { git = "https://github.com/emilk/egui", branch = "master", features = ["persistence"] }
 egui_extras = { version = "0.21.0", features = ["image"] }
-image = { version = "0.24", default-features = false, features = ["png"] }
-rand = "0.8.4"
-itertools-num = "0.1"
-realfft = "3.0.0"
-rfd = "0.11.0"
 hex = "0.4"
-safe-transmute = "0.11.2"
-preferences = { git = "https://github.com/andybarron/preferences-rs" }
-serde = { version = "1.0", features = ["derive"] }
-regex = "1"
-csv = "1.1.6"
-serialport = { git = "https://github.com/hacknus/serialport-rs", features = ["serde"] }
+image = { version = "0.24", default-features = false, features = ["png"] }
+itertools-num = "0.1"
 keepawake = { git = "https://github.com/segevfiner/keepawake-rs" }
+preferences = { git = "https://github.com/andybarron/preferences-rs" }
+rand = "0.8.4"
+realfft = "3.0.0"
+regex = "1"
+rfd = "0.11.0"
+safe-transmute = "0.11.2"
+serde = { version = "1.0", features = ["derive"] }
+serialport = { git = "https://github.com/hacknus/serialport-rs", features = ["serde"] }
 
 [package.metadata.bundle]
 name = "Serial Monitor"
