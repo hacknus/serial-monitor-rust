@@ -9,7 +9,7 @@ homepage = "https://github.com/hacknus/serial-monitor-rust"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-eframe = { git = "https://github.com/emilk/egui", features = ["persistence"] }
+eframe = { git = "https://github.com/emilk/egui", branch = "master", features = ["persistence"] }
 egui_extras = { version = "0.21.0", features = ["image"] }
 image = { version = "0.24", default-features = false, features = ["png"] }
 rand = "0.8.4"

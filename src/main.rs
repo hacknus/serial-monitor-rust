@@ -54,8 +54,8 @@ fn split(payload: &str) -> Vec<f32> {
 
 fn main_thread(
     data_lock: Arc<RwLock<DataContainer>>,
-    raw_data_lock: Arc<RwLock<Vec<Packet>>>,
     print_lock: Arc<RwLock<Vec<Print>>>,
+    raw_data_rx: Receiver<Packet>,
     names_rx: Receiver<Vec<String>>,
     save_rx: Receiver<CsvOptions>,
     clear_rx: Receiver<bool>,
@@ -64,63 +64,61 @@ fn main_thread(
     let mut data = DataContainer::default();
     let mut failed_format_counter = 0;
     loop {
-        if let Ok(cl) = clear_rx.recv_timeout(Duration::from_millis(10)) {
+        if let Ok(cl) = clear_rx.recv_timeout(Duration::from_millis(1)) {
             if cl {
                 data = DataContainer::default();
                 failed_format_counter = 0;
             }
         }
 
-        if let Ok(names) = names_rx.recv_timeout(Duration::from_millis(10)) {
+        if let Ok(names) = names_rx.recv_timeout(Duration::from_millis(1)) {
             data.names = names;
         }
 
-        if let Ok(read_guard) = raw_data_lock.read() {
-            for packet in read_guard.iter() {
-                if !packet.payload.is_empty() {
-                    data.raw_traffic.push(packet.clone());
-                    let split_data = split(&packet.payload);
-                    if data.dataset.is_empty() || failed_format_counter > 10 {
+        if let Ok(packet) = raw_data_rx.recv_timeout(Duration::from_millis(1)) {
+            if !packet.payload.is_empty() {
+                data.raw_traffic.push(packet.clone());
+                let split_data = split(&packet.payload);
+                if data.dataset.is_empty() || failed_format_counter > 10 {
+                    // resetting dataset
+                    data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                    if data.names.len() != split_data.len() {
+                        data.names = (0..max(split_data.len(), 1))
+                            .map(|i| format!("Column {i}"))
+                            .collect();
+                    }
+                    failed_format_counter = 0;
+                    // println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
+                } else if split_data.len() == data.dataset.len() {
+                    // appending data
+                    for (i, set) in data.dataset.iter_mut().enumerate() {
+                        set.push(split_data[i]);
+                        failed_format_counter = 0;
+                    }
+                    data.time.push(packet.relative_time);
+                    data.absolute_time.push(packet.absolute_time);
+                    if data.time.len() != data.dataset[0].len() {
                         // resetting dataset
+                        data.time = vec![];
                         data.dataset = vec![vec![]; max(split_data.len(), 1)];
                         if data.names.len() != split_data.len() {
                             data.names = (0..max(split_data.len(), 1))
                                 .map(|i| format!("Column {i}"))
                                 .collect();
                         }
-                        failed_format_counter = 0;
-                        // println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
-                    } else if split_data.len() == data.dataset.len() {
-                        // appending data
-                        for (i, set) in data.dataset.iter_mut().enumerate() {
-                            set.push(split_data[i]);
-                            failed_format_counter = 0;
-                        }
-                        data.time.push(packet.relative_time);
-                        data.absolute_time.push(packet.absolute_time);
-                        if data.time.len() != data.dataset[0].len() {
-                            // resetting dataset
-                            data.time = vec![];
-                            data.dataset = vec![vec![]; max(split_data.len(), 1)];
-                            if data.names.len() != split_data.len() {
-                                data.names = (0..max(split_data.len(), 1))
-                                    .map(|i| format!("Column {i}"))
-                                    .collect();
-                            }
-                        }
-                    } else {
-                        // not same length
-                        failed_format_counter += 1;
-                        // println!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
                     }
+                } else {
+                    // not same length
+                    failed_format_counter += 1;
+                    // println!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
+                }
+                if let Ok(mut write_guard) = data_lock.write() {
+                    *write_guard = data.clone();
                 }
             }
         }
-        if let Ok(mut write_guard) = raw_data_lock.write() {
-            *write_guard = vec![Packet::default()];
-        }
 
-        if let Ok(csv_options) = save_rx.recv_timeout(Duration::from_millis(10)) {
+        if let Ok(csv_options) = save_rx.recv_timeout(Duration::from_millis(1)) {
             match save_to_csv(&data, &csv_options) {
                 Ok(_) => {
                     print_to_console(
@@ -140,9 +138,6 @@ fn main_thread(
             }
         }
 
-        if let Ok(mut write_guard) = data_lock.write() {
-            *write_guard = data.clone();
-        }
         // std::thread::sleep(Duration::from_millis(10));
     }
 }
@@ -153,7 +148,6 @@ fn main() {
 
     let device_lock = Arc::new(RwLock::new(Device::default()));
     let devices_lock = Arc::new(RwLock::new(vec![gui_settings.device.clone()]));
-    let raw_data_lock = Arc::new(RwLock::new(vec![Packet::default()]));
     let data_lock = Arc::new(RwLock::new(DataContainer::default()));
     let print_lock = Arc::new(RwLock::new(vec![Print::Empty]));
     let connected_lock = Arc::new(RwLock::new(false));
@@ -162,10 +156,10 @@ fn main() {
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
     let (names_tx, names_rx): (Sender<Vec<String>>, Receiver<Vec<String>>) = mpsc::channel();
+    let (raw_data_tx, raw_data_rx): (Sender<Packet>, Receiver<Packet>) = mpsc::channel();
 
     let serial_device_lock = device_lock.clone();
     let serial_devices_lock = devices_lock.clone();
-    let serial_raw_data_lock = raw_data_lock.clone();
     let serial_print_lock = print_lock.clone();
     let serial_connected_lock = connected_lock.clone();
 
@@ -173,24 +167,23 @@ fn main() {
     let _serial_thread_handler = thread::spawn(|| {
         serial_thread(
             send_rx,
+            raw_data_tx,
             serial_device_lock,
             serial_devices_lock,
-            serial_raw_data_lock,
             serial_print_lock,
             serial_connected_lock,
         );
     });
 
     let main_data_lock = data_lock.clone();
-    let main_raw_data_lock = raw_data_lock;
     let main_print_lock = print_lock.clone();
 
     println!("starting main thread..");
     let _main_thread_handler = thread::spawn(|| {
         main_thread(
             main_data_lock,
-            main_raw_data_lock,
             main_print_lock,
+            raw_data_rx,
             names_rx,
             save_rx,
             clear_rx,

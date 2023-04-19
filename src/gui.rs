@@ -283,14 +283,14 @@ impl MyApp {
     fn console_text(&self, packet: &crate::data::Packet) -> Option<String> {
         match (self.show_sent_cmds, self.show_timestamps, &packet.direction) {
             (true, true, _) => Some(format!(
-                "[{}] t + {:.3}s: {}",
+                "[{}] t + {:.3}s: {}\n",
                 packet.direction,
                 packet.relative_time as f32 / 1000.0,
                 packet.payload
             )),
             (true, false, _) => Some(format!("[{}]: {}", packet.direction, packet.payload)),
             (false, true, SerialDirection::Receive) => Some(format!(
-                "t + {:.3}s: {}",
+                "t + {:.3}s: {}\n",
                 packet.relative_time as f32 / 1000.0,
                 packet.payload
             )),
@@ -354,12 +354,18 @@ impl MyApp {
 
                     self.plot_location = plot_inner.response.rect;
 
-                    let num_rows = self.data.raw_traffic.len();
-                    let row_height = ui.text_style_height(&egui::TextStyle::Body);
-
                     ui.add_space(spacing);
                     ui.separator();
                     ui.add_space(spacing);
+
+                    let num_rows = self.data.raw_traffic.len();
+                    let row_height = ui.text_style_height(&egui::TextStyle::Body);
+
+                    let color = if self.gui_conf.dark_mode {
+                        egui::Color32::WHITE
+                    } else {
+                        egui::Color32::BLACK
+                    };
 
                     egui::ScrollArea::vertical()
                         .id_source("serial_output")
@@ -369,19 +375,17 @@ impl MyApp {
                         .max_height(height - spacing)
                         .min_scrolled_height(height - spacing)
                         .max_width(width)
-                        .show_rows(ui, row_height, num_rows, |ui, _row_range| {
-                            let content: String = self
-                                .data
-                                .raw_traffic
-                                .iter()
-                                .flat_map(|packet| self.console_text(packet))
-                                .collect::<Vec<_>>()
-                                .join("\n");
-                            let color = if self.gui_conf.dark_mode {
-                                egui::Color32::WHITE
-                            } else {
-                                egui::Color32::BLACK
-                            };
+                        .show_rows(ui, row_height, num_rows, |ui, row_range| {
+                            let content: String = row_range
+                                .into_iter()
+                                .flat_map(|i| {
+                                    if self.data.raw_traffic.is_empty() {
+                                        None
+                                    } else {
+                                        self.console_text(&self.data.raw_traffic[i])
+                                    }
+                                })
+                                .collect();
                             ui.add(
                                 egui::TextEdit::multiline(&mut content.as_str())
                                     .font(DEFAULT_FONT_ID) // for cursor height

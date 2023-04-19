@@ -1,5 +1,5 @@
 use std::io::{BufRead, BufReader};
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
@@ -82,9 +82,9 @@ fn serial_read(
 
 pub fn serial_thread(
     send_rx: Receiver<String>,
+    raw_data_tx: Sender<Packet>,
     device_lock: Arc<RwLock<Device>>,
     devices_lock: Arc<RwLock<Vec<String>>>,
-    raw_data_lock: Arc<RwLock<Vec<Packet>>>,
     print_lock: Arc<RwLock<Vec<Print>>>,
     connected_lock: Arc<RwLock<bool>>,
 ) {
@@ -153,8 +153,8 @@ pub fn serial_thread(
                 break 'connected_loop;
             }
 
-            perform_writes(&mut port, &send_rx, &raw_data_lock, t_zero);
-            perform_reads(&mut port, &raw_data_lock, t_zero);
+            perform_writes(&mut port, &send_rx, &raw_data_tx, t_zero);
+            perform_reads(&mut port, &raw_data_tx, t_zero);
 
             //std::thread::sleep(Duration::from_millis(10));
         }
@@ -221,7 +221,7 @@ fn disconnected(
 fn perform_writes(
     port: &mut BufReader<Box<dyn SerialPort>>,
     send_rx: &Receiver<String>,
-    raw_data_lock: &Arc<RwLock<Vec<Packet>>>,
+    raw_data_tx: &Sender<Packet>,
     t_zero: Instant,
 ) {
     if let Ok(cmd) = send_rx.recv_timeout(Duration::from_millis(1)) {
@@ -230,46 +230,41 @@ fn perform_writes(
             return;
         }
 
-        if let Ok(mut write_guard) = raw_data_lock.write() {
-            let packet = Packet {
-                relative_time: Instant::now().duration_since(t_zero).as_millis(),
-                absolute_time: get_epoch_ms(),
-                direction: SerialDirection::Send,
-                payload: cmd,
-            };
-            write_guard.push(packet);
-        }
+        let packet = Packet {
+            relative_time: Instant::now().duration_since(t_zero).as_millis(),
+            absolute_time: get_epoch_ms(),
+            direction: SerialDirection::Send,
+            payload: cmd,
+        };
+        raw_data_tx
+            .send(packet)
+            .expect("failed to send raw data (cmd)");
     }
 }
 
 fn perform_reads(
     port: &mut BufReader<Box<dyn SerialPort>>,
-    raw_data_lock: &Arc<RwLock<Vec<Packet>>>,
+    raw_data_tx: &Sender<Packet>,
     t_zero: Instant,
 ) {
     let mut buf = "".to_string();
     match serial_read(port, &mut buf) {
-        Ok(_) => {}
-        // Timeout is ok, just means there is no data to read
-        Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {
-            return;
+        Ok(_) => {
+            let delimiter = if buf.contains("\r\n") { "\r\n" } else { "\0\0" };
+            buf.split_terminator(delimiter).for_each(|s| {
+                let packet = Packet {
+                    relative_time: Instant::now().duration_since(t_zero).as_millis(),
+                    absolute_time: get_epoch_ms(),
+                    direction: SerialDirection::Receive,
+                    payload: s.to_owned(),
+                };
+                raw_data_tx.send(packet).expect("failed to send raw data");
+            });
         }
+        // Timeout is ok, just means there is no data to read
+        Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {}
         Err(e) => {
             println!("Error reading: {:?}", e);
-            return;
         }
-    }
-
-    if let Ok(mut write_guard) = raw_data_lock.write() {
-        let delimiter = if buf.contains("\r\n") { "\r\n" } else { "\0\0" };
-        buf.split_terminator(delimiter).for_each(|s| {
-            let packet = Packet {
-                relative_time: Instant::now().duration_since(t_zero).as_millis(),
-                absolute_time: get_epoch_ms(),
-                direction: SerialDirection::Receive,
-                payload: s.to_owned(),
-            };
-            write_guard.push(packet)
-        });
     }
 }
