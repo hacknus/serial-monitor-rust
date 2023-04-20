@@ -19,7 +19,7 @@ use serialport::{DataBits, FlowControl, Parity, StopBits};
 use crate::data::{DataContainer, SerialDirection};
 use crate::serial::{save_serial_settings, Device, SerialDevices};
 use crate::toggle::toggle;
-use crate::CsvOptions;
+use crate::FileOptions;
 use crate::{vec2, APP_INFO, PREFS_KEY};
 
 const MAX_FPS: f64 = 60.0;
@@ -185,7 +185,7 @@ pub struct MyApp {
     connected_lock: Arc<RwLock<bool>>,
     data_lock: Arc<RwLock<DataContainer>>,
     names_tx: Sender<Vec<String>>,
-    save_tx: Sender<CsvOptions>,
+    save_tx: Sender<FileOptions>,
     send_tx: Sender<String>,
     clear_tx: Sender<bool>,
     history: Vec<String>,
@@ -210,7 +210,7 @@ impl MyApp {
         connected_lock: Arc<RwLock<bool>>,
         gui_conf: GuiSettingsContainer,
         names_tx: Sender<Vec<String>>,
-        save_tx: Sender<CsvOptions>,
+        save_tx: Sender<FileOptions>,
         send_tx: Sender<String>,
         clear_tx: Sender<bool>,
     ) -> Self {
@@ -653,9 +653,10 @@ impl MyApp {
                                 if let Some(path) = rfd::FileDialog::new().save_file() {
                                     self.picked_path = path;
                                     self.picked_path.set_extension("csv");
-                                    if let Err(e) = self.save_tx.send(CsvOptions {
+                                    if let Err(e) = self.save_tx.send(FileOptions {
                                         file_path: self.picked_path.clone(),
                                         save_absolute_time: self.gui_conf.save_absolute_time,
+                                        save_raw_traffic: self.save_raw,
                                     }) {
                                         print_to_console(
                                             &self.print_lock,
@@ -699,15 +700,11 @@ impl MyApp {
                             }
                             ui.end_row();
                             ui.label("Save Raw Traffic");
-                            ui.horizontal(|ui| {
-                                ui.set_enabled(false);
-                                if ui.add(toggle(&mut self.save_raw))
-                                    .on_hover_text("Save raw traffic to CSV. - not implemented yet!")
-                                    .changed() {
-                                    // gui_states.push(GuiState::Run(self.show_timestamps));
-                                }
-                                ui.label("Not implemented yet.");
-                            });
+                            if ui.add(toggle(&mut self.save_raw))
+                                .on_hover_text("Save second CSV containing raw traffic.")
+                                .changed() {
+                                // gui_states.push(GuiState::Run(self.show_timestamps));
+                            }
                             ui.end_row();
                             ui.label("");
                             ui.end_row();

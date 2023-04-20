@@ -25,8 +25,8 @@ Features:
 - [X] Allow to put in labels for the different data columns (instead of column 1, 2, ...)
 - [X] Allow to choose Data-bits, Flow-Control, Parity and Stop-Bits for Serial Connection
 - [X] Saves the configuration for the serial port after closing and reloads them automatically upon selection
+- [X] Option to save raw data to file
 - [ ] Allow to select (and copy) more than just the displayed raw traffic (also implement ctrl + A)
-- [ ] Save raw data to file (at least as an option)
 - [ ] Smarter data parser
 - [ ] make serial print selectable and show corresponding datapoint in plot
 - [ ] COM-Port names on Windows (display manufacturer, name, pid or vid of device?)

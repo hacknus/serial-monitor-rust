@@ -6,7 +6,6 @@ extern crate preferences;
 extern crate serde;
 
 use std::cmp::max;
-use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
@@ -17,7 +16,7 @@ use preferences::AppInfo;
 
 use crate::data::{DataContainer, Packet};
 use crate::gui::{load_gui_settings, print_to_console, MyApp, Print, RIGHT_PANEL_WIDTH};
-use crate::io::save_to_csv;
+use crate::io::{save_to_csv, FileOptions};
 use crate::serial::{load_serial_settings, serial_thread, Device};
 
 mod data;
@@ -32,13 +31,6 @@ const APP_INFO: AppInfo = AppInfo {
 };
 const PREFS_KEY: &str = "config/gui";
 const PREFS_KEY_SERIAL: &str = "config/serial_devices";
-
-/// A set of options for saving data to a CSV file.
-#[derive(Debug)]
-pub struct CsvOptions {
-    file_path: PathBuf,
-    save_absolute_time: bool,
-}
 
 fn split(payload: &str) -> Vec<f32> {
     let mut split_data: Vec<&str> = vec![];
@@ -57,7 +49,7 @@ fn main_thread(
     print_lock: Arc<RwLock<Vec<Print>>>,
     raw_data_rx: Receiver<Packet>,
     names_rx: Receiver<Vec<String>>,
-    save_rx: Receiver<CsvOptions>,
+    save_rx: Receiver<FileOptions>,
     clear_rx: Receiver<bool>,
 ) {
     // reads data from mutex, samples and saves if needed
@@ -152,7 +144,7 @@ fn main() {
     let print_lock = Arc::new(RwLock::new(vec![Print::Empty]));
     let connected_lock = Arc::new(RwLock::new(false));
 
-    let (save_tx, save_rx): (Sender<CsvOptions>, Receiver<CsvOptions>) = mpsc::channel();
+    let (save_tx, save_rx): (Sender<FileOptions>, Receiver<FileOptions>) = mpsc::channel();
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
     let (names_tx, names_rx): (Sender<Vec<String>>, Receiver<Vec<String>>) = mpsc::channel();
