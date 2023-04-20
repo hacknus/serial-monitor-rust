@@ -645,6 +645,22 @@ impl MyApp {
                                 }
                             });
                             ui.end_row();
+                            ui.label("Show Sent Commands");
+                            ui.add(toggle(&mut self.show_sent_cmds))
+                                .on_hover_text("Show sent commands in console.");
+                            ui.end_row();
+                            ui.label("Show Timestamp");
+                            ui.add(toggle(&mut self.show_timestamps))
+                                .on_hover_text("Show timestamp in console.");
+                            ui.end_row();
+                            ui.label("EOL character");
+                            ui.add(
+                                egui::TextEdit::singleline(&mut self.eol)
+                                    .desired_width(ui.available_width() * 0.9))
+                                .on_hover_text("Configure your EOL character for sent commands..");
+                            // ui.checkbox(&mut self.gui_conf.debug, "Debug Mode");
+                            ui.end_row();
+                            ui.end_row();
 
                             if ui.button("Save CSV") 
                                 .on_hover_text("Save Plot Data to CSV.")
@@ -700,39 +716,19 @@ impl MyApp {
                             }
                             ui.end_row();
                             ui.label("Save Raw Traffic");
-                            if ui.add(toggle(&mut self.save_raw))
+                            ui.add(toggle(&mut self.save_raw))
                                 .on_hover_text("Save second CSV containing raw traffic.")
-                                .changed() {
-                                // gui_states.push(GuiState::Run(self.show_timestamps));
-                            }
-                            ui.end_row();
-                            ui.label("");
-                            ui.end_row();
-                            ui.label("Show Sent Commands");
-                            ui.add(toggle(&mut self.show_sent_cmds))
-                                .on_hover_text("Show sent commands in console.");
-                            ui.end_row();
-                            ui.label("Show Timestamp");
-                            ui.add(toggle(&mut self.show_timestamps))
-                                .on_hover_text("Show timestamp in console.");
+                                .changed();
                             ui.end_row();
                             ui.label("Save Absolute Time");
                             ui.add(toggle(&mut self.gui_conf.save_absolute_time))
                                 .on_hover_text("Save absolute time in CSV.");
                             ui.end_row();
-                            ui.label("EOL character");
-                            ui.add(
-                                egui::TextEdit::singleline(&mut self.eol)
-                                .desired_width(ui.available_width() * 0.9))
-                                .on_hover_text("Configure your EOL character for sent commands..");
-                            // ui.checkbox(&mut self.gui_conf.debug, "Debug Mode");
-                            ui.end_row();
-                            global_dark_light_mode_buttons(ui);
-                            self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
-                            ui.end_row();
-                            ui.label("");
-                            ui.end_row();
                         });
+                    ui.add_space(75.0);
+                    global_dark_light_mode_buttons(ui);
+                    ui.add_space(25.0);
+                    self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
                     if ui.button("Reset Labels").clicked() {
                         self.serial_devices.labels[self.device_idx] = self.data.names.clone();
                     }
