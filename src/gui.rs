@@ -288,13 +288,13 @@ impl MyApp {
                 packet.relative_time as f32 / 1000.0,
                 packet.payload
             )),
-            (true, false, _) => Some(format!("[{}]: {}", packet.direction, packet.payload)),
+            (true, false, _) => Some(format!("[{}]: {}\n", packet.direction, packet.payload)),
             (false, true, SerialDirection::Receive) => Some(format!(
                 "t + {:.3}s: {}\n",
                 packet.relative_time as f32 / 1000.0,
                 packet.payload
             )),
-            (false, false, SerialDirection::Receive) => Some(packet.payload.clone()),
+            (false, false, SerialDirection::Receive) => Some(packet.payload.clone() + "\n"),
             (_, _, _) => None,
         }
     }
