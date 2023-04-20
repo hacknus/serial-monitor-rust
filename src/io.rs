@@ -1,6 +1,4 @@
 use std::error::Error;
-use std::fs::File;
-use std::io::Write;
 use std::path::PathBuf;
 
 use csv::WriterBuilder;
@@ -38,8 +36,13 @@ pub fn save_to_csv(data: &DataContainer, csv_options: &FileOptions) -> Result<()
     wtr.flush()?;
     if csv_options.save_raw_traffic {
         let mut path = csv_options.file_path.clone();
-        let mut file_name = path.file_name().unwrap().to_str().unwrap().to_string();
-        file_name.replace(".csv", "");
+        let mut file_name = path
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string()
+            .replace(".csv", "");
         file_name += "raw.csv";
         path.set_file_name(file_name);
         save_raw(data, &path)?
