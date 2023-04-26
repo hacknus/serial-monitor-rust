@@ -23,7 +23,7 @@ regex = "1"
 rfd = "0.11.0"
 safe-transmute = "0.11.2"
 serde = { version = "1.0", features = ["derive"] }
-serialport = { git = "https://github.com/hacknus/serialport-rs", features = ["serde"] }
+serialport = { git = "https://github.com/serialport/serialport-rs", features = ["serde"] }
 
 [package.metadata.bundle]
 name = "Serial Monitor"

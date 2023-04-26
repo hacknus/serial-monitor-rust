@@ -2545,7 +2545,7 @@ dependencies = [
 [[package]]
 name = "serialport"
 version = "4.2.1-alpha.0"
-source = "git+https://github.com/hacknus/serialport-rs#9c0285ad5da6201aaf9a8b61e50178bc5d629c15"
+source = "git+https://github.com/serialport/serialport-rs#9c0285ad5da6201aaf9a8b61e50178bc5d629c15"
 dependencies = [
  "CoreFoundation-sys",
  "IOKit-sys",
