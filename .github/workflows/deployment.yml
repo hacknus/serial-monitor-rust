@@ -71,6 +71,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: wix/rust-serial-monitor.msi.zip
+          asset_path: target/wix/rust-serial-monitor.msi.zip
           asset_name: rust-serial-monitor.msi-windows_x86.zip
           asset_content_type: binary
