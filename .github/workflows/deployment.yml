@@ -64,7 +64,7 @@ jobs:
       - name: Build
         run: cargo wix
       - name: Compress
-        run: cd wix && ls && zip *.msi rust-serial-monitor.msi.zip
+        run: cd target/wix && ls && Compress-Archive *.msi rust-serial-monitor.msi.zip
       - name: Upload
         uses: actions/upload-release-asset@v1.0.1
         env:
