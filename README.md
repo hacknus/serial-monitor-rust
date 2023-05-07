@@ -6,10 +6,8 @@ A cross-platform serial monitor and plotter written entirely in rust, the GUI is
 using [egui](https://github.com/emilk/egui).  
 Inspired by the serial monitor/plotter from the Arduino IDE, but both plotting and reading the traffic can be done
 simultaneously.  
-Additionally, the output of the plot and the traffic can be saved to a file (TBD). The window of the plot can also be
-adjusted.  
-Data points in the received string between ", " or "," or ":" or ": " that can be parsed into floats will be plotted as
-lines, everything else will be discarded without raising an error.
+
+[Binary bundles](https://github.com/hacknus/serial-monitor-rust/releases) are available for Linux, macOS and Windows.
 
 Features:
 
@@ -18,7 +16,7 @@ Features:
 - [X] History of the past sent commands
 - [X] Low CPU Usage, lightweight
 - [X] Clear history options
-- [X] Data Window width is adjustable
+- [X] Data Window width (number of displayed datapoints in plot) is adjustable
 - [X] Cross-platform, fully written in Rust
 - [X] Ability to save text to file
 - [X] Ability to save the plot
@@ -46,6 +44,7 @@ Tested on:
 
 - macOS 12.4 Monterey x86
 - macOS 13.2.1 Ventura ARM
+- Debian 12 (Testing) x86  
 - Windows 10 x86
 - ...
 
