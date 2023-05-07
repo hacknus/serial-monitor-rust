@@ -1,0 +1,76 @@
+ame: Deployment
+
+on:
+  release:
+    types:
+      - created
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    permissions: write-all
+    name: linux
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Update Libs
+      run: sudo apt-get install libgtk-3-dev && sudo apt-get install libudev-dev && cargo install cargo-bundle
+    - name: Build
+      run: cargo bundle --release
+    - name: Compress
+      run: ls target/release/bundle/deb && cd target/release/bundle/deb && zip rust-serial-monitor.deb.zip *.deb
+    - name: Upload
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./target/release/bundle/deb/rust-serial-monitor.deb.zip
+        asset_name: rust-serial-monitor-linux_x86.zip
+        asset_content_type: binary
+    
+  build-macos:
+    permissions: write-all
+    name: macos
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Update Libs
+      run: cargo install cargo-bundle
+    - name: Build
+      run: cargo bundle --release
+    - name: Compress
+      run: cd target/release/bundle/osx && ls && zip -r rust-serial-monitor.app.zip Serial\ Monitor.app/*
+    - name: Upload
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./target/release/bundle/osx/rust-serial-monitor.app.zip
+        asset_name: rust-serial-monitor.app-macos_x86.zip
+        asset_content_type: binary
+        
+  build-windows:
+      permissions: write-all
+      name: windows
+      runs-on: windows-latest
+      steps:
+      - uses: actions/checkout@v3
+      - name: Update Libs
+        run: cargo install cargo-wix
+      - name: Build
+        run: cargo wix
+      - name: Compress
+        run: cd wix && ls && zip *.msi rust-serial-monitor.msi.zip
+      - name: Upload
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: wix/rust-serial-monitor.msi.zip
+          asset_name: rust-serial-monitor.msi-windows_x86.zip
+          asset_content_type: binary
