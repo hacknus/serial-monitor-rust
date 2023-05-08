@@ -1,6 +1,6 @@
 # Serial Monitor
 
-<a href="https://github.com/hacknus/serial-monitor-rust/releases"><img src="icons/icon.png" alt= “” width="100" height="100"> </img> 
+<a href="https://github.com/hacknus/serial-monitor-rust/releases"><img src="icons/icon.png" alt= “Serial Monitor” width="100" height="100"> </img> 
 
 A cross-platform serial monitor and plotter written entirely in rust, the GUI is written
 using [egui](https://github.com/emilk/egui).  
