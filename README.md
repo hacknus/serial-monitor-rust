@@ -56,7 +56,7 @@ Error: glib-2.0 was not found in the pkg-config search path.
 
 solved through
 
-```
+```sh
 sudo apt-get install libgtk-3-dev
 ```
 
