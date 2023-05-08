@@ -21,6 +21,8 @@ jobs:
       run: cargo bundle --release
 #    - name: Compress.
 #      run: ls target/release/bundle/deb && cd target/release/bundle/deb && zip rust-serial-monitor.deb.zip *.deb
+    - name: Rename
+      run: ls target/release/bundle/deb && cd target/release/bundle/deb && mv*.deb rust-serial-monitor.deb
     - name: Upload Deb
       uses: actions/upload-release-asset@v1.0.1
       env:
