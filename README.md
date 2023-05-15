@@ -35,11 +35,18 @@ Features:
 
 ![Screenshot of the application on macOS](screenshot.png)
 
-The source code can be run using ```cargo run``` or bundled to a platform-executable using ```cargo bundle```.  
+The source code can be run using ```cargo run``` or bundled to a platform-executable using cargo bundle.  
 Currently [cargo bundle](https://github.com/burtonageo/cargo-bundle) only supports linux and macOS
 bundles [see github issue](https://github.com/burtonageo/cargo-bundle/issues/77).
 As a work-around we can use [cargo wix](https://github.com/volks73/cargo-wix) to create a windows installer.  
+
+After downloading  
+```cargo install cargo-bundle``` or ```cargo install cargo-wix```  
+run  
+```cargo bundle``` or ```cargo wix``` to create platform-executable bundles.
+
 It can be compiled and run on all platforms.
+
 Tested on:
 
 - macOS 12.4 Monterey x86
