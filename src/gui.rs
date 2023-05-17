@@ -370,16 +370,19 @@ impl MyApp {
                             self.plot_location = plot_inner.response.rect;
                         }
                         let separator_response = ui.separator();
-                        let resize_y = ui
+                        let separator = ui
                             .interact(
                                 separator_response.rect,
                                 separator_response.id,
                                 Sense::click_and_drag(),
                             )
-                            .on_hover_cursor(egui::CursorIcon::ResizeVertical)
-                            .drag_delta()
-                            .y;
+                            .on_hover_cursor(egui::CursorIcon::ResizeVertical);
 
+                        let resize_y = separator.drag_delta().y;
+
+                        if separator.double_clicked() {
+                            self.plot_serial_display_ratio = 0.45;
+                        }
                         self.plot_serial_display_ratio = (self.plot_serial_display_ratio
                             + resize_y / panel_height)
                             .clamp(0.1, 0.9);
