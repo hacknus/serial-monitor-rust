@@ -683,11 +683,17 @@ impl MyApp {
                             ui.label("Number of plots [#]: ");
 
                             ui.horizontal(|ui| {
+                                if ui.button("<").clicked() {
+                                    self.number_of_plots = (self.number_of_plots - 1).clamp(1, 10);
+                                }
                                 ui.add(egui::DragValue::new(&mut self.number_of_plots)
                                     .clamp_range(1..=10))
                                     .on_hover_text("Select the number of plots to be shown.");
-
+                                if ui.button(">").clicked() {
+                                    self.number_of_plots = (self.number_of_plots + 1).clamp(1, 10);
+                                }
                             });
+
                             ui.end_row();
                             ui.label("Show Sent Commands");
                             ui.add(toggle(&mut self.show_sent_cmds))
