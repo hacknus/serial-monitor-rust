@@ -9,7 +9,7 @@ use eframe::egui::panel::Side;
 use eframe::egui::plot::{log_grid_spacer, Legend, Line, Plot, PlotPoint, PlotPoints};
 use eframe::egui::{
     global_dark_light_mode_buttons, Align2, ColorImage, FontFamily, FontId, KeyboardShortcut, Pos2,
-    Vec2, Visuals,
+    Sense, Vec2, Visuals,
 };
 use eframe::{egui, Storage};
 use preferences::Preferences;
@@ -20,7 +20,7 @@ use crate::data::{DataContainer, SerialDirection};
 use crate::serial::{save_serial_settings, Device, SerialDevices};
 use crate::toggle::toggle;
 use crate::FileOptions;
-use crate::{vec2, APP_INFO, PREFS_KEY};
+use crate::{APP_INFO, PREFS_KEY};
 
 const MAX_FPS: f64 = 60.0;
 
@@ -174,6 +174,8 @@ pub struct MyApp {
     device_idx: usize,
     serial_devices: SerialDevices,
     plotting_range: usize,
+    number_of_plots: usize,
+    plot_serial_display_ratio: f32,
     console: Vec<Print>,
     picked_path: PathBuf,
     plot_location: egui::Rect,
@@ -236,6 +238,8 @@ impl MyApp {
             send_tx,
             clear_tx,
             plotting_range: usize::MAX,
+            number_of_plots: 1,
+            plot_serial_display_ratio: 0.45,
             command: "".to_string(),
             show_sent_cmds: true,
             show_timestamps: true,
@@ -301,9 +305,13 @@ impl MyApp {
 
     fn draw_central_panel(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            let height = ui.available_size().y * 0.45;
             let border = 10.0;
-            let spacing = (ui.available_size().y - 2.0 * height) / 3.5 - border;
+
+            let panel_height = ui.available_size().y;
+            let height = ui.available_size().y * self.plot_serial_display_ratio;
+            let plots_height = height;
+            let plot_height = plots_height / (self.number_of_plots as f32);
+            let spacing = 5.0;
             let width = ui.available_size().x - 2.0 * border - RIGHT_PANEL_WIDTH;
 
             ui.add_space(spacing);
@@ -331,32 +339,56 @@ impl MyApp {
                     }
 
                     let t_fmt = |x, _range: &RangeInclusive<f64>| format!("{:4.2} s", x);
-                    let signal_plot = Plot::new("data")
-                        .height(height)
-                        .width(width)
-                        .legend(Legend::default())
-                        .x_grid_spacer(log_grid_spacer(10))
-                        .y_grid_spacer(log_grid_spacer(10))
-                        .x_axis_formatter(t_fmt)
-                        .min_size(vec2(50.0, 100.0));
 
-                    let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
-                        for (i, graph) in graphs.into_iter().enumerate() {
-                            // this check needs to be here for when we change devices (not very elegant)
-                            if i < self.serial_devices.labels[self.device_idx].len() {
-                                signal_plot_ui.line(
-                                    Line::new(PlotPoints::Owned(graph))
-                                        .name(&self.serial_devices.labels[self.device_idx][i]),
-                                );
+                    let plots_ui = ui.vertical(|ui| {
+                        for graph_idx in 0..self.number_of_plots {
+                            if graph_idx != 0 {
+                                ui.separator();
                             }
+
+                            let signal_plot = Plot::new(format!("data-{graph_idx}"))
+                                .height(plot_height)
+                                .width(width)
+                                .legend(Legend::default())
+                                .x_grid_spacer(log_grid_spacer(10))
+                                .y_grid_spacer(log_grid_spacer(10))
+                                .x_axis_formatter(t_fmt);
+
+                            let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
+                                for (i, graph) in graphs.iter().enumerate() {
+                                    // this check needs to be here for when we change devices (not very elegant)
+                                    if i < self.serial_devices.labels[self.device_idx].len() {
+                                        signal_plot_ui.line(
+                                            Line::new(PlotPoints::Owned(graph.to_vec())).name(
+                                                &self.serial_devices.labels[self.device_idx][i],
+                                            ),
+                                        );
+                                    }
+                                }
+                            });
+
+                            self.plot_location = plot_inner.response.rect;
                         }
+                        let separator_response = ui.separator();
+                        let resize_y = ui
+                            .interact(
+                                separator_response.rect,
+                                separator_response.id,
+                                Sense::click_and_drag(),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::ResizeVertical)
+                            .drag_delta()
+                            .y;
+
+                        self.plot_serial_display_ratio = (self.plot_serial_display_ratio
+                            + resize_y / panel_height)
+                            .clamp(0.1, 0.9);
+
+                        ui.add_space(spacing);
                     });
 
-                    self.plot_location = plot_inner.response.rect;
-
-                    ui.add_space(spacing);
-                    ui.separator();
-                    ui.add_space(spacing);
+                    let serial_height =
+                        panel_height - plots_ui.response.rect.height() - border * 2.0 - spacing;
 
                     let num_rows = self.data.raw_traffic.len();
                     let row_height = ui.text_style_height(&egui::TextStyle::Body);
@@ -372,8 +404,8 @@ impl MyApp {
                         .auto_shrink([false; 2])
                         .stick_to_bottom(true)
                         .enable_scrolling(true)
-                        .max_height(height - spacing)
-                        .min_scrolled_height(height - spacing)
+                        .max_height(serial_height - spacing)
+                        .min_scrolled_height(serial_height - spacing)
                         .max_width(width)
                         .show_rows(ui, row_height, num_rows, |ui, row_range| {
                             let content: String = row_range
@@ -645,6 +677,15 @@ impl MyApp {
                                 }
                             });
                             ui.end_row();
+                            ui.label("Number of plots [#]: ");
+
+                            ui.horizontal(|ui| {
+                                ui.add(egui::DragValue::new(&mut self.number_of_plots)
+                                    .clamp_range(1..=10))
+                                    .on_hover_text("Select the number of plots to be shown.");
+
+                            });
+                            ui.end_row();
                             ui.label("Show Sent Commands");
                             ui.add(toggle(&mut self.show_sent_cmds))
                                 .on_hover_text("Show sent commands in console.");
@@ -662,7 +703,7 @@ impl MyApp {
                             ui.end_row();
                             ui.end_row();
 
-                            if ui.button("Save CSV") 
+                            if ui.button("Save CSV")
                                 .on_hover_text("Save Plot Data to CSV.")
                                 .clicked() || ui.input_mut(|i| i.consume_shortcut(&SAVE_FILE_SHORTCUT))
                             {
