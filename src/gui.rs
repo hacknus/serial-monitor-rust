@@ -174,7 +174,6 @@ pub struct MyApp {
     device_idx: usize,
     serial_devices: SerialDevices,
     plotting_range: usize,
-    number_of_plots: usize,
     plot_serial_display_ratio: f32,
     console: Vec<Print>,
     picked_path: PathBuf,
@@ -238,7 +237,6 @@ impl MyApp {
             send_tx,
             clear_tx,
             plotting_range: usize::MAX,
-            number_of_plots: 1,
             plot_serial_display_ratio: 0.45,
             command: "".to_string(),
             show_sent_cmds: true,
@@ -310,7 +308,7 @@ impl MyApp {
             let panel_height = ui.available_size().y;
             let height = ui.available_size().y * self.plot_serial_display_ratio;
             let plots_height = height;
-            let plot_height = plots_height / (self.number_of_plots as f32);
+            let plot_height = plots_height / (self.serial_devices.number_of_plots as f32);
             let spacing = 5.0;
             let width = ui.available_size().x - 2.0 * border - RIGHT_PANEL_WIDTH;
 
@@ -341,7 +339,7 @@ impl MyApp {
                     let t_fmt = |x, _range: &RangeInclusive<f64>| format!("{:4.2} s", x);
 
                     let plots_ui = ui.vertical(|ui| {
-                        for graph_idx in 0..self.number_of_plots {
+                        for graph_idx in 0..self.serial_devices.number_of_plots {
                             if graph_idx != 0 {
                                 ui.separator();
                             }
@@ -684,13 +682,15 @@ impl MyApp {
 
                             ui.horizontal(|ui| {
                                 if ui.button("<").clicked() {
-                                    self.number_of_plots = (self.number_of_plots - 1).clamp(1, 10);
+                                    self.serial_devices.number_of_plots =
+                                        (self.serial_devices.number_of_plots - 1).clamp(1, 10);
                                 }
-                                ui.add(egui::DragValue::new(&mut self.number_of_plots)
+                                ui.add(egui::DragValue::new(&mut self.serial_devices.number_of_plots)
                                     .clamp_range(1..=10))
                                     .on_hover_text("Select the number of plots to be shown.");
                                 if ui.button(">").clicked() {
-                                    self.number_of_plots = (self.number_of_plots + 1).clamp(1, 10);
+                                    self.serial_devices.number_of_plots =
+                                        (self.serial_devices.number_of_plots + 1).clamp(1, 10);
                                 }
                             });
 
