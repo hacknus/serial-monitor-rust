@@ -308,8 +308,9 @@ impl MyApp {
             let panel_height = ui.available_size().y;
             let height = ui.available_size().y * self.plot_serial_display_ratio;
             let plots_height = height;
+            // need to subtract 12.0, this seems to be the height of the separator of two adjacent plots
             let plot_height =
-                plots_height / (self.serial_devices.number_of_plots[self.device_idx] as f32);
+                plots_height / (self.serial_devices.number_of_plots[self.device_idx] as f32) - 12.0;
             let spacing = 5.0;
             let width = ui.available_size().x - 2.0 * border - RIGHT_PANEL_WIDTH;
 
