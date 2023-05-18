@@ -14,7 +14,7 @@ use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
 pub struct SerialDevices {
     pub devices: Vec<Device>,
     pub labels: Vec<Vec<String>>,
-    pub number_of_plots: usize,
+    pub number_of_plots: Vec<usize>,
 }
 
 impl Default for SerialDevices {
@@ -22,7 +22,7 @@ impl Default for SerialDevices {
         SerialDevices {
             devices: vec![Device::default()],
             labels: vec![vec!["Column 0".to_string()]],
-            number_of_plots: 1,
+            number_of_plots: vec![1],
         }
     }
 }

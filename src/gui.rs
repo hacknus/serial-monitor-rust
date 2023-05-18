@@ -308,7 +308,8 @@ impl MyApp {
             let panel_height = ui.available_size().y;
             let height = ui.available_size().y * self.plot_serial_display_ratio;
             let plots_height = height;
-            let plot_height = plots_height / (self.serial_devices.number_of_plots as f32);
+            let plot_height =
+                plots_height / (self.serial_devices.number_of_plots[self.device_idx] as f32);
             let spacing = 5.0;
             let width = ui.available_size().x - 2.0 * border - RIGHT_PANEL_WIDTH;
 
@@ -339,7 +340,7 @@ impl MyApp {
                     let t_fmt = |x, _range: &RangeInclusive<f64>| format!("{:4.2} s", x);
 
                     let plots_ui = ui.vertical(|ui| {
-                        for graph_idx in 0..self.serial_devices.number_of_plots {
+                        for graph_idx in 0..self.serial_devices.number_of_plots[self.device_idx] {
                             if graph_idx != 0 {
                                 ui.separator();
                             }
@@ -682,15 +683,15 @@ impl MyApp {
 
                             ui.horizontal(|ui| {
                                 if ui.button("<").clicked() {
-                                    self.serial_devices.number_of_plots =
-                                        (self.serial_devices.number_of_plots - 1).clamp(1, 10);
+                                    self.serial_devices.number_of_plots[self.device_idx] =
+                                        (self.serial_devices.number_of_plots[self.device_idx] - 1).clamp(1, 10);
                                 }
-                                ui.add(egui::DragValue::new(&mut self.serial_devices.number_of_plots)
+                                ui.add(egui::DragValue::new(&mut self.serial_devices.number_of_plots[self.device_idx])
                                     .clamp_range(1..=10))
                                     .on_hover_text("Select the number of plots to be shown.");
                                 if ui.button(">").clicked() {
-                                    self.serial_devices.number_of_plots =
-                                        (self.serial_devices.number_of_plots + 1).clamp(1, 10);
+                                    self.serial_devices.number_of_plots[self.device_idx] =
+                                        (self.serial_devices.number_of_plots[self.device_idx] + 1).clamp(1, 10);
                                 }
                             });
 
