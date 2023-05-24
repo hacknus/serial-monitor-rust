@@ -11,7 +11,7 @@ homepage = "https://github.com/hacknus/serial-monitor-rust"
 [dependencies]
 csv = "1.1.6"
 eframe = { version = "0.22.0", features = ["persistence"] }
-egui_extras = { version = "0.21.0", features = ["image"] }
+egui_extras = { version = "0.22.0", features = ["image"] }
 hex = "0.4"
 image = { version = "0.24", default-features = false, features = ["png"] }
 itertools-num = "0.1"
