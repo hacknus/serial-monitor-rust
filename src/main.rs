@@ -12,6 +12,7 @@ use std::thread;
 use std::time::Duration;
 
 use eframe::egui::{vec2, Visuals};
+use eframe::IconData;
 use preferences::AppInfo;
 
 use crate::data::{DataContainer, Packet};
@@ -183,6 +184,8 @@ fn main() {
     });
 
     let options = eframe::NativeOptions {
+        follow_system_theme: true,
+        icon_data: Some(IconData::try_from_png_bytes(include_bytes!("../icons/icon.png")).unwrap()),
         drag_and_drop_support: true,
         initial_window_size: Option::from(vec2(gui_settings.x, gui_settings.y)),
         min_window_size: Option::from(vec2(2.0 * RIGHT_PANEL_WIDTH, 2.0 * RIGHT_PANEL_WIDTH)),
