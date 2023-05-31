@@ -785,6 +785,8 @@ impl MyApp {
                     ui.horizontal( |ui| {
                         if ui.button("Clear Device History").clicked() {
                             self.serial_devices = SerialDevices::default();
+                            self.device.clear();
+                            self.device_idx = 0;
                             clear_serial_settings();
                         }
                         if ui.button("Reset Labels").clicked() {
