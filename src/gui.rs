@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 
 use crate::data::{DataContainer, SerialDirection};
-use crate::serial::{save_serial_settings, Device, SerialDevices};
+use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialDevices};
 use crate::toggle::toggle;
 use crate::FileOptions;
 use crate::{APP_INFO, PREFS_KEY};
@@ -559,6 +559,7 @@ impl MyApp {
                                     let mut device = Device::default();
                                     device.name = self.device.clone();
                                     self.serial_devices.devices.push(device);
+                                    self.serial_devices.number_of_plots.push(1);
                                     self.serial_devices.labels.push(vec!["Column 0".to_string()]);
                                     self.device_idx = self.serial_devices.devices.len() - 1;
                                     save_serial_settings(&self.serial_devices);
@@ -781,9 +782,15 @@ impl MyApp {
                     global_dark_light_mode_buttons(ui);
                     ui.add_space(25.0);
                     self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
-                    if ui.button("Reset Labels").clicked() {
-                        self.serial_devices.labels[self.device_idx] = self.data.names.clone();
-                    }
+                    ui.horizontal( |ui| {
+                        if ui.button("Clear Device History").clicked() {
+                            self.serial_devices = SerialDevices::default();
+                            clear_serial_settings();
+                        }
+                        if ui.button("Reset Labels").clicked() {
+                            self.serial_devices.labels[self.device_idx] = self.data.names.clone();
+                        }
+                    });
                     if self.data.names.len() == 1 {
                         ui.label("Detected 1 Dataset:");
                     } else {

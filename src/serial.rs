@@ -42,6 +42,13 @@ pub fn save_serial_settings(serial_configs: &SerialDevices) {
     }
 }
 
+pub fn clear_serial_settings() {
+    let serial_configs = SerialDevices::default();
+    if serial_configs.save(&APP_INFO, PREFS_KEY_SERIAL).is_err() {
+        println!("failed to clear gui_settings");
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Device {
     pub name: String,
