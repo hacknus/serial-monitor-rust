@@ -55,7 +55,7 @@ Tested on:
 - Windows 10 x86
 - ...
 
-On Linux first install the following::
+On Linux first install the following:
 
 ```sh
 sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
