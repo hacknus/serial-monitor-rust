@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 
 use crate::data::{get_epoch_ms, SerialDirection};
-use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
+use crate::{print_to_console, stdio, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerialDevices {
@@ -112,32 +112,41 @@ pub fn serial_thread(
 
         let device = get_device(&devices_lock, &device_lock);
 
-        let mut port = match serialport::new(&device.name, device.baud_rate)
-            .timeout(Duration::from_millis(100))
-            .open()
-        {
-            Ok(p) => {
-                if let Ok(mut connected) = connected_lock.write() {
-                    *connected = true;
-                }
-                print_to_console(
-                    &print_lock,
-                    Print::Ok(format!(
-                        "Connected to serial port: {} @ baud = {}",
-                        device.name, device.baud_rate
-                    )),
-                );
-                BufReader::new(p)
+        let mut port = if device.name == "stdio" {
+            if let Ok(mut connected) = connected_lock.write() {
+                *connected = true;
             }
-            Err(err) => {
-                if let Ok(mut write_guard) = device_lock.write() {
-                    write_guard.name.clear();
+            print_to_console(&print_lock, Print::Ok(format!("Connected to stdio")));
+
+            BufReader::new(Box::new(stdio::Stdio) as _)
+        } else {
+            match serialport::new(&device.name, device.baud_rate)
+                .timeout(Duration::from_millis(100))
+                .open()
+            {
+                Ok(p) => {
+                    if let Ok(mut connected) = connected_lock.write() {
+                        *connected = true;
+                    }
+                    print_to_console(
+                        &print_lock,
+                        Print::Ok(format!(
+                            "Connected to serial port: {} @ baud = {}",
+                            device.name, device.baud_rate
+                        )),
+                    );
+                    BufReader::new(p)
                 }
-                print_to_console(
-                    &print_lock,
-                    Print::Error(format!("Error connecting: {}", err)),
-                );
-                continue;
+                Err(err) => {
+                    if let Ok(mut write_guard) = device_lock.write() {
+                        write_guard.name.clear();
+                    }
+                    print_to_console(
+                        &print_lock,
+                        Print::Error(format!("Error connecting: {}", err)),
+                    );
+                    continue;
+                }
             }
         };
 
@@ -176,6 +185,7 @@ fn available_devices() -> Vec<String> {
         .unwrap()
         .iter()
         .map(|p| p.port_name.clone())
+        .chain(std::iter::once("stdio".into()))
         .collect()
 }
 

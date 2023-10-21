@@ -24,6 +24,7 @@ mod data;
 mod gui;
 mod io;
 mod serial;
+mod stdio;
 mod toggle;
 
 const APP_INFO: AppInfo = AppInfo {
@@ -34,12 +35,8 @@ const PREFS_KEY: &str = "config/gui";
 const PREFS_KEY_SERIAL: &str = "config/serial_devices";
 
 fn split(payload: &str) -> Vec<f32> {
-    let mut split_data: Vec<&str> = vec![];
-    for s in payload.split(':') {
-        split_data.extend(s.split(','));
-    }
-    split_data
-        .iter()
+    payload
+        .split(&[':', ',', '=', ' ', '\t'])
         .map(|x| x.trim())
         .flat_map(|x| x.parse::<f32>())
         .collect()
