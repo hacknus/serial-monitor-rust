@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 
 use crate::data::{get_epoch_ms, SerialDirection};
-use crate::data_source::DataSource;
+use crate::interface::Interface;
 use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,13 +75,13 @@ impl Default for Device {
     }
 }
 
-fn serial_write(port: &mut BufReader<DataSource>, cmd: &[u8]) -> Result<usize, std::io::Error> {
+fn serial_write(port: &mut BufReader<Interface>, cmd: &[u8]) -> Result<usize, std::io::Error> {
     let write_port = port.get_mut();
     write_port.write(cmd)
 }
 
 fn serial_read(
-    port: &mut BufReader<DataSource>,
+    port: &mut BufReader<Interface>,
     serial_buf: &mut String,
 ) -> Result<usize, std::io::Error> {
     port.read_line(serial_buf)
@@ -116,7 +116,7 @@ pub fn serial_thread(
             }
             print_to_console(&print_lock, Print::Ok(format!("Connected to stdio")));
 
-            BufReader::new(DataSource::Stdio)
+            BufReader::new(Interface::Stdio)
         } else {
             match serialport::new(&device.name, device.baud_rate)
                 .timeout(Duration::from_millis(100))
@@ -133,7 +133,7 @@ pub fn serial_thread(
                             device.name, device.baud_rate
                         )),
                     );
-                    BufReader::new(DataSource::SerialPort(p))
+                    BufReader::new(Interface::SerialPort(p))
                 }
                 Err(err) => {
                     if let Ok(mut write_guard) = device_lock.write() {
@@ -236,7 +236,7 @@ fn disconnected(
 }
 
 fn perform_writes(
-    port: &mut BufReader<DataSource>,
+    port: &mut BufReader<Interface>,
     send_rx: &Receiver<String>,
     raw_data_tx: &Sender<Packet>,
     t_zero: Instant,
@@ -259,7 +259,7 @@ fn perform_writes(
     }
 }
 
-fn perform_reads(port: &mut BufReader<DataSource>, raw_data_tx: &Sender<Packet>, t_zero: Instant) {
+fn perform_reads(port: &mut BufReader<Interface>, raw_data_tx: &Sender<Packet>, t_zero: Instant) {
     let mut buf = "".to_string();
     match serial_read(port, &mut buf) {
         Ok(_) => {

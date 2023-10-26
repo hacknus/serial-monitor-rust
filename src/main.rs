@@ -21,8 +21,8 @@ use crate::io::{save_to_csv, FileOptions};
 use crate::serial::{load_serial_settings, serial_thread, Device};
 
 mod data;
-mod data_source;
 mod gui;
+mod interface;
 mod io;
 mod serial;
 mod toggle;
