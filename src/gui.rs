@@ -443,7 +443,8 @@ impl MyApp {
                             // send command
                             self.history.push(self.command.clone());
                             self.index = self.history.len() - 1;
-                            if let Err(err) = self.send_tx.send(self.command.clone() + &self.eol) {
+                            let eol = self.eol.replace("\\r", "\r").replace("\\n", "\n");
+                            if let Err(err) = self.send_tx.send(self.command.clone() + &eol) {
                                 print_to_console(
                                     &self.print_lock,
                                     Print::Error(format!("send_tx thread send failed: {:?}", err)),
