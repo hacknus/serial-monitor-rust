@@ -21,10 +21,10 @@ use crate::io::{save_to_csv, FileOptions};
 use crate::serial::{load_serial_settings, serial_thread, Device};
 
 mod data;
+mod data_source;
 mod gui;
 mod io;
 mod serial;
-mod stdio;
 mod toggle;
 
 const APP_INFO: AppInfo = AppInfo {
