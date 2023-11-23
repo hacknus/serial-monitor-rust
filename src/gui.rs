@@ -6,12 +6,12 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use eframe::egui::panel::Side;
-use eframe::egui::plot::{log_grid_spacer, Legend, Line, Plot, PlotPoint, PlotPoints};
 use eframe::egui::{
-    global_dark_light_mode_buttons, Align2, ColorImage, FontFamily, FontId, KeyboardShortcut, Pos2,
-    Sense, Vec2, Visuals,
+    global_dark_light_mode_buttons, Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense,
+    Vec2, Visuals,
 };
 use eframe::{egui, Storage};
+use egui_plot::{log_grid_spacer, Legend, Line, Plot, PlotPoint, PlotPoints};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
@@ -177,7 +177,7 @@ pub struct MyApp {
     plot_serial_display_ratio: f32,
     console: Vec<Print>,
     picked_path: PathBuf,
-    plot_location: egui::Rect,
+    plot_location: Option<egui::Rect>,
     data: DataContainer,
     gui_conf: GuiSettingsContainer,
     print_lock: Arc<RwLock<Vec<Print>>>,
@@ -197,7 +197,6 @@ pub struct MyApp {
     save_raw: bool,
     show_warning_window: WindowFeedback,
     do_not_show_clear_warning: bool,
-    screenshot: Option<ColorImage>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -245,8 +244,7 @@ impl MyApp {
             eol: "\\r\\n".to_string(),
             history: vec![],
             index: 0,
-            screenshot: None,
-            plot_location: egui::Rect::EVERYTHING,
+            plot_location: None,
             do_not_show_clear_warning: false,
             show_warning_window: WindowFeedback::None,
         }
@@ -338,7 +336,7 @@ impl MyApp {
                         }
                     }
 
-                    let t_fmt = |x, _range: &RangeInclusive<f64>| format!("{:4.2} s", x);
+                    let t_fmt = |x, _n, _range: &RangeInclusive<f64>| format!("{:4.2} s", x);
 
                     let plots_ui = ui.vertical(|ui| {
                         for graph_idx in 0..self.serial_devices.number_of_plots[self.device_idx] {
@@ -367,7 +365,7 @@ impl MyApp {
                                 }
                             });
 
-                            self.plot_location = plot_inner.response.rect;
+                            self.plot_location = Some(plot_inner.response.rect);
                         }
                         let separator_response = ui.separator();
                         let separator = ui
@@ -475,7 +473,7 @@ impl MyApp {
         });
     }
 
-    fn draw_side_panel(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn draw_side_panel(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut init = false;
         egui::SidePanel::new(Side::Right, "settings panel")
             .min_width(RIGHT_PANEL_WIDTH)
@@ -738,13 +736,14 @@ impl MyApp {
                                     }
                                 }
                             };
+
                             if ui
                                 .button("Save Plot")
                                 .on_hover_text("Save an image of the Plot.")
                                 .clicked() || ui.input_mut(|i| i.consume_shortcut(&SAVE_PLOT_SHORTCUT))
 
                             {
-                                frame.request_screenshot();
+                                ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot);
                             }
                             ui.end_row();
                             if ui.button("Clear Data")
@@ -886,37 +885,35 @@ impl eframe::App for MyApp {
         self.gui_conf.x = ctx.used_size().x;
         self.gui_conf.y = ctx.used_size().y;
 
-        if let Some(screenshot) = self.screenshot.take() {
+        // Check for returned screenshot:
+        let screenshot = ctx.input(|i| {
+            for event in &i.raw.events {
+                if let egui::Event::Screenshot { image, .. } = event {
+                    return Some(image.clone());
+                }
+            }
+            None
+        });
+
+        if let (Some(screenshot), Some(plot_location)) = (screenshot, self.plot_location) {
             if let Some(mut path) = rfd::FileDialog::new().save_file() {
                 path.set_extension("png");
 
                 // for a full size application, we should put this in a different thread,
                 // so that the GUI doesn't lag during saving
 
-                let pixels_per_point = frame.info().native_pixels_per_point;
-                let plot = screenshot.region(&self.plot_location, pixels_per_point);
-
+                let pixels_per_point = ctx.pixels_per_point();
+                let plot = screenshot.region(&plot_location, Some(pixels_per_point));
                 // save the plot to png
-                match image::save_buffer(
+                image::save_buffer(
                     &path,
                     plot.as_raw(),
                     plot.width() as u32,
                     plot.height() as u32,
                     image::ColorType::Rgba8,
-                ) {
-                    Ok(_) => {
-                        print_to_console(
-                            &self.print_lock,
-                            Print::Ok(format!("saved plot to {:?} ", path)),
-                        );
-                    }
-                    Err(e) => {
-                        print_to_console(
-                            &self.print_lock,
-                            Print::Error(format!("failed to plot to {:?}: {:?}", path, e)),
-                        );
-                    }
-                }
+                )
+                .unwrap();
+                eprintln!("Image saved to {path:?}.");
             }
         }
 
@@ -927,13 +924,6 @@ impl eframe::App for MyApp {
         save_serial_settings(&self.serial_devices);
         if let Err(err) = self.gui_conf.save(&APP_INFO, PREFS_KEY) {
             println!("gui settings save failed: {:?}", err);
-        }
-    }
-
-    fn post_rendering(&mut self, _screen_size_px: [u32; 2], frame: &eframe::Frame) {
-        // this is inspired by the Egui screenshot example
-        if let Some(screenshot) = frame.screenshot() {
-            self.screenshot = Some(screenshot);
         }
     }
 }
