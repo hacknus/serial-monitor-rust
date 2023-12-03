@@ -103,8 +103,7 @@ pub fn serial_thread(
             .reason("Serial Connection")
             .app_name("Serial Monitor")
             //.app_reverse_domain("io.github.myprog")
-            .create()
-            .unwrap();
+            .create();
 
         if let Ok(mut connected) = connected_lock.write() {
             *connected = false;
@@ -148,8 +147,7 @@ pub fn serial_thread(
             .reason("Serial Connection")
             .app_name("Serial Monitor")
             //.app_reverse_domain("io.github.myprog")
-            .create()
-            .unwrap();
+            .create();
 
         'connected_loop: loop {
             let devices = available_devices();
