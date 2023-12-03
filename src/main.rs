@@ -12,7 +12,7 @@ use std::thread;
 use std::time::Duration;
 
 use eframe::egui::{vec2, ViewportBuilder, Visuals};
-use eframe::icon_data;
+use eframe::{egui, icon_data};
 use preferences::AppInfo;
 
 use crate::data::{DataContainer, Packet};
@@ -205,6 +205,9 @@ fn main() {
         "Serial Monitor",
         options,
         Box::new(|_cc| {
+            let mut fonts = egui::FontDefinitions::default();
+            egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+            _cc.egui_ctx.set_fonts(fonts);
             _cc.egui_ctx.set_visuals(Visuals::dark());
             Box::new(MyApp::new(
                 gui_print_lock,

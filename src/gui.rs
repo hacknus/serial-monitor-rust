@@ -683,14 +683,14 @@ impl MyApp {
                             ui.label("Number of plots [#]: ");
 
                             ui.horizontal(|ui| {
-                                if ui.button("<").clicked() {
+                                if ui.button(egui::RichText::new(egui_phosphor::regular::ARROW_FAT_LEFT.to_string())).clicked() {
                                     self.serial_devices.number_of_plots[self.device_idx] =
                                         (self.serial_devices.number_of_plots[self.device_idx] - 1).clamp(1, 10);
                                 }
                                 ui.add(egui::DragValue::new(&mut self.serial_devices.number_of_plots[self.device_idx])
                                     .clamp_range(1..=10))
                                     .on_hover_text("Select the number of plots to be shown.");
-                                if ui.button(">").clicked() {
+                                if ui.button(egui::RichText::new(egui_phosphor::regular::ARROW_FAT_RIGHT.to_string())).clicked() {
                                     self.serial_devices.number_of_plots[self.device_idx] =
                                         (self.serial_devices.number_of_plots[self.device_idx] + 1).clamp(1, 10);
                                 }
@@ -714,7 +714,7 @@ impl MyApp {
                             ui.end_row();
                             ui.end_row();
 
-                            if ui.button("Save CSV")
+                            if ui.button(egui::RichText::new(format!("{} Save CSV", egui_phosphor::regular::FLOPPY_DISK)))
                                 .on_hover_text("Save Plot Data to CSV.")
                                 .clicked() || ui.input_mut(|i| i.consume_shortcut(&SAVE_FILE_SHORTCUT))
                             {
@@ -738,7 +738,7 @@ impl MyApp {
                             };
 
                             if ui
-                                .button("Save Plot")
+                                .button(egui::RichText::new(format!("{} Save Plot", egui_phosphor::regular::FLOPPY_DISK)))
                                 .on_hover_text("Save an image of the Plot.")
                                 .clicked() || ui.input_mut(|i| i.consume_shortcut(&SAVE_PLOT_SHORTCUT))
 
@@ -746,7 +746,7 @@ impl MyApp {
                                 ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot);
                             }
                             ui.end_row();
-                            if ui.button("Clear Data")
+                            if ui.button(egui::RichText::new(format!("{} Clear Data", egui_phosphor::regular::X)))
                                 .on_hover_text("Clear Data from Plot.")
                                 .clicked() || ui.input_mut(|i| i.consume_shortcut(&CLEAR_PLOT_SHORTCUT)) {
                                 print_to_console(

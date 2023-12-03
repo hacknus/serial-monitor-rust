@@ -1151,6 +1151,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-phosphor"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0f3bb4c76b07a91bcc3021ea7a53c7484b62880a307680f92d81affe57c9e61b"
+dependencies = [
+ "egui",
+]
+
+[[package]]
 name = "egui-winit"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2821,10 +2830,11 @@ dependencies = [
 
 [[package]]
 name = "serial-monitor-rust"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "csv",
  "eframe",
+ "egui-phosphor",
  "egui_extras",
  "egui_plot",
  "hex",
