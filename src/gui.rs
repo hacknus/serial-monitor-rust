@@ -14,7 +14,7 @@ use eframe::{egui, Storage};
 use egui_plot::{log_grid_spacer, Legend, Line, Plot, PlotPoint, PlotPoints};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
-use serialport::{DataBits, FlowControl, Parity, StopBits};
+use serial2::{CharSize, FlowControl, Parity, StopBits};
 
 use crate::data::{DataContainer, SerialDirection};
 use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialDevices};
@@ -612,10 +612,10 @@ impl MyApp {
                             .selected_text(self.serial_devices.devices[self.device_idx].data_bits.to_string())
                             .width(30.0)
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Eight, DataBits::Eight.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Seven, DataBits::Seven.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Six, DataBits::Six.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Five, DataBits::Five.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, CharSize::Bits8, CharSize::Bits8.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, CharSize::Bits7, CharSize::Bits7.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, CharSize::Bits6, CharSize::Bits6.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, CharSize::Bits5, CharSize::Bits5.to_string());
 
                             });
                         egui::ComboBox::from_id_source("Parity")
@@ -638,8 +638,8 @@ impl MyApp {
                             .width(75.0)
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::None, FlowControl::None.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Hardware, FlowControl::Hardware.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Software, FlowControl::Software.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::RtsCts, FlowControl::RtsCts.to_string());
+                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::XonXoff, FlowControl::XonXoff.to_string());
                             });
                         egui::ComboBox::from_id_source("Timeout")
                             .selected_text(self.serial_devices.devices[self.device_idx].timeout.as_millis().to_string())

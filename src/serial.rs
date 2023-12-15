@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
-use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
+use serial2::{CharSize, FlowControl, Parity, SerialPort, StopBits};
 
 use crate::data::{get_epoch_ms, SerialDirection};
 use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
@@ -53,7 +53,7 @@ pub fn clear_serial_settings() {
 pub struct Device {
     pub name: String,
     pub baud_rate: u32,
-    pub data_bits: DataBits,
+    pub data_bits: CharSize,
     pub flow_control: FlowControl,
     pub parity: Parity,
     pub stop_bits: StopBits,
@@ -65,7 +65,7 @@ impl Default for Device {
         Device {
             name: "".to_string(),
             baud_rate: 9600,
-            data_bits: DataBits::Eight,
+            data_bits: CharSize::Bits8,
             flow_control: FlowControl::None,
             parity: Parity::None,
             stop_bits: StopBits::One,
@@ -74,16 +74,13 @@ impl Default for Device {
     }
 }
 
-fn serial_write(
-    port: &mut BufReader<Box<dyn SerialPort>>,
-    cmd: &[u8],
-) -> Result<usize, std::io::Error> {
+fn serial_write(port: &mut BufReader<SerialPort>, cmd: &[u8]) -> Result<usize, std::io::Error> {
     let write_port = port.get_mut();
     write_port.write(cmd)
 }
 
 fn serial_read(
-    port: &mut BufReader<Box<dyn SerialPort>>,
+    port: &mut BufReader<SerialPort>,
     serial_buf: &mut String,
 ) -> Result<usize, std::io::Error> {
     port.read_line(serial_buf)
@@ -111,10 +108,7 @@ pub fn serial_thread(
 
         let device = get_device(&devices_lock, &device_lock);
 
-        let mut port = match serialport::new(&device.name, device.baud_rate)
-            .timeout(Duration::from_millis(100))
-            .open()
-        {
+        let mut port = match SerialPort::open(&device.name, device.baud_rate) {
             Ok(p) => {
                 if let Ok(mut connected) = connected_lock.write() {
                     *connected = true;
@@ -170,10 +164,10 @@ pub fn serial_thread(
 }
 
 fn available_devices() -> Vec<String> {
-    serialport::available_ports()
+    SerialPort::available_ports()
         .unwrap()
         .iter()
-        .map(|p| p.port_name.clone())
+        .map(|p| p.to_str().unwrap().to_string())
         .collect()
 }
 
@@ -226,7 +220,7 @@ fn disconnected(
 }
 
 fn perform_writes(
-    port: &mut BufReader<Box<dyn SerialPort>>,
+    port: &mut BufReader<SerialPort>,
     send_rx: &Receiver<String>,
     raw_data_tx: &Sender<Packet>,
     t_zero: Instant,
@@ -249,11 +243,7 @@ fn perform_writes(
     }
 }
 
-fn perform_reads(
-    port: &mut BufReader<Box<dyn SerialPort>>,
-    raw_data_tx: &Sender<Packet>,
-    t_zero: Instant,
-) {
+fn perform_reads(port: &mut BufReader<SerialPort>, raw_data_tx: &Sender<Packet>, t_zero: Instant) {
     let mut buf = "".to_string();
     match serial_read(port, &mut buf) {
         Ok(_) => {
