@@ -5,10 +5,9 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use eframe::egui::panel::Side;
 use eframe::egui::{
     global_dark_light_mode_buttons, Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense,
-    Vec2, Visuals,
+    SidePanel, Vec2, Visuals,
 };
 use eframe::{egui, Storage};
 use egui_plot::{log_grid_spacer, Legend, Line, Plot, PlotPoint, PlotPoints};
@@ -17,10 +16,13 @@ use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 
 use crate::data::{DataContainer, SerialDirection};
+use crate::record::RecordOptions;
 use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialDevices};
 use crate::toggle::toggle;
-use crate::FileOptions;
+use crate::{FileOptions, GuiEvent};
 use crate::{APP_INFO, PREFS_KEY};
+
+mod components;
 
 const MAX_FPS: f64 = 60.0;
 
@@ -131,6 +133,13 @@ pub fn print_to_console(print_lock: &Arc<RwLock<Vec<Print>>>, message: Print) {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub struct Command {
+    name: String,
+    cmd: String,
+    editing: bool,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct GuiSettingsContainer {
     pub device: String,
     pub baud: u32,
@@ -139,6 +148,10 @@ pub struct GuiSettingsContainer {
     pub y: f32,
     pub save_absolute_time: bool,
     pub dark_mode: bool,
+    pub plot_options: PlotOptions,
+    pub raw_traffic_options: RawTrafficOptions,
+    pub record_options: RecordOptions,
+    pub commands: Vec<Command>,
 }
 
 impl Default for GuiSettingsContainer {
@@ -151,19 +164,80 @@ impl Default for GuiSettingsContainer {
             y: 900.0,
             save_absolute_time: false,
             dark_mode: true,
+            plot_options: PlotOptions::default(),
+            raw_traffic_options: RawTrafficOptions::default(),
+            record_options: RecordOptions::default(),
+            commands: vec![Command {
+                name: "Command 1".to_owned(),
+                cmd: "".to_owned(),
+                editing: false,
+            }],
         }
     }
 }
 
 pub fn load_gui_settings() -> GuiSettingsContainer {
-    GuiSettingsContainer::load(&APP_INFO, PREFS_KEY).unwrap_or_else(|_| {
+    let mut gui_settings = GuiSettingsContainer::load(&APP_INFO, PREFS_KEY).unwrap_or_else(|_| {
         let gui_settings = GuiSettingsContainer::default();
         // save default settings
         if gui_settings.save(&APP_INFO, PREFS_KEY).is_err() {
             println!("failed to save gui_settings");
         }
         gui_settings
-    })
+    });
+    gui_settings.record_options.enable = false;
+    gui_settings.record_options.record_path = PathBuf::new();
+    gui_settings
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum GuiTabs {
+    RawTraffic,
+    Commands,
+    PlotOptions,
+    Record,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct RawTrafficOptions {
+    pub enable: bool,
+    show_sent_cmds: bool,
+    show_timestamps: bool,
+    pub max_len: usize,
+    eol: String,
+}
+
+impl Default for RawTrafficOptions {
+    fn default() -> Self {
+        Self {
+            enable: false,
+            show_sent_cmds: true,
+            show_timestamps: true,
+            max_len: 5000,
+            eol: "\\r\\n".to_owned(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PlotOptions {
+    pub buffer_size: usize,
+    plotting_range: usize,
+    labels: Vec<String>,
+    number_of_plots: usize,
+    time_x_axis: bool,
+}
+
+impl Default for PlotOptions {
+    fn default() -> Self {
+        Self {
+            buffer_size: 5000,
+            plotting_range: usize::MAX,
+            labels: vec!["Column 0".to_string()],
+            number_of_plots: 1,
+            time_x_axis: false,
+        }
+    }
 }
 
 pub struct MyApp {
@@ -173,7 +247,6 @@ pub struct MyApp {
     old_device: String,
     device_idx: usize,
     serial_devices: SerialDevices,
-    plotting_range: usize,
     plot_serial_display_ratio: f32,
     console: Vec<Print>,
     picked_path: PathBuf,
@@ -185,18 +258,17 @@ pub struct MyApp {
     devices_lock: Arc<RwLock<Vec<String>>>,
     connected_lock: Arc<RwLock<bool>>,
     data_lock: Arc<RwLock<DataContainer>>,
-    names_tx: Sender<Vec<String>>,
-    save_tx: Sender<FileOptions>,
     send_tx: Sender<String>,
-    clear_tx: Sender<bool>,
+    gui_event_tx: Sender<GuiEvent>,
+    record_options_tx: Sender<RecordOptions>,
     history: Vec<String>,
     index: usize,
-    eol: String,
-    show_sent_cmds: bool,
-    show_timestamps: bool,
     save_raw: bool,
     show_warning_window: WindowFeedback,
     do_not_show_clear_warning: bool,
+    need_initialize: bool,
+    right_panel_expanded: bool,
+    active_tab: Option<GuiTabs>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -209,11 +281,18 @@ impl MyApp {
         devices: SerialDevices,
         connected_lock: Arc<RwLock<bool>>,
         gui_conf: GuiSettingsContainer,
-        names_tx: Sender<Vec<String>>,
-        save_tx: Sender<FileOptions>,
         send_tx: Sender<String>,
-        clear_tx: Sender<bool>,
+        gui_event_tx: Sender<GuiEvent>,
+        record_options_tx: Sender<RecordOptions>,
     ) -> Self {
+        gui_event_tx
+            .send(GuiEvent::SetRawTrafficOptions(
+                gui_conf.raw_traffic_options.clone(),
+            ))
+            .expect("Failed to send raw traffic options");
+        gui_event_tx
+            .send(GuiEvent::SetBufferSize(gui_conf.plot_options.buffer_size))
+            .expect("Failed to send buffer size");
         Self {
             connected_to_device: false,
             picked_path: PathBuf::new(),
@@ -231,22 +310,20 @@ impl MyApp {
             print_lock,
             gui_conf,
             data_lock,
-            names_tx,
-            save_tx,
             send_tx,
-            clear_tx,
-            plotting_range: usize::MAX,
-            plot_serial_display_ratio: 0.45,
+            gui_event_tx,
+            plot_serial_display_ratio: 0.75,
             command: "".to_string(),
-            show_sent_cmds: true,
-            show_timestamps: true,
             save_raw: false,
-            eol: "\\r\\n".to_string(),
             history: vec![],
             index: 0,
             plot_location: None,
             do_not_show_clear_warning: false,
             show_warning_window: WindowFeedback::None,
+            need_initialize: false,
+            right_panel_expanded: true,
+            active_tab: Some(GuiTabs::PlotOptions),
+            record_options_tx,
         }
     }
 
@@ -281,7 +358,11 @@ impl MyApp {
     }
 
     fn console_text(&self, packet: &crate::data::Packet) -> Option<String> {
-        match (self.show_sent_cmds, self.show_timestamps, &packet.direction) {
+        match (
+            self.gui_conf.raw_traffic_options.show_sent_cmds,
+            self.gui_conf.raw_traffic_options.show_timestamps,
+            &packet.direction,
+        ) {
             (true, true, _) => Some(format!(
                 "[{}] t + {:.3}s: {}\n",
                 packet.direction,
@@ -301,558 +382,169 @@ impl MyApp {
 
     fn draw_central_panel(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            let border = 10.0;
-
             let panel_height = ui.available_size().y;
-            let height = ui.available_size().y * self.plot_serial_display_ratio;
-            let plots_height = height;
-            // need to subtract 12.0, this seems to be the height of the separator of two adjacent plots
-            let plot_height =
-                plots_height / (self.serial_devices.number_of_plots[self.device_idx] as f32) - 12.0;
             let spacing = 5.0;
-            let width = ui.available_size().x - 2.0 * border - RIGHT_PANEL_WIDTH;
 
             ui.add_space(spacing);
-            ui.horizontal(|ui| {
-                ui.add_space(border);
+            ui.horizontal_centered(|ui| {
+                // ui.add_space(border);
                 ui.vertical(|ui| {
-                    if let Ok(read_guard) = self.data_lock.read() {
-                        self.data = read_guard.clone();
+                    self.plots_ui(ui);
+
+                    let separator_response = ui.separator();
+                    let separator = ui
+                        .interact(
+                            separator_response.rect,
+                            separator_response.id,
+                            Sense::click_and_drag(),
+                        )
+                        .on_hover_cursor(egui::CursorIcon::ResizeVertical);
+
+                    let resize_y = separator.drag_delta().y;
+
+                    if separator.double_clicked() {
+                        self.plot_serial_display_ratio = 0.75;
                     }
+                    self.plot_serial_display_ratio =
+                        (self.plot_serial_display_ratio + resize_y / panel_height).clamp(0.1, 0.9);
 
-                    let mut graphs: Vec<Vec<PlotPoint>> = vec![vec![]; self.data.dataset.len()];
-                    let window = self.data.dataset[0]
-                        .len()
-                        .saturating_sub(self.plotting_range);
-
-                    for (i, time) in self.data.time[window..].iter().enumerate() {
-                        let x = *time as f64 / 1000.0;
-                        for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
-                            if self.data.time.len() == data.len() {
-                                if let Some(y) = data.get(i + window) {
-                                    graph.push(PlotPoint { x, y: *y as f64 });
-                                }
-                            }
-                        }
-                    }
-
-                    let t_fmt = |x, _n, _range: &RangeInclusive<f64>| format!("{:4.2} s", x);
-
-                    let plots_ui = ui.vertical(|ui| {
-                        for graph_idx in 0..self.serial_devices.number_of_plots[self.device_idx] {
-                            if graph_idx != 0 {
-                                ui.separator();
-                            }
-
-                            let signal_plot = Plot::new(format!("data-{graph_idx}"))
-                                .height(plot_height)
-                                .width(width)
-                                .legend(Legend::default())
-                                .x_grid_spacer(log_grid_spacer(10))
-                                .y_grid_spacer(log_grid_spacer(10))
-                                .x_axis_formatter(t_fmt);
-
-                            let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
-                                for (i, graph) in graphs.iter().enumerate() {
-                                    // this check needs to be here for when we change devices (not very elegant)
-                                    if i < self.serial_devices.labels[self.device_idx].len() {
-                                        signal_plot_ui.line(
-                                            Line::new(PlotPoints::Owned(graph.to_vec())).name(
-                                                &self.serial_devices.labels[self.device_idx][i],
-                                            ),
-                                        );
-                                    }
-                                }
-                            });
-
-                            self.plot_location = Some(plot_inner.response.rect);
-                        }
-                        let separator_response = ui.separator();
-                        let separator = ui
-                            .interact(
-                                separator_response.rect,
-                                separator_response.id,
-                                Sense::click_and_drag(),
-                            )
-                            .on_hover_cursor(egui::CursorIcon::ResizeVertical);
-
-                        let resize_y = separator.drag_delta().y;
-
-                        if separator.double_clicked() {
-                            self.plot_serial_display_ratio = 0.45;
-                        }
-                        self.plot_serial_display_ratio = (self.plot_serial_display_ratio
-                            + resize_y / panel_height)
-                            .clamp(0.1, 0.9);
-
-                        ui.add_space(spacing);
-                    });
-
-                    let serial_height =
-                        panel_height - plots_ui.response.rect.height() - border * 2.0 - spacing;
-
-                    let num_rows = self.data.raw_traffic.len();
-                    let row_height = ui.text_style_height(&egui::TextStyle::Body);
-
-                    let color = if self.gui_conf.dark_mode {
-                        egui::Color32::WHITE
-                    } else {
-                        egui::Color32::BLACK
-                    };
-
-                    egui::ScrollArea::vertical()
-                        .id_source("serial_output")
-                        .auto_shrink([false; 2])
-                        .stick_to_bottom(true)
-                        .enable_scrolling(true)
-                        .max_height(serial_height - spacing)
-                        .min_scrolled_height(serial_height - spacing)
-                        .max_width(width)
-                        .show_rows(ui, row_height, num_rows, |ui, row_range| {
-                            let content: String = row_range
-                                .into_iter()
-                                .flat_map(|i| {
-                                    if self.data.raw_traffic.is_empty() {
-                                        None
-                                    } else {
-                                        self.console_text(&self.data.raw_traffic[i])
-                                    }
-                                })
-                                .collect();
-                            ui.add(
-                                egui::TextEdit::multiline(&mut content.as_str())
-                                    .font(DEFAULT_FONT_ID) // for cursor height
-                                    .lock_focus(true)
-                                    .text_color(color)
-                                    .desired_width(width),
-                            );
-                        });
-                    ui.add_space(spacing / 2.0);
                     ui.horizontal(|ui| {
-                        let cmd_line = ui.add(
-                            egui::TextEdit::singleline(&mut self.command)
-                                .desired_width(width - 50.0)
-                                .lock_focus(true)
-                                .code_editor(),
-                        );
-                        let cmd_has_lost_focus = cmd_line.lost_focus();
-                        let key_pressed = ui.input(|i| i.key_pressed(egui::Key::Enter));
-                        if (key_pressed && cmd_has_lost_focus) || ui.button("Send").clicked() {
-                            // send command
-                            self.history.push(self.command.clone());
-                            self.index = self.history.len() - 1;
-                            let eol = self.eol.replace("\\r", "\r").replace("\\n", "\n");
-                            if let Err(err) = self.send_tx.send(self.command.clone() + &eol) {
-                                print_to_console(
-                                    &self.print_lock,
-                                    Print::Error(format!("send_tx thread send failed: {:?}", err)),
-                                );
+                        if ui
+                            .selectable_value(
+                                &mut self.active_tab,
+                                Some(GuiTabs::PlotOptions),
+                                "Plot Options",
+                            )
+                            .double_clicked()
+                        {
+                            self.active_tab = None
+                        };
+
+                        if ui
+                            .selectable_value(
+                                &mut self.active_tab,
+                                Some(GuiTabs::RawTraffic),
+                                "Raw Traffic",
+                            )
+                            .double_clicked()
+                        {
+                            self.active_tab = None
+                        };
+
+                        if ui
+                            .selectable_value(
+                                &mut self.active_tab,
+                                Some(GuiTabs::Commands),
+                                "Commands",
+                            )
+                            .double_clicked()
+                        {
+                            self.active_tab = None
+                        };
+
+                        if ui
+                            .selectable_value(&mut self.active_tab, Some(GuiTabs::Record), "Record")
+                            .double_clicked()
+                        {
+                            self.active_tab = None
+                        };
+
+                        ui.add_space(ui.available_width() - 25.0);
+
+                        if ui
+                            .selectable_label(
+                                false,
+                                egui::RichText::new(if self.active_tab.is_none() {
+                                    egui_phosphor::regular::CARET_UP
+                                } else {
+                                    egui_phosphor::regular::CARET_DOWN
+                                }),
+                            )
+                            .clicked()
+                        {
+                            self.active_tab = if self.active_tab.is_none() {
+                                Some(GuiTabs::PlotOptions)
+                            } else {
+                                None
                             }
-                            // stay in focus!
-                            cmd_line.request_focus();
                         }
                     });
 
-                    if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
-                        self.index = self.index.saturating_sub(1);
-                        if !self.history.is_empty() {
-                            self.command = self.history[self.index].clone();
+                    match self.active_tab {
+                        Some(tab) => {
+                            ui.separator();
+                            ui.add_space(spacing);
+                            match tab {
+                                GuiTabs::RawTraffic => {
+                                    self.serial_raw_traffic_ui(ui);
+                                }
+                                GuiTabs::Commands => {
+                                    self.commands_gui(ui);
+                                }
+                                GuiTabs::PlotOptions => {
+                                    self.plot_options_ui(ui);
+                                }
+                                GuiTabs::Record => {
+                                    self.record_gui(ui);
+                                }
+                            }
                         }
-                    }
-                    if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
-                        self.index = std::cmp::min(self.index + 1, self.history.len() - 1);
-                        if !self.history.is_empty() {
-                            self.command = self.history[self.index].clone();
-                        }
-                    }
-
-                    ctx.request_repaint()
+                        None => (),
+                    };
                 });
-                ui.add_space(border);
+                // ui.add_space(border);
             });
         });
     }
 
     fn draw_side_panel(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let mut init = false;
-        egui::SidePanel::new(Side::Right, "settings panel")
-            .min_width(RIGHT_PANEL_WIDTH)
-            .max_width(RIGHT_PANEL_WIDTH)
-            .resizable(false)
-            //.default_width(right_panel_width)
-            .show(ctx, |ui| {
-                ui.add_enabled_ui(true, |ui| {
-                    ui.set_visible(true);
+        egui::SidePanel::show_animated_between(
+            ctx,
+            self.right_panel_expanded,
+            SidePanel::right("settings panel collapsed")
+                .min_width(0.0)
+                .resizable(false),
+            SidePanel::right("settings panel expanded")
+                .exact_width(RIGHT_PANEL_WIDTH)
+                .resizable(false),
+            |ui, how_expanded| {
+                // ui.set_visible(true);
+                if how_expanded == 0.0 {
+                    ui.add_space(10.0);
+                    if ui
+                        .button(egui::RichText::new(
+                            egui_phosphor::regular::CARET_LEFT.to_string(),
+                        ))
+                        .clicked()
+                    {
+                        self.right_panel_expanded = true;
+                    };
+                } else {
                     ui.horizontal(|ui| {
-                        ui.heading("Serial Monitor");
+                        if ui
+                            .heading("Serial Monitor")
+                            .interact(egui::Sense::click())
+                            .clicked()
+                        {
+                            self.right_panel_expanded = false;
+                        };
                         self.paint_connection_indicator(ui);
                     });
-
-                    let devices: Vec<String> = if let Ok(read_guard) = self.devices_lock.read() {
-                        read_guard.clone()
-                    } else {
-                        vec![]
-                    };
-
-                    if !devices.contains(&self.device) {
-                        self.device.clear();
-                    }
-
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        ui.label("Device");
-                        ui.add_space(130.0);
-                        ui.label("Baud");
-                    });
-
-                    let old_name = self.device.clone();
-                    ui.horizontal(|ui| {
-                        let dev_text = self.device.replace("/dev/tty.", "");
-                        ui.horizontal(|ui| {
-                            ui.set_enabled(!self.connected_to_device);
-                            let _response = egui::ComboBox::from_id_source("Device")
-                                .selected_text(dev_text)
-                                .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
-                                .show_ui(ui, |ui| {
-                                    devices
-                                        .into_iter()
-                                        // on macOS each device appears as /dev/tty.* and /dev/cu.*
-                                        // we only display the /dev/tty.* here
-                                        .filter(|dev| !dev.contains("/dev/cu."))
-                                        .for_each(|dev| {
-                                            // this makes the names shorter in the UI on UNIX and UNIX-like platforms
-                                            let dev_text = dev.replace("/dev/tty.", "");
-                                            ui.selectable_value(&mut self.device, dev, dev_text);
-                                        });
-                                }).response;
-                            // let selected_new_device = response.changed();  //somehow this does not work
-                            // if selected_new_device {
-                            if old_name != self.device {
-                                if !self.data.time.is_empty() {
-                                    self.show_warning_window = WindowFeedback::Waiting;
-                                    self.old_device = old_name;
-                                } else {
-                                    self.show_warning_window = WindowFeedback::Clear;
-                                }
-                            }
-                        });
-                        match self.show_warning_window {
-                            WindowFeedback::None => {}
-                            WindowFeedback::Waiting => {
-                                self.show_warning_window = self.clear_warning_window(ctx);
-                            }
-                            WindowFeedback::Clear => {
-                                // new device selected, check in previously used devices
-                                let mut device_is_already_saved = false;
-                                for (idx, dev) in self.serial_devices.devices.iter().enumerate() {
-                                    if dev.name == self.device {
-                                        // this is the device!
-                                        self.device = dev.name.clone();
-                                        self.device_idx = idx;
-                                        init = true;
-                                        device_is_already_saved = true;
-                                    }
-                                }
-                                if !device_is_already_saved {
-                                    // create new device in the archive
-                                    let mut device = Device::default();
-                                    device.name = self.device.clone();
-                                    self.serial_devices.devices.push(device);
-                                    self.serial_devices.number_of_plots.push(1);
-                                    self.serial_devices.labels.push(vec!["Column 0".to_string()]);
-                                    self.device_idx = self.serial_devices.devices.len() - 1;
-                                    save_serial_settings(&self.serial_devices);
-                                }
-                                self.clear_tx.send(true).expect("failed to send clear after choosing new device");
-                                // need to clear the data here such that we don't get errors in the gui (plot)
-                                self.data = DataContainer::default();
-                                self.show_warning_window = WindowFeedback::None;
-                            }
-                            WindowFeedback::Cancel => {
-                                self.device = self.old_device.clone();
-                                self.show_warning_window = WindowFeedback::None;
-                            }
-                        }
-                        egui::ComboBox::from_id_source("Baud Rate")
-                            .selected_text(format!("{}", self.serial_devices.devices[self.device_idx].baud_rate))
-                            .width(80.0)
-                            .show_ui(ui, |ui| {
-                                BAUD_RATES.iter().for_each(|baud_rate| {
-                                    ui.selectable_value(
-                                        &mut self.serial_devices.devices[self.device_idx].baud_rate,
-                                        *baud_rate,
-                                        baud_rate.to_string(),
-                                    );
-                                });
-                            });
-                        let connect_text = if self.connected_to_device { "Disconnect" } else { "Connect" };
-                        if ui.button(connect_text).clicked() {
-                            if let Ok(mut device) = self.device_lock.write() {
-                                if self.connected_to_device {
-                                    device.name.clear();
-                                } else {
-                                    device.name = self.serial_devices.devices[self.device_idx].name.clone();
-                                    device.baud_rate = self.serial_devices.devices[self.device_idx].baud_rate;
-                                }
-                            }
-                        }
-                    });
                     ui.add_space(5.0);
-                    ui.horizontal(|ui| {
-                        ui.label("Data Bits");
-                        ui.add_space(5.0);
-                        ui.label("Parity");
-                        ui.add_space(20.0);
-                        ui.label("Stop Bits");
-                        ui.label("Flow Control");
-                        ui.label("Timeout");
-                    });
-                    ui.horizontal(|ui| {
-                        egui::ComboBox::from_id_source("Data Bits")
-                            .selected_text(self.serial_devices.devices[self.device_idx].data_bits.to_string())
-                            .width(30.0)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Eight, DataBits::Eight.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Seven, DataBits::Seven.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Six, DataBits::Six.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Five, DataBits::Five.to_string());
-
-                            });
-                        egui::ComboBox::from_id_source("Parity")
-                            .selected_text(self.serial_devices.devices[self.device_idx].parity.to_string())
-                            .width(30.0)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::None, Parity::None.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::Odd, Parity::Odd.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::Even, Parity::Even.to_string());
-                            });
-                        egui::ComboBox::from_id_source("Stop Bits")
-                            .selected_text(self.serial_devices.devices[self.device_idx].stop_bits.to_string())
-                            .width(30.0)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].stop_bits, StopBits::One, StopBits::One.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].stop_bits, StopBits::Two, StopBits::Two.to_string());
-                            });
-                        egui::ComboBox::from_id_source("Flow Control")
-                            .selected_text(self.serial_devices.devices[self.device_idx].flow_control.to_string())
-                            .width(75.0)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::None, FlowControl::None.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Hardware, FlowControl::Hardware.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Software, FlowControl::Software.to_string());
-                            });
-                        egui::ComboBox::from_id_source("Timeout")
-                            .selected_text(self.serial_devices.devices[self.device_idx].timeout.as_millis().to_string())
-                            .width(55.0)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(0), "0");
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(10), "10");
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(100), "100");
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(1000), "1000");
-                            });
-                    });
-
-                    ui.add_space(20.0);
-
-                    egui::Grid::new("upper")
-                        .num_columns(2)
-                        .spacing(Vec2 { x: 10.0, y: 10.0 })
-                        .striped(true)
+                    egui::ScrollArea::vertical()
+                        .id_source("settings scroll area")
+                        .auto_shrink(false)
                         .show(ui, |ui| {
-                            ui.label("Plotting range [#]: ");
-
-                            let window_fmt = |val: f64, _range: RangeInclusive<usize>| {
-                                if val != usize::MAX as f64 {
-                                    val.to_string()
-                                } else {
-                                    "∞".to_string()
-                                }
-                            };
-
-                            ui.horizontal(|ui| {
-                                ui.add(egui::DragValue::new(&mut self.plotting_range)
-                                    .custom_formatter(window_fmt))
-                                    .on_hover_text("Select a window of the last datapoints to be displayed in the plot.");
-                                if ui.button("Full Dataset")
-                                    .on_hover_text("Show the full dataset.")
-                                    .clicked() {
-                                    self.plotting_range = usize::MAX;
-                                }
-                            });
-                            ui.end_row();
-                            ui.label("Number of plots [#]: ");
-
-                            ui.horizontal(|ui| {
-                                if ui.button(egui::RichText::new(egui_phosphor::regular::ARROW_FAT_LEFT.to_string())).clicked() {
-                                    self.serial_devices.number_of_plots[self.device_idx] =
-                                        (self.serial_devices.number_of_plots[self.device_idx] - 1).clamp(1, 10);
-                                }
-                                ui.add(egui::DragValue::new(&mut self.serial_devices.number_of_plots[self.device_idx])
-                                    .clamp_range(1..=10))
-                                    .on_hover_text("Select the number of plots to be shown.");
-                                if ui.button(egui::RichText::new(egui_phosphor::regular::ARROW_FAT_RIGHT.to_string())).clicked() {
-                                    self.serial_devices.number_of_plots[self.device_idx] =
-                                        (self.serial_devices.number_of_plots[self.device_idx] + 1).clamp(1, 10);
-                                }
-                            });
-
-                            ui.end_row();
-                            ui.label("Show Sent Commands");
-                            ui.add(toggle(&mut self.show_sent_cmds))
-                                .on_hover_text("Show sent commands in console.");
-                            ui.end_row();
-                            ui.label("Show Timestamp");
-                            ui.add(toggle(&mut self.show_timestamps))
-                                .on_hover_text("Show timestamp in console.");
-                            ui.end_row();
-                            ui.label("EOL character");
-                            ui.add(
-                                egui::TextEdit::singleline(&mut self.eol)
-                                    .desired_width(ui.available_width() * 0.9))
-                                .on_hover_text("Configure your EOL character for sent commands..");
-                            // ui.checkbox(&mut self.gui_conf.debug, "Debug Mode");
-                            ui.end_row();
-                            ui.end_row();
-
-                            if ui.button(egui::RichText::new(format!("{} Save CSV", egui_phosphor::regular::FLOPPY_DISK)))
-                                .on_hover_text("Save Plot Data to CSV.")
-                                .clicked() || ui.input_mut(|i| i.consume_shortcut(&SAVE_FILE_SHORTCUT))
-                            {
-                                if let Some(path) = rfd::FileDialog::new().save_file() {
-                                    self.picked_path = path;
-                                    self.picked_path.set_extension("csv");
-                                    if let Err(e) = self.save_tx.send(FileOptions {
-                                        file_path: self.picked_path.clone(),
-                                        save_absolute_time: self.gui_conf.save_absolute_time,
-                                        save_raw_traffic: self.save_raw,
-                                    }) {
-                                        print_to_console(
-                                            &self.print_lock,
-                                            Print::Error(format!(
-                                                "save_tx thread send failed: {:?}",
-                                                e
-                                            )),
-                                        );
-                                    }
-                                }
-                            };
-
-                            if ui
-                                .button(egui::RichText::new(format!("{} Save Plot", egui_phosphor::regular::FLOPPY_DISK)))
-                                .on_hover_text("Save an image of the Plot.")
-                                .clicked() || ui.input_mut(|i| i.consume_shortcut(&SAVE_PLOT_SHORTCUT))
-
-                            {
-                                ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot);
-                            }
-                            ui.end_row();
-                            if ui.button(egui::RichText::new(format!("{} Clear Data", egui_phosphor::regular::X)))
-                                .on_hover_text("Clear Data from Plot.")
-                                .clicked() || ui.input_mut(|i| i.consume_shortcut(&CLEAR_PLOT_SHORTCUT)) {
-                                print_to_console(
-                                    &self.print_lock,
-                                    Print::Ok("Cleared recorded Data".to_string()),
-                                );
-                                if let Err(err) = self.clear_tx.send(true) {
-                                    print_to_console(
-                                        &self.print_lock,
-                                        Print::Error(format!(
-                                            "clear_tx thread send failed: {:?}",
-                                            err
-                                        )),
-                                    );
-                                }
-                                // need to clear the data here in order to prevent errors in the gui (plot)
-                                self.data = DataContainer::default();
-                                self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
-
-                            }
-                            ui.end_row();
-                            ui.label("Save Raw Traffic");
-                            ui.add(toggle(&mut self.save_raw))
-                                .on_hover_text("Save second CSV containing raw traffic.")
-                                .changed();
-                            ui.end_row();
-                            ui.label("Save Absolute Time");
-                            ui.add(toggle(&mut self.gui_conf.save_absolute_time))
-                                .on_hover_text("Save absolute time in CSV.");
-                            ui.end_row();
+                            self.serial_settings_ui(ui, ctx);
+                            ui.add_space(15.0);
+                            self.plot_settings_ui(ui, ctx);
+                            ui.add_space(20.0);
+                            ui.separator();
+                            self.debug_console_ui(ui);
                         });
-                    ui.add_space(75.0);
-                    global_dark_light_mode_buttons(ui);
-                    ui.add_space(25.0);
-                    self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
-                    ui.horizontal( |ui| {
-                        if ui.button("Clear Device History").clicked() {
-                            self.serial_devices = SerialDevices::default();
-                            self.device.clear();
-                            self.device_idx = 0;
-                            clear_serial_settings();
-                        }
-                        if ui.button("Reset Labels").clicked() {
-                            self.serial_devices.labels[self.device_idx] = self.data.names.clone();
-                        }
-                    });
-                    if self.data.names.len() == 1 {
-                        ui.label("Detected 1 Dataset:");
-                    } else {
-                        ui.label(format!("Detected {} Datasets:", self.data.names.len()));
-                    }
-                    ui.add_space(5.0);
-                    for i in 0..self.data.names.len().min(10) {
-                        // if init, set names to what has been stored in the device last time
-                        if init {
-                            self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
-                            init = false;
-                        }
-                        if self.serial_devices.labels[self.device_idx].len() <= i {
-                            break;
-                        }
-
-                        if ui.add(
-                            egui::TextEdit::singleline(&mut self.serial_devices.labels[self.device_idx][i])
-                                .desired_width(0.95 * RIGHT_PANEL_WIDTH)
-                        ).on_hover_text("Use custom names for your Datasets.").changed() {
-                            self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
-                        };
-                    }
-                    if self.data.names.len() > 10 {
-                        ui.label("Only renaming up to 10 Datasets is currently supported.");
-                    }
-                });
-
-                if let Ok(read_guard) = self.print_lock.read() {
-                    self.console = read_guard.clone();
                 }
-                let num_rows = self.console.len();
-                let row_height = ui.text_style_height(&egui::TextStyle::Body);
-
-                ui.add_space(20.0);
-                ui.separator();
-                ui.label("Debug Info:");
-                ui.add_space(5.0);
-                egui::ScrollArea::vertical()
-                    .id_source("console_scroll_area")
-                    .auto_shrink([false; 2])
-                    .stick_to_bottom(true)
-                    .max_height(row_height * 15.5)
-                    .show_rows(ui, row_height, num_rows, |ui, _row_range| {
-                        let content: String = self
-                            .console
-                            .iter()
-                            .flat_map(|row| row.scroll_area_message(&self.gui_conf))
-                            .map(|msg| msg.label + msg.content.as_str())
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        // we need to add it as one multiline object, such that we can select and copy
-                        // text over multiple lines
-                        ui.add(
-                            egui::TextEdit::multiline(&mut content.as_str())
-                                .font(DEFAULT_FONT_ID) // for cursor height
-                                .lock_focus(true), // TODO: add a layouter to highlight the labels
-                        );
-                    });
-            });
+            },
+        );
     }
 
     fn paint_connection_indicator(&self, ui: &mut egui::Ui) {
@@ -879,8 +571,9 @@ impl eframe::App for MyApp {
             self.connected_to_device = *read_guard;
         }
 
-        self.draw_central_panel(ctx);
         self.draw_side_panel(ctx, frame);
+        self.draw_central_panel(ctx);
+        ctx.request_repaint();
 
         self.gui_conf.x = ctx.used_size().x;
         self.gui_conf.y = ctx.used_size().y;

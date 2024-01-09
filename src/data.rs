@@ -47,7 +47,7 @@ pub struct DataContainer {
     pub time: Vec<u128>,
     pub names: Vec<String>,
     pub absolute_time: Vec<u128>,
-    pub dataset: Vec<Vec<f32>>,
+    pub dataset: Vec<Vec<f64>>,
     pub raw_traffic: Vec<Packet>,
 }
 
