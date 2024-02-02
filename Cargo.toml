@@ -10,10 +10,10 @@ homepage = "https://github.com/hacknus/serial-monitor-rust"
 
 [dependencies]
 csv = "1.1.6"
-eframe = { version = "0.24.0", features = ["persistence"] }
-egui_extras = { version = "0.24.0" }
-egui_plot = "0.24.0"
-egui-phosphor = "0.3.1"
+eframe = { version = "0.25.0", features = ["persistence"] }
+egui_extras = { version = "0.25.0" }
+egui_plot = "0.25.0"
+egui-phosphor = "0.3.2"
 hex = "0.4"
 image = { version = "0.24", default-features = false, features = ["png"] }
 itertools-num = "0.1"
@@ -22,7 +22,7 @@ preferences = { git = "https://github.com/andybarron/preferences-rs" }
 rand = "0.8.4"
 realfft = "3.0.0"
 regex = "1"
-rfd = "0.12.1"
+rfd = "0.13.0"
 safe-transmute = "0.11.2"
 serde = { version = "1.0", features = ["derive"] }
 serialport = { git = "https://github.com/serialport/serialport-rs", features = ["serde"] }
