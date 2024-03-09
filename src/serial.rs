@@ -109,7 +109,7 @@ pub fn serial_thread(
             *connected = false;
         }
 
-        let device = get_device(&devices_lock, &device_lock);
+        let (devices, device) = get_device(&devices_lock, &device_lock);
 
         let mut port = match serialport::new(&device.name, device.baud_rate)
             .timeout(Duration::from_millis(100))
@@ -150,18 +150,16 @@ pub fn serial_thread(
             .create();
 
         'connected_loop: loop {
-            let devices = available_devices();
-            if let Ok(mut write_guard) = devices_lock.write() {
-                *write_guard = devices.clone();
-            }
-
             if let Some(message) = disconnected(&device, &devices, &device_lock) {
                 print_to_console(&print_lock, message);
                 break 'connected_loop;
             }
 
             perform_writes(&mut port, &send_rx, &raw_data_tx, t_zero);
-            perform_reads(&mut port, &raw_data_tx, t_zero);
+            if let Some(e) = perform_reads(&mut port, &raw_data_tx, t_zero) {
+                print_to_console(&print_lock, Print::Error(e.to_string()));
+                break 'connected_loop;
+            };
 
             //std::thread::sleep(Duration::from_millis(10));
         }
@@ -180,7 +178,7 @@ fn available_devices() -> Vec<String> {
 fn get_device(
     devices_lock: &Arc<RwLock<Vec<String>>>,
     device_lock: &Arc<RwLock<Device>>,
-) -> Device {
+) -> (Vec<String>, Device) {
     loop {
         let devices = available_devices();
         if let Ok(mut write_guard) = devices_lock.write() {
@@ -189,7 +187,7 @@ fn get_device(
 
         if let Ok(device) = device_lock.read() {
             if devices.contains(&device.name) {
-                return device.clone();
+                return (devices.clone(), device.clone());
             }
         }
         std::thread::sleep(Duration::from_millis(100));
@@ -253,7 +251,7 @@ fn perform_reads(
     port: &mut BufReader<Box<dyn SerialPort>>,
     raw_data_tx: &Sender<Packet>,
     t_zero: Instant,
-) {
+) -> Option<std::io::Error> {
     let mut buf = "".to_string();
     match serial_read(port, &mut buf) {
         Ok(_) => {
@@ -270,8 +268,12 @@ fn perform_reads(
         }
         // Timeout is ok, just means there is no data to read
         Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {}
+        Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+            return Some(e);
+        }
         Err(e) => {
             println!("Error reading: {:?}", e);
         }
-    }
+    };
+    None
 }
