@@ -1,6 +1,6 @@
 [package]
 name = "serial-monitor-rust"
-version = "0.1.2"
+version = "0.2.0"
 edition = "2021"
 authors = ["Linus Leo Stöckli"]
 description = "Serial Monitor and Plotter written in rust."
@@ -45,5 +45,5 @@ dbg-name = false
 name = "Serial Monitor"
 no-build = false
 output = "target/wix/SerialMonitorInstaller.msi"
-version = "0.1.2"
+version = "0.2.0"
 license = "GPL-3.0"

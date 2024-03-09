@@ -5,7 +5,7 @@
 A cross-platform serial monitor and plotter written entirely in rust, the GUI is written
 using [egui](https://github.com/emilk/egui).  
 Inspired by the serial monitor/plotter from the Arduino IDE, but both plotting and reading the traffic can be done
-simultaneously.  
+simultaneously.
 
 [Binary bundles](https://github.com/hacknus/serial-monitor-rust/releases) are available for Linux, macOS and Windows.
 
@@ -31,6 +31,7 @@ Features:
 - [ ] make side panel and plot/serial prompt be resizeable (snappy?)
 - [ ] current command entered is lost when navigating through the history
 - [ ] command history is currently unlimited (needs an upper limit to prevent huge memory usage)
+- [ ] data history is currently unlimited (needs an upper limit to prevent huge memory usage)
 - [ ] ...
 
 ![Screenshot of the application on macOS](screenshot.png)
@@ -38,7 +39,7 @@ Features:
 The source code can be run using ```cargo run``` or bundled to a platform-executable using cargo bundle.  
 Currently [cargo bundle](https://github.com/burtonageo/cargo-bundle) only supports linux and macOS
 bundles [see github issue](https://github.com/burtonageo/cargo-bundle/issues/77).
-As a work-around we can use [cargo wix](https://github.com/volks73/cargo-wix) to create a windows installer.  
+As a work-around we can use [cargo wix](https://github.com/volks73/cargo-wix) to create a windows installer.
 
 After downloading  
 ```cargo install cargo-bundle``` or ```cargo install cargo-wix```  
@@ -51,7 +52,7 @@ Tested on:
 
 - macOS 12.4 Monterey x86
 - macOS 13.2.1 Ventura ARM
-- Debian 12 (Testing) x86  
+- Debian 12 (Testing) x86
 - Windows 10 x86
 - ...
 
