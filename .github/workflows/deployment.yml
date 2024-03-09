@@ -36,7 +36,7 @@ jobs:
   build-macos-intel:
     permissions: write-all
     name: macos
-    runs-on: macos-12
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
       - name: Update Libs
