@@ -1,6 +1,6 @@
 [package]
 name = "serial-monitor-rust"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Linus Leo Stöckli"]
 description = "Serial Monitor and Plotter written in rust."
@@ -31,7 +31,7 @@ serialport = { git = "https://github.com/serialport/serialport-rs", features = [
 name = "Serial Monitor"
 identifier = "com.hacknus.serial_monitor"
 icon = ["./icons/install.png"]
-version = "0.1.2"
+version = "0.2.1"
 copyright = "Copyright (c) hacknus 2023. All rights reserved."
 category = "Developer Tool"
 short_description = "Serial Monitor and Plotter written in rust."
@@ -45,5 +45,5 @@ dbg-name = false
 name = "Serial Monitor"
 no-build = false
 output = "target/wix/SerialMonitorInstaller.msi"
-version = "0.2.0"
+version = "0.2.1"
 license = "GPL-3.0"

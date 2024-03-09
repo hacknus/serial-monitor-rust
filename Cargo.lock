@@ -3095,7 +3095,7 @@ dependencies = [
 
 [[package]]
 name = "serial-monitor-rust"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "csv",
  "eframe",
