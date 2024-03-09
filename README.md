@@ -9,6 +9,10 @@ simultaneously.
 
 [Binary bundles](https://github.com/hacknus/serial-monitor-rust/releases) are available for Linux, macOS and Windows.
 
+Running the apple silicon binary may result to the message "Serial Monitor is damaged and cannot be opened.", to get
+around this you first need to run:  
+`xattr -rd com.apple.quarantine Serial\ Monitor.app`
+
 Features:
 
 - [X] Plotting and printing of data simultaneously
@@ -24,6 +28,7 @@ Features:
 - [X] Allow to choose Data-bits, Flow-Control, Parity and Stop-Bits for Serial Connection
 - [X] Saves the configuration for the serial port after closing and reloads them automatically upon selection
 - [X] Option to save raw data to file
+- [X] Use keyboard shortcuts (ctrl-S to save data, ctrl-shift-S to save plot, ctrl-X to clear plot)
 - [ ] Allow to select (and copy) more than just the displayed raw traffic (also implement ctrl + A)
 - [ ] Smarter data parser
 - [ ] make serial print selectable and show corresponding datapoint in plot
