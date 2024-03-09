@@ -33,7 +33,7 @@ jobs:
           asset_name: rust-serial-monitor-linux_x86.deb
           asset_content_type: binary
 
-  build-macos:
+  build-macos-intel:
     permissions: write-all
     name: macos
     runs-on: macos-11
@@ -53,6 +53,28 @@ jobs:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ./target/release/bundle/osx/rust-serial-monitor.app.zip
           asset_name: rust-serial-monitor-macos_x86.app.zip
+          asset_content_type: binary
+
+  build-macos-apple-silicon:
+    permissions: write-all
+    name: macos apple silicon
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v3
+      - name: Update Libs
+        run: cargo install cargo-bundle
+      - name: Build
+        run: cargo bundle --release
+      - name: Compress
+        run: cd target/release/bundle/osx && ls && zip -r rust-serial-monitor.app.zip Serial\ Monitor.app/*
+      - name: Upload
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./target/release/bundle/osx/rust-serial-monitor.app.zip
+          asset_name: rust-serial-monitor-macos_apple_silicon.app.zip
           asset_content_type: binary
 
   build-windows:
