@@ -11,7 +11,7 @@ use eframe::egui::{
     Vec2, Visuals,
 };
 use eframe::{egui, Storage};
-use egui_plot::{log_grid_spacer, Legend, Line, Plot, PlotPoint, PlotPoints};
+use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoint, PlotPoints};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
@@ -336,7 +336,9 @@ impl MyApp {
                         }
                     }
 
-                    let t_fmt = |x, _n, _range: &RangeInclusive<f64>| format!("{:4.2} s", x);
+                    let t_fmt = |x: GridMark, _n, _range: &RangeInclusive<f64>| {
+                        format!("{:4.2} s", x.value)
+                    };
 
                     let plots_ui = ui.vertical(|ui| {
                         for graph_idx in 0..self.serial_devices.number_of_plots[self.device_idx] {
