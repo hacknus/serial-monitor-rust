@@ -33,9 +33,9 @@ jobs:
           asset_name: rust-serial-monitor-linux_x86.deb
           asset_content_type: binary
 
-  build-macos-intel:
+  build-macos-x86:
     permissions: write-all
-    name: macos
+    name: macos x86
     runs-on: macos-12
     steps:
       - uses: actions/checkout@v3
@@ -55,9 +55,9 @@ jobs:
           asset_name: rust-serial-monitor-macos_x86.app.zip
           asset_content_type: binary
 
-  build-macos-apple-silicon:
+  build-macos-arm:
     permissions: write-all
-    name: macos apple silicon
+    name: macos arm
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v3
@@ -74,7 +74,7 @@ jobs:
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ./target/release/bundle/osx/rust-serial-monitor.app.zip
-          asset_name: rust-serial-monitor-macos_apple_silicon.app.zip
+          asset_name: rust-serial-monitor-macos_arm.app.zip
           asset_content_type: binary
 
   build-windows:
