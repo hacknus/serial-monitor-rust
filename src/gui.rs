@@ -301,7 +301,7 @@ impl MyApp {
 
     fn draw_central_panel(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            let border = 10.0;
+            let left_border = 10.0;
 
             let panel_height = ui.available_size().y;
             let height = ui.available_size().y * self.plot_serial_display_ratio;
@@ -309,12 +309,12 @@ impl MyApp {
             // need to subtract 12.0, this seems to be the height of the separator of two adjacent plots
             let plot_height =
                 plots_height / (self.serial_devices.number_of_plots[self.device_idx] as f32) - 12.0;
-            let spacing = 5.0;
-            let width = ui.available_size().x - 2.0 * border - RIGHT_PANEL_WIDTH;
+            let top_spacing = 5.0;
+            let width = ui.available_size().x - 2.0 * left_border - RIGHT_PANEL_WIDTH;
 
-            ui.add_space(spacing);
+            ui.add_space(top_spacing);
             ui.horizontal(|ui| {
-                ui.add_space(border);
+                ui.add_space(left_border);
                 ui.vertical(|ui| {
                     if let Ok(read_guard) = self.data_lock.read() {
                         self.data = read_guard.clone();
@@ -387,11 +387,13 @@ impl MyApp {
                             + resize_y / panel_height)
                             .clamp(0.1, 0.9);
 
-                        ui.add_space(spacing);
+                        ui.add_space(top_spacing);
                     });
 
-                    let serial_height =
-                        panel_height - plots_ui.response.rect.height() - border * 2.0 - spacing;
+                    let serial_height = panel_height
+                        - plots_ui.response.rect.height()
+                        - left_border * 2.0
+                        - top_spacing;
 
                     let num_rows = self.data.raw_traffic.len();
                     let row_height = ui.text_style_height(&egui::TextStyle::Body);
@@ -407,8 +409,8 @@ impl MyApp {
                         .auto_shrink([false; 2])
                         .stick_to_bottom(true)
                         .enable_scrolling(true)
-                        .max_height(serial_height - spacing)
-                        .min_scrolled_height(serial_height - spacing)
+                        .max_height(serial_height - top_spacing)
+                        .min_scrolled_height(serial_height - top_spacing)
                         .max_width(width)
                         .show_rows(ui, row_height, num_rows, |ui, row_range| {
                             let content: String = row_range
@@ -429,7 +431,7 @@ impl MyApp {
                                     .desired_width(width),
                             );
                         });
-                    ui.add_space(spacing / 2.0);
+                    ui.add_space(top_spacing / 2.0);
                     ui.horizontal(|ui| {
                         let cmd_line = ui.add(
                             egui::TextEdit::singleline(&mut self.command)
@@ -470,7 +472,7 @@ impl MyApp {
 
                     ctx.request_repaint()
                 });
-                ui.add_space(border);
+                ui.add_space(left_border);
             });
         });
     }
