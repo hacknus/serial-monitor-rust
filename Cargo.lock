@@ -1248,7 +1248,7 @@ dependencies = [
 [[package]]
 name = "egui-phosphor"
 version = "0.4.0"
-source = "git+https://github.com/hacknus/egui-phosphor#8f62ce477f7fa7347bae78a5813fbc5f52aa2c98"
+source = "git+https://github.com/hacknus/egui-phosphor#41a4326709232e289744c159b7e869c442a8da95"
 dependencies = [
  "egui",
 ]
@@ -1312,7 +1312,7 @@ dependencies = [
  "egui",
  "glow",
  "log",
- "memoffset 0.9.0",
+ "memoffset 0.9.1",
  "wasm-bindgen",
  "web-sys",
  "winit",
@@ -2252,9 +2252,9 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
+checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
 ]
@@ -2379,7 +2379,7 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "libc",
- "memoffset 0.9.0",
+ "memoffset 0.9.1",
 ]
 
 [[package]]
@@ -3591,7 +3591,7 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89daebc3e6fd160ac4aa9fc8b3bf71e1f74fbf92367ae71fb83a037e8bf164b9"
 dependencies = [
- "memoffset 0.9.0",
+ "memoffset 0.9.1",
  "tempfile",
  "winapi 0.3.9",
 ]
