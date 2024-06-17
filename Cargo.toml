@@ -9,21 +9,21 @@ homepage = "https://github.com/hacknus/serial-monitor-rust"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-csv = "1.3.0"
+csv = "1.3"
 eframe = { version = "0.27", features = ["persistence"] }
 egui_extras = { version = "0.27" }
 egui_plot = "0.27"
-egui-phosphor = { git = "https://github.com/hacknus/egui-phosphor" }
+egui-phosphor = "0.5"
 hex = "0.4"
-image = { version = "0.25.0", default-features = false, features = ["png"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
 itertools-num = "0.1"
 keepawake = { git = "https://github.com/segevfiner/keepawake-rs" }
 preferences = { git = "https://github.com/andybarron/preferences-rs" }
 rand = "0.8.5"
 realfft = "3.3.0"
 regex = "1"
-rfd = "0.14.0"
-safe-transmute = "0.11.2"
+rfd = "0.14"
+safe-transmute = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 serialport = { git = "https://github.com/serialport/serialport-rs", features = ["serde"] }
 
