@@ -209,7 +209,7 @@ fn main() {
             egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
             _cc.egui_ctx.set_fonts(fonts);
             _cc.egui_ctx.set_visuals(Visuals::dark());
-            Box::new(MyApp::new(
+            Ok(Box::new(MyApp::new(
                 gui_print_lock,
                 gui_data_lock,
                 gui_device_lock,
@@ -221,7 +221,7 @@ fn main() {
                 save_tx,
                 send_tx,
                 clear_tx,
-            ))
+            )))
         }),
     ) {
         println!("error: {e:?}");

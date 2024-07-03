@@ -336,9 +336,8 @@ impl MyApp {
                         }
                     }
 
-                    let t_fmt = |x: GridMark, _n, _range: &RangeInclusive<f64>| {
-                        format!("{:4.2} s", x.value)
-                    };
+                    let t_fmt =
+                        |x: GridMark, _range: &RangeInclusive<f64>| format!("{:4.2} s", x.value);
 
                     let plots_ui = ui.vertical(|ui| {
                         for graph_idx in 0..self.serial_devices.number_of_plots[self.device_idx] {
@@ -486,7 +485,6 @@ impl MyApp {
             //.default_width(right_panel_width)
             .show(ctx, |ui| {
                 ui.add_enabled_ui(true, |ui| {
-                    ui.set_visible(true);
                     ui.horizontal(|ui| {
                         ui.heading("Serial Monitor");
                         self.paint_connection_indicator(ui);
@@ -513,7 +511,9 @@ impl MyApp {
                     ui.horizontal(|ui| {
                         let dev_text = self.device.replace("/dev/tty.", "");
                         ui.horizontal(|ui| {
-                            ui.set_enabled(!self.connected_to_device);
+                            if self.connected_to_device {
+                                ui.disable();
+                            }
                             let _response = egui::ComboBox::from_id_source("Device")
                                 .selected_text(dev_text)
                                 .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
@@ -581,6 +581,9 @@ impl MyApp {
                             .selected_text(format!("{}", self.serial_devices.devices[self.device_idx].baud_rate))
                             .width(80.0)
                             .show_ui(ui, |ui| {
+                                if self.connected_to_device {
+                                    ui.disable();
+                                }
                                 BAUD_RATES.iter().for_each(|baud_rate| {
                                     ui.selectable_value(
                                         &mut self.serial_devices.devices[self.device_idx].baud_rate,
@@ -612,6 +615,9 @@ impl MyApp {
                         ui.label("Timeout");
                     });
                     ui.horizontal(|ui| {
+                        if self.connected_to_device {
+                            ui.disable();
+                        }
                         egui::ComboBox::from_id_source("Data Bits")
                             .selected_text(self.serial_devices.devices[self.device_idx].data_bits.to_string())
                             .width(30.0)
@@ -692,7 +698,7 @@ impl MyApp {
                                         (self.serial_devices.number_of_plots[self.device_idx] - 1).clamp(1, 10);
                                 }
                                 ui.add(egui::DragValue::new(&mut self.serial_devices.number_of_plots[self.device_idx])
-                                    .clamp_range(1..=10))
+                                    .range(1..=10))
                                     .on_hover_text("Select the number of plots to be shown.");
                                 if ui.button(egui::RichText::new(egui_phosphor::regular::ARROW_FAT_RIGHT.to_string())).clicked() {
                                     self.serial_devices.number_of_plots[self.device_idx] =

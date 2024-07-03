@@ -40,7 +40,9 @@ pub fn toggle_ui(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
     }
 
     // Attach some meta-data to the response which can be used by screen readers:
-    response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *on, ""));
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(egui::WidgetType::Checkbox, ui.is_enabled(), *on, "")
+    });
 
     // 4. Paint!
     // Make sure we need to paint:
@@ -79,7 +81,9 @@ fn toggle_ui_compact(ui: &mut egui::Ui, on: &mut bool) -> egui::Response {
         *on = !*on;
         response.mark_changed();
     }
-    response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, *on, ""));
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(egui::WidgetType::Checkbox, ui.is_enabled(), *on, "")
+    });
 
     if ui.is_rect_visible(rect) {
         let how_on = ui.ctx().animate_bool(response.id, *on);
