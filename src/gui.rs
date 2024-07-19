@@ -7,11 +7,11 @@ use std::time::Duration;
 
 use eframe::egui::panel::Side;
 use eframe::egui::{
-    global_dark_light_mode_buttons, Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense,
-    Vec2, Visuals,
+    Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Vec2, ViewportCommand, Visuals,
 };
-use eframe::{egui, Storage};
+use eframe::{egui, Storage, Theme};
 use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoint, PlotPoints};
+use egui_theme_switch::{ThemePreference, ThemeSwitch};
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
@@ -139,6 +139,7 @@ pub struct GuiSettingsContainer {
     pub y: f32,
     pub save_absolute_time: bool,
     pub dark_mode: bool,
+    pub theme_preference: ThemePreference,
 }
 
 impl Default for GuiSettingsContainer {
@@ -151,6 +152,7 @@ impl Default for GuiSettingsContainer {
             y: 900.0,
             save_absolute_time: false,
             dark_mode: true,
+            theme_preference: ThemePreference::System,
         }
     }
 }
@@ -476,7 +478,7 @@ impl MyApp {
         });
     }
 
-    fn draw_side_panel(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn draw_side_panel(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let mut init = false;
         egui::SidePanel::new(Side::Right, "settings panel")
             .min_width(RIGHT_PANEL_WIDTH)
@@ -788,8 +790,21 @@ impl MyApp {
                                 .on_hover_text("Save absolute time in CSV.");
                             ui.end_row();
                         });
-                    ui.add_space(75.0);
-                    global_dark_light_mode_buttons(ui);
+                    ui.add_space(25.0);
+                    if ui.add(ThemeSwitch::new(&mut self.gui_conf.theme_preference)).changed() {
+                        // do nothing, for now...
+                    };
+                    // always set dark mode
+                    let theme = match self.gui_conf.theme_preference {
+                        ThemePreference::Dark => Theme::Dark,
+                        ThemePreference::Light => Theme::Light,
+                        ThemePreference::System => {let eframe_system_theme = frame.info().system_theme;
+                            eframe_system_theme
+                                .unwrap_or(Theme::Dark)}
+                    };
+                    ctx.set_visuals(theme.egui_visuals());
+                    ctx.send_viewport_cmd(ViewportCommand::SetTheme(self.gui_conf.theme_preference.into()));
+
                     ui.add_space(25.0);
                     self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
                     ui.horizontal( |ui| {
