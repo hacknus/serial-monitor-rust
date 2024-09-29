@@ -184,7 +184,6 @@ fn main() {
     });
 
     let options = eframe::NativeOptions {
-        follow_system_theme: true,
         viewport: ViewportBuilder::default()
             .with_drag_and_drop(true)
             .with_inner_size(vec2(gui_settings.x, gui_settings.y))

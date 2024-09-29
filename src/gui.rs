@@ -7,11 +7,12 @@ use std::time::Duration;
 
 use eframe::egui::panel::Side;
 use eframe::egui::{
-    Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Vec2, ViewportCommand, Visuals,
+    Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Vec2, Visuals,
 };
-use eframe::{egui, Storage, Theme};
+use eframe::{egui, Storage};
+use egui::ThemePreference;
 use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoint, PlotPoints};
-use egui_theme_switch::{ThemePreference, ThemeSwitch};
+use egui_theme_switch::ThemeSwitch;
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
@@ -406,7 +407,7 @@ impl MyApp {
                     };
 
                     egui::ScrollArea::vertical()
-                        .id_source("serial_output")
+                        .id_salt("serial_output")
                         .auto_shrink([false; 2])
                         .stick_to_bottom(true)
                         .enable_scrolling(true)
@@ -478,7 +479,7 @@ impl MyApp {
         });
     }
 
-    fn draw_side_panel(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn draw_side_panel(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut init = false;
         egui::SidePanel::new(Side::Right, "settings panel")
             .min_width(RIGHT_PANEL_WIDTH)
@@ -516,7 +517,7 @@ impl MyApp {
                             if self.connected_to_device {
                                 ui.disable();
                             }
-                            let _response = egui::ComboBox::from_id_source("Device")
+                            let _response = egui::ComboBox::from_id_salt("Device")
                                 .selected_text(dev_text)
                                 .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
                                 .show_ui(ui, |ui| {
@@ -579,7 +580,7 @@ impl MyApp {
                                 self.show_warning_window = WindowFeedback::None;
                             }
                         }
-                        egui::ComboBox::from_id_source("Baud Rate")
+                        egui::ComboBox::from_id_salt("Baud Rate")
                             .selected_text(format!("{}", self.serial_devices.devices[self.device_idx].baud_rate))
                             .width(80.0)
                             .show_ui(ui, |ui| {
@@ -620,7 +621,7 @@ impl MyApp {
                         if self.connected_to_device {
                             ui.disable();
                         }
-                        egui::ComboBox::from_id_source("Data Bits")
+                        egui::ComboBox::from_id_salt("Data Bits")
                             .selected_text(self.serial_devices.devices[self.device_idx].data_bits.to_string())
                             .width(30.0)
                             .show_ui(ui, |ui| {
@@ -630,7 +631,7 @@ impl MyApp {
                                 ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Five, DataBits::Five.to_string());
 
                             });
-                        egui::ComboBox::from_id_source("Parity")
+                        egui::ComboBox::from_id_salt("Parity")
                             .selected_text(self.serial_devices.devices[self.device_idx].parity.to_string())
                             .width(30.0)
                             .show_ui(ui, |ui| {
@@ -638,14 +639,14 @@ impl MyApp {
                                 ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::Odd, Parity::Odd.to_string());
                                 ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::Even, Parity::Even.to_string());
                             });
-                        egui::ComboBox::from_id_source("Stop Bits")
+                        egui::ComboBox::from_id_salt("Stop Bits")
                             .selected_text(self.serial_devices.devices[self.device_idx].stop_bits.to_string())
                             .width(30.0)
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].stop_bits, StopBits::One, StopBits::One.to_string());
                                 ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].stop_bits, StopBits::Two, StopBits::Two.to_string());
                             });
-                        egui::ComboBox::from_id_source("Flow Control")
+                        egui::ComboBox::from_id_salt("Flow Control")
                             .selected_text(self.serial_devices.devices[self.device_idx].flow_control.to_string())
                             .width(75.0)
                             .show_ui(ui, |ui| {
@@ -653,7 +654,7 @@ impl MyApp {
                                 ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Hardware, FlowControl::Hardware.to_string());
                                 ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Software, FlowControl::Software.to_string());
                             });
-                        egui::ComboBox::from_id_source("Timeout")
+                        egui::ComboBox::from_id_salt("Timeout")
                             .selected_text(self.serial_devices.devices[self.device_idx].timeout.as_millis().to_string())
                             .width(55.0)
                             .show_ui(ui, |ui| {
@@ -792,19 +793,9 @@ impl MyApp {
                         });
                     ui.add_space(25.0);
                     if ui.add(ThemeSwitch::new(&mut self.gui_conf.theme_preference)).changed() {
-                        // do nothing, for now...
+                        ui.ctx().set_theme(self.gui_conf.theme_preference);
                     };
-                    // always set dark mode
-                    let theme = match self.gui_conf.theme_preference {
-                        ThemePreference::Dark => Theme::Dark,
-                        ThemePreference::Light => Theme::Light,
-                        ThemePreference::System => {let eframe_system_theme = frame.info().system_theme;
-                            eframe_system_theme
-                                .unwrap_or(Theme::Dark)}
-                    };
-                    ctx.set_visuals(theme.egui_visuals());
-                    ctx.send_viewport_cmd(ViewportCommand::SetTheme(self.gui_conf.theme_preference.into()));
-
+                    
                     ui.add_space(25.0);
                     self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
                     ui.horizontal( |ui| {
@@ -857,7 +848,7 @@ impl MyApp {
                 ui.label("Debug Info:");
                 ui.add_space(5.0);
                 egui::ScrollArea::vertical()
-                    .id_source("console_scroll_area")
+                    .id_salt("console_scroll_area")
                     .auto_shrink([false; 2])
                     .stick_to_bottom(true)
                     .max_height(row_height * 15.5)

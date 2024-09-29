@@ -10,11 +10,11 @@ homepage = "https://github.com/hacknus/serial-monitor-rust"
 
 [dependencies]
 csv = "1.3"
-eframe = { version = "0.28", features = ["persistence"] }
-egui_extras = { version = "0.28", features = ["serde"] }
-egui_plot = "0.28"
+eframe = { version = "0.29.0", features = ["persistence"] }
+egui_extras = { version = "0.29.0", features = ["serde"] }
+egui_plot = "0.29.0"
 egui-phosphor = { git = "https://github.com/hacknus/egui-phosphor" }
-egui-theme-switch = { version = "0.1.1", default-features = true, features = ["serde"] }
+egui-theme-switch = { version = "0.2.0", default-features = true }
 hex = "0.4"
 image = { version = "0.25", default-features = false, features = ["png"] }
 itertools-num = "0.1"
