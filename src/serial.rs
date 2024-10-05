@@ -1,13 +1,14 @@
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
-use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
+use serialport::{DataBits, FlowControl, Parity, StopBits};
 
 use crate::data::{get_epoch_ms, SerialDirection};
+use crate::interface::Interface;
 use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,16 +75,13 @@ impl Default for Device {
     }
 }
 
-fn serial_write(
-    port: &mut BufReader<Box<dyn SerialPort>>,
-    cmd: &[u8],
-) -> Result<usize, std::io::Error> {
+fn serial_write(port: &mut BufReader<Interface>, cmd: &[u8]) -> Result<usize, std::io::Error> {
     let write_port = port.get_mut();
     write_port.write(cmd)
 }
 
 fn serial_read(
-    port: &mut BufReader<Box<dyn SerialPort>>,
+    port: &mut BufReader<Interface>,
     serial_buf: &mut String,
 ) -> Result<usize, std::io::Error> {
     port.read_line(serial_buf)
@@ -111,32 +109,41 @@ pub fn serial_thread(
 
         let device = get_device(&devices_lock, &device_lock);
 
-        let mut port = match serialport::new(&device.name, device.baud_rate)
-            .timeout(Duration::from_millis(100))
-            .open()
-        {
-            Ok(p) => {
-                if let Ok(mut connected) = connected_lock.write() {
-                    *connected = true;
-                }
-                print_to_console(
-                    &print_lock,
-                    Print::Ok(format!(
-                        "Connected to serial port: {} @ baud = {}",
-                        device.name, device.baud_rate
-                    )),
-                );
-                BufReader::new(p)
+        let mut port = if device.name == "stdio" {
+            if let Ok(mut connected) = connected_lock.write() {
+                *connected = true;
             }
-            Err(err) => {
-                if let Ok(mut write_guard) = device_lock.write() {
-                    write_guard.name.clear();
+            print_to_console(&print_lock, Print::Ok(format!("Connected to stdio")));
+
+            BufReader::new(Interface::Stdio)
+        } else {
+            match serialport::new(&device.name, device.baud_rate)
+                .timeout(Duration::from_millis(100))
+                .open()
+            {
+                Ok(p) => {
+                    if let Ok(mut connected) = connected_lock.write() {
+                        *connected = true;
+                    }
+                    print_to_console(
+                        &print_lock,
+                        Print::Ok(format!(
+                            "Connected to serial port: {} @ baud = {}",
+                            device.name, device.baud_rate
+                        )),
+                    );
+                    BufReader::new(Interface::SerialPort(p))
                 }
-                print_to_console(
-                    &print_lock,
-                    Print::Error(format!("Error connecting: {}", err)),
-                );
-                continue;
+                Err(err) => {
+                    if let Ok(mut write_guard) = device_lock.write() {
+                        write_guard.name.clear();
+                    }
+                    print_to_console(
+                        &print_lock,
+                        Print::Error(format!("Error connecting: {}", err)),
+                    );
+                    continue;
+                }
             }
         };
 
@@ -174,6 +181,7 @@ fn available_devices() -> Vec<String> {
         .unwrap()
         .iter()
         .map(|p| p.port_name.clone())
+        .chain(std::iter::once("stdio".into()))
         .collect()
 }
 
@@ -226,7 +234,7 @@ fn disconnected(
 }
 
 fn perform_writes(
-    port: &mut BufReader<Box<dyn SerialPort>>,
+    port: &mut BufReader<Interface>,
     send_rx: &Receiver<String>,
     raw_data_tx: &Sender<Packet>,
     t_zero: Instant,
@@ -249,11 +257,7 @@ fn perform_writes(
     }
 }
 
-fn perform_reads(
-    port: &mut BufReader<Box<dyn SerialPort>>,
-    raw_data_tx: &Sender<Packet>,
-    t_zero: Instant,
-) {
+fn perform_reads(port: &mut BufReader<Interface>, raw_data_tx: &Sender<Packet>, t_zero: Instant) {
     let mut buf = "".to_string();
     match serial_read(port, &mut buf) {
         Ok(_) => {
