@@ -25,6 +25,7 @@ mod gui;
 mod io;
 mod serial;
 mod toggle;
+mod custom_highlighter;
 
 const APP_INFO: AppInfo = AppInfo {
     name: "Serial Monitor",

@@ -13,16 +13,21 @@ use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerialDevices {
     pub devices: Vec<Device>,
-    pub labels: Vec<Vec<String>>,
+    pub plot_labels: Vec<Vec<String>>,
+    pub highlight_labels: Vec<Vec<String>>,
     pub number_of_plots: Vec<usize>,
+    pub number_of_highlights: Vec<usize>,
+
 }
 
 impl Default for SerialDevices {
     fn default() -> Self {
         SerialDevices {
             devices: vec![Device::default()],
-            labels: vec![vec!["Column 0".to_string()]],
+            plot_labels: vec![vec!["Column 0".to_string()]],
+            highlight_labels:vec![vec!["".to_string()]],
             number_of_plots: vec![1],
+            number_of_highlights: vec![1],
         }
     }
 }
