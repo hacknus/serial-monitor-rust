@@ -2,9 +2,13 @@
 
 All notable changes to the `Serial Monitor` crate will be documented in this file.
 
-# Unreleased
+# Unreleased 0.3.0
 
-* ...
+### Added:
+
+* Color-picker for curves
+* Automatically reconnect when device becomes available again (only after unplugging)
+* minor bug fixes
 
 ## 0.2.0 - 09.03.2024 - New Design, Improved Performance
 
