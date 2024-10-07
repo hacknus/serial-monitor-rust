@@ -6,9 +6,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use eframe::egui::panel::Side;
-use eframe::egui::{
-    Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Vec2, Visuals,
-};
+use eframe::egui::{Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Vec2, Visuals};
 use eframe::{egui, Storage};
 use egui::ThemePreference;
 use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoint, PlotPoints};
@@ -22,8 +20,6 @@ use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialD
 use crate::toggle::toggle;
 use crate::FileOptions;
 use crate::{APP_INFO, PREFS_KEY};
-
-const MAX_FPS: f64 = 60.0;
 
 const DEFAULT_FONT_ID: FontId = FontId::new(14.0, FontFamily::Monospace);
 pub const RIGHT_PANEL_WIDTH: f32 = 350.0;
@@ -471,8 +467,6 @@ impl MyApp {
                             self.command = self.history[self.index].clone();
                         }
                     }
-
-                    ctx.request_repaint()
                 });
                 ui.add_space(left_border);
             });
@@ -795,7 +789,6 @@ impl MyApp {
                     if ui.add(ThemeSwitch::new(&mut self.gui_conf.theme_preference)).changed() {
                         ui.ctx().set_theme(self.gui_conf.theme_preference);
                     };
-                    
                     ui.add_space(25.0);
                     self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
                     ui.horizontal( |ui| {
@@ -932,8 +925,6 @@ impl eframe::App for MyApp {
                 eprintln!("Image saved to {path:?}.");
             }
         }
-
-        std::thread::sleep(Duration::from_millis((1000.0 / MAX_FPS) as u64));
     }
 
     fn save(&mut self, _storage: &mut dyn Storage) {
