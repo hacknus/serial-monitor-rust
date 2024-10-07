@@ -219,6 +219,7 @@ fn disconnected(
     // disconnection by button press
     if let Ok(read_guard) = device_lock.read() {
         if device.name != read_guard.name {
+            *last_connected_device = Device::default();
             return Some(Print::Ok(format!(
                 "Disconnected from serial port: {}",
                 device.name
