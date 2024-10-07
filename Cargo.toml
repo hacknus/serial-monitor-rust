@@ -23,7 +23,7 @@ preferences = { git = "https://github.com/andybarron/preferences-rs" }
 rand = "0.8.5"
 realfft = "3.3.0"
 regex = "1"
-rfd = "0.14"
+rfd = "0.15.0"
 safe-transmute = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 serialport = { git = "https://github.com/serialport/serialport-rs", features = ["serde"] }
