@@ -1,3 +1,5 @@
+use crate::color_picker::COLORS;
+use eframe::egui::Color32;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -45,7 +47,6 @@ impl Default for Packet {
 #[derive(Clone, Debug)]
 pub struct DataContainer {
     pub time: Vec<u128>,
-    pub names: Vec<String>,
     pub absolute_time: Vec<u128>,
     pub dataset: Vec<Vec<f32>>,
     pub raw_traffic: Vec<Packet>,
@@ -55,7 +56,6 @@ impl Default for DataContainer {
     fn default() -> DataContainer {
         DataContainer {
             time: vec![],
-            names: vec!["Column 0".to_string()],
             absolute_time: vec![],
             dataset: vec![vec![]],
             raw_traffic: vec![],

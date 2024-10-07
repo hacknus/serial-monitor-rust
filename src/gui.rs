@@ -1,4 +1,5 @@
 use core::f32;
+use std::cmp::max;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
@@ -6,9 +7,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use eframe::egui::panel::Side;
-use eframe::egui::{
-    Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Vec2, Visuals,
-};
+use eframe::egui::{Align2, Color32, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Vec2, Visuals};
 use eframe::{egui, Storage};
 use egui::ThemePreference;
 use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoint, PlotPoints};
@@ -22,6 +21,7 @@ use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialD
 use crate::toggle::toggle;
 use crate::FileOptions;
 use crate::{APP_INFO, PREFS_KEY};
+use crate::color_picker::{color_picker_widget, color_picker_window, COLORS};
 
 const MAX_FPS: f64 = 60.0;
 
@@ -169,6 +169,11 @@ pub fn load_gui_settings() -> GuiSettingsContainer {
     })
 }
 
+pub enum ColorWindow {
+    NoShow,
+    ColorIndex(usize)
+}
+
 pub struct MyApp {
     connected_to_device: bool,
     command: String,
@@ -195,6 +200,10 @@ pub struct MyApp {
     history: Vec<String>,
     index: usize,
     eol: String,
+    colors: Vec<Color32>,
+    color_vals: Vec<f32>,
+    labels: Vec<String>,
+    show_color_window: ColorWindow,
     show_sent_cmds: bool,
     show_timestamps: bool,
     save_raw: bool,
@@ -245,11 +254,15 @@ impl MyApp {
             show_timestamps: true,
             save_raw: false,
             eol: "\\r\\n".to_string(),
+            colors: vec![COLORS[0]], 
+            color_vals: vec![0.0],
+            labels: vec!["Column 0".to_string()],
             history: vec![],
             index: 0,
             plot_location: None,
             do_not_show_clear_warning: false,
             show_warning_window: WindowFeedback::None,
+            show_color_window: ColorWindow::NoShow,
         }
     }
 
@@ -323,6 +336,18 @@ impl MyApp {
                         self.data = read_guard.clone();
                     }
 
+                    if self.data.dataset.len() != self.labels.len() {
+                        self.labels = (0..max(self.data.dataset.len(), 1))
+                            .map(|i| format!("Column {i}"))
+                            .collect();
+                        self.colors = (0..max(self.data.dataset.len(), 1))
+                            .map(|i| COLORS[i % COLORS.len()])
+                            .collect();
+                        self.color_vals = (0..max(self.data.dataset.len(), 1))
+                            .map(|i| 0.0)
+                            .collect();
+                    }
+
                     let mut graphs: Vec<Vec<PlotPoint>> = vec![vec![]; self.data.dataset.len()];
                     let window = self.data.dataset[0]
                         .len()
@@ -359,11 +384,11 @@ impl MyApp {
                             let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
                                 for (i, graph) in graphs.iter().enumerate() {
                                     // this check needs to be here for when we change devices (not very elegant)
-                                    if i < self.serial_devices.labels[self.device_idx].len() {
+                                    if i < self.labels.len() {
                                         signal_plot_ui.line(
                                             Line::new(PlotPoints::Owned(graph.to_vec())).name(
-                                                &self.serial_devices.labels[self.device_idx][i],
-                                            ),
+                                                &self.labels[i],
+                                            ).color(self.colors[i]),
                                         );
                                     }
                                 }
@@ -738,6 +763,7 @@ impl MyApp {
                                         file_path: self.picked_path.clone(),
                                         save_absolute_time: self.gui_conf.save_absolute_time,
                                         save_raw_traffic: self.save_raw,
+                                        names: self.serial_devices.labels[self.device_idx].clone(),
                                     }) {
                                         print_to_console(
                                             &self.print_lock,
@@ -806,33 +832,53 @@ impl MyApp {
                             clear_serial_settings();
                         }
                         if ui.button("Reset Labels").clicked() {
-                            self.serial_devices.labels[self.device_idx] = self.data.names.clone();
+                            // self.serial_devices.labels[self.device_idx] = self.serial_devices.labels.clone();
                         }
                     });
-                    if self.data.names.len() == 1 {
+                    if self.labels.len() == 1 {
                         ui.label("Detected 1 Dataset:");
                     } else {
-                        ui.label(format!("Detected {} Datasets:", self.data.names.len()));
+                        ui.label(format!("Detected {} Datasets:", self.labels.len()));
                     }
                     ui.add_space(5.0);
-                    for i in 0..self.data.names.len().min(10) {
+                    for i in 0..self.labels.len().min(10) {
                         // if init, set names to what has been stored in the device last time
                         if init {
-                            self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
+                            self.names_tx.send(self.labels.clone()).expect("Failed to send names");
                             init = false;
                         }
-                        if self.serial_devices.labels[self.device_idx].len() <= i {
+
+                        if self.labels.len() <= i {
                             break;
                         }
+                        ui.horizontal(|ui| {
+                            
+                            let response = color_picker_widget(ui,"", &mut self.colors,i );
 
-                        if ui.add(
-                            egui::TextEdit::singleline(&mut self.serial_devices.labels[self.device_idx][i])
-                                .desired_width(0.95 * RIGHT_PANEL_WIDTH)
-                        ).on_hover_text("Use custom names for your Datasets.").changed() {
-                            self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
-                        };
+                            // Check if the square was clicked and toggle color picker window
+                            if response.clicked() {
+                                self.show_color_window = ColorWindow::ColorIndex(i);
+                            };
+
+                            if ui.add(
+                                egui::TextEdit::singleline(&mut self.labels[i])
+                                    .desired_width(0.95 * RIGHT_PANEL_WIDTH)
+                            ).on_hover_text("Use custom names for your Datasets.").changed() {
+                                self.names_tx.send(self.labels.clone()).expect("Failed to send names");
+                            };
+                        });
                     }
-                    if self.data.names.len() > 10 {
+                    
+                    match self.show_color_window {
+                        ColorWindow::NoShow => {}
+                        ColorWindow::ColorIndex(index) => {
+                            if color_picker_window(ui.ctx(), &mut self.colors[index], &mut self.color_vals[index]) {
+                                self.show_color_window = ColorWindow::NoShow;
+                            }
+                        }
+                    }
+                    
+                    if self.labels.len() > 10 {
                         ui.label("Only renaming up to 10 Datasets is currently supported.");
                     }
                 });

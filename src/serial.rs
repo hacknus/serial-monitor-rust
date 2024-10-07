@@ -1,12 +1,13 @@
+use eframe::egui::Color32;
+use preferences::Preferences;
+use serde::{Deserialize, Serialize};
+use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use std::io::{BufRead, BufReader};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-use preferences::Preferences;
-use serde::{Deserialize, Serialize};
-use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
-
+use crate::color_picker::COLORS;
 use crate::data::{get_epoch_ms, SerialDirection};
 use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
 
@@ -14,6 +15,8 @@ use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
 pub struct SerialDevices {
     pub devices: Vec<Device>,
     pub labels: Vec<Vec<String>>,
+    pub colors: Vec<Vec<Color32>>,
+    pub color_vals: Vec<Vec<f32>>,
     pub number_of_plots: Vec<usize>,
 }
 
@@ -22,6 +25,8 @@ impl Default for SerialDevices {
         SerialDevices {
             devices: vec![Device::default()],
             labels: vec![vec!["Column 0".to_string()]],
+            colors: vec![vec![COLORS[0]]],
+            color_vals: vec![vec![0.0]],
             number_of_plots: vec![1],
         }
     }
