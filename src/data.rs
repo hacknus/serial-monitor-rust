@@ -1,5 +1,3 @@
-use crate::color_picker::COLORS;
-use eframe::egui::Color32;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 

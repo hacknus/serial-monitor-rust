@@ -1,6 +1,6 @@
 use eframe::egui::{
-    self, lerp, pos2, remap_clamp, vec2, Align2, Color32, Mesh, Pos2, Response, Sense, Shape,
-    Stroke, Ui, Vec2,
+    self, lerp, pos2, remap_clamp, vec2, Align2, Color32, Mesh, Response, Sense, Shape, Stroke, Ui,
+    Vec2,
 };
 
 // Ten colors that are distinguishable and suitable for colorblind people
@@ -216,12 +216,4 @@ fn hsv_to_rgb(hue: f32, saturation: f32, value: f32) -> Color32 {
         ((g + m) * 255.0) as u8,
         ((b + m) * 255.0) as u8,
     )
-}
-
-// Function to interpolate between two colors
-fn lerp_color(c1: Color32, c2: Color32, t: f32) -> Color32 {
-    let r = (c1.r() as f32 * (1.0 - t) + c2.r() as f32 * t).round() as u8;
-    let g = (c1.g() as f32 * (1.0 - t) + c2.g() as f32 * t).round() as u8;
-    let b = (c1.b() as f32 * (1.0 - t) + c2.b() as f32 * t).round() as u8;
-    Color32::from_rgb(r, g, b)
 }

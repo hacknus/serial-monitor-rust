@@ -11,7 +11,6 @@ use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
-use crate::color_picker::COLORS;
 use crate::data::{DataContainer, Packet};
 use crate::gui::{load_gui_settings, print_to_console, MyApp, Print, RIGHT_PANEL_WIDTH};
 use crate::io::{save_to_csv, FileOptions};
@@ -134,7 +133,6 @@ fn main() {
     let (save_tx, save_rx): (Sender<FileOptions>, Receiver<FileOptions>) = mpsc::channel();
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
-    let (names_tx, names_rx): (Sender<Vec<String>>, Receiver<Vec<String>>) = mpsc::channel();
     let (raw_data_tx, raw_data_rx): (Sender<Packet>, Receiver<Packet>) = mpsc::channel();
 
     let serial_device_lock = device_lock.clone();
@@ -201,7 +199,6 @@ fn main() {
                 saved_serial_device_configs,
                 gui_connected_lock,
                 gui_settings,
-                names_tx,
                 save_tx,
                 send_tx,
                 clear_tx,
