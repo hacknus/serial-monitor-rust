@@ -525,7 +525,11 @@ impl MyApp {
                     if !devices.contains(&self.device) {
                         self.device.clear();
                     }
-
+                    if let Ok(dev) = self.device_lock.read() {
+                        if !dev.name.is_empty() {
+                            self.device = dev.name.clone();
+                        }
+                    }
                     ui.add_space(10.0);
                     ui.horizontal(|ui| {
                         ui.label("Device");

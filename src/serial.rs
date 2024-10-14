@@ -197,7 +197,12 @@ fn get_device(
             *write_guard = devices.clone();
         }
 
+        // do reconnect
         if devices.contains(&last_connected_device.name) {
+            if let Ok(mut device) = device_lock.write() {
+                device.name = last_connected_device.name.clone();
+                device.baud_rate = last_connected_device.baud_rate;
+            }
             return last_connected_device.clone();
         }
 
