@@ -1,12 +1,13 @@
+use eframe::egui::Color32;
+use preferences::Preferences;
+use serde::{Deserialize, Serialize};
+use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use std::io::{BufRead, BufReader};
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-use preferences::Preferences;
-use serde::{Deserialize, Serialize};
-use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
-
+use crate::color_picker::COLORS;
 use crate::data::{get_epoch_ms, SerialDirection};
 use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
 
@@ -14,6 +15,8 @@ use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
 pub struct SerialDevices {
     pub devices: Vec<Device>,
     pub labels: Vec<Vec<String>>,
+    pub colors: Vec<Vec<Color32>>,
+    pub color_vals: Vec<Vec<f32>>,
     pub number_of_plots: Vec<usize>,
 }
 
@@ -22,6 +25,8 @@ impl Default for SerialDevices {
         SerialDevices {
             devices: vec![Device::default()],
             labels: vec![vec!["Column 0".to_string()]],
+            colors: vec![vec![COLORS[0]]],
+            color_vals: vec![vec![0.0]],
             number_of_plots: vec![1],
         }
     }
@@ -97,6 +102,8 @@ pub fn serial_thread(
     print_lock: Arc<RwLock<Vec<Print>>>,
     connected_lock: Arc<RwLock<bool>>,
 ) {
+    let mut last_connected_device = Device::default();
+
     loop {
         let _not_awake = keepawake::Builder::default()
             .display(false)
@@ -109,7 +116,7 @@ pub fn serial_thread(
             *connected = false;
         }
 
-        let device = get_device(&devices_lock, &device_lock);
+        let device = get_device(&devices_lock, &device_lock, &last_connected_device);
 
         let mut port = match serialport::new(&device.name, device.baud_rate)
             .timeout(Duration::from_millis(100))
@@ -155,7 +162,9 @@ pub fn serial_thread(
                 *write_guard = devices.clone();
             }
 
-            if let Some(message) = disconnected(&device, &devices, &device_lock) {
+            if let Some(message) =
+                disconnected(&device, &devices, &device_lock, &mut last_connected_device)
+            {
                 print_to_console(&print_lock, message);
                 break 'connected_loop;
             }
@@ -180,11 +189,21 @@ fn available_devices() -> Vec<String> {
 fn get_device(
     devices_lock: &Arc<RwLock<Vec<String>>>,
     device_lock: &Arc<RwLock<Device>>,
+    last_connected_device: &Device,
 ) -> Device {
     loop {
         let devices = available_devices();
         if let Ok(mut write_guard) = devices_lock.write() {
             *write_guard = devices.clone();
+        }
+
+        // do reconnect
+        if devices.contains(&last_connected_device.name) {
+            if let Ok(mut device) = device_lock.write() {
+                device.name = last_connected_device.name.clone();
+                device.baud_rate = last_connected_device.baud_rate;
+            }
+            return last_connected_device.clone();
         }
 
         if let Ok(device) = device_lock.read() {
@@ -200,10 +219,12 @@ fn disconnected(
     device: &Device,
     devices: &[String],
     device_lock: &Arc<RwLock<Device>>,
+    last_connected_device: &mut Device,
 ) -> Option<Print> {
     // disconnection by button press
     if let Ok(read_guard) = device_lock.read() {
         if device.name != read_guard.name {
+            *last_connected_device = Device::default();
             return Some(Print::Ok(format!(
                 "Disconnected from serial port: {}",
                 device.name
@@ -216,6 +237,7 @@ fn disconnected(
         if let Ok(mut write_guard) = device_lock.write() {
             write_guard.name.clear();
         }
+        *last_connected_device = device.clone();
         return Some(Print::Error(format!(
             "Device has disconnected from serial port: {}",
             device.name

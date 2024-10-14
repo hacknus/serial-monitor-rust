@@ -29,11 +29,12 @@ Features:
 - [X] Saves the configuration for the serial port after closing and reloads them automatically upon selection
 - [X] Option to save raw data to file
 - [X] Use keyboard shortcuts (ctrl-S to save data, ctrl-shift-S to save plot, ctrl-X to clear plot)
+- [X] Automatic reconnect after device has been unplugged
+- [X] Color-picker for curves
 - [ ] Allow to select (and copy) more than just the displayed raw traffic (also implement ctrl + A)
 - [ ] Smarter data parser
 - [ ] make serial print selectable and show corresponding datapoint in plot
 - [ ] COM-Port names on Windows (display manufacturer, name, pid or vid of device?)
-- [ ] make side panel and plot/serial prompt be resizeable (snappy?)
 - [ ] current command entered is lost when navigating through the history
 - [ ] command history is currently unlimited (needs an upper limit to prevent huge memory usage)
 - [ ] data history is currently unlimited (needs an upper limit to prevent huge memory usage)

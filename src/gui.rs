@@ -1,4 +1,5 @@
 use core::f32;
+use std::cmp::max;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
@@ -6,7 +7,9 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 use eframe::egui::panel::Side;
-use eframe::egui::{Align2, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Vec2, Visuals};
+use eframe::egui::{
+    Align2, Color32, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Vec2, Visuals,
+};
 use eframe::{egui, Storage};
 use egui::ThemePreference;
 use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoint, PlotPoints};
@@ -15,6 +18,7 @@ use preferences::Preferences;
 use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
 
+use crate::color_picker::{color_picker_widget, color_picker_window, COLORS};
 use crate::data::{DataContainer, SerialDirection};
 use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialDevices};
 use crate::toggle::toggle;
@@ -67,9 +71,9 @@ impl Print {
             Print::Empty => None,
             Print::Message(s) => {
                 let color = if gui_conf.dark_mode {
-                    egui::Color32::WHITE
+                    Color32::WHITE
                 } else {
-                    egui::Color32::BLACK
+                    Color32::BLACK
                 };
                 Some(ScrollAreaMessage {
                     label: "[MSG] ".to_owned(),
@@ -78,7 +82,7 @@ impl Print {
                 })
             }
             Print::Error(s) => {
-                let color = egui::Color32::RED;
+                let color = Color32::RED;
                 Some(ScrollAreaMessage {
                     label: "[ERR] ".to_owned(),
                     content: s.to_owned(),
@@ -87,9 +91,9 @@ impl Print {
             }
             Print::Debug(s) => {
                 let color = if gui_conf.dark_mode {
-                    egui::Color32::YELLOW
+                    Color32::YELLOW
                 } else {
-                    egui::Color32::LIGHT_RED
+                    Color32::LIGHT_RED
                 };
                 Some(ScrollAreaMessage {
                     label: "[DBG] ".to_owned(),
@@ -98,7 +102,7 @@ impl Print {
                 })
             }
             Print::Ok(s) => {
-                let color = egui::Color32::GREEN;
+                let color = Color32::GREEN;
                 Some(ScrollAreaMessage {
                     label: "[OK] ".to_owned(),
                     content: s.to_owned(),
@@ -113,7 +117,7 @@ impl Print {
 pub struct ScrollAreaMessage {
     label: String,
     content: String,
-    color: egui::Color32,
+    color: Color32,
 }
 
 pub fn print_to_console(print_lock: &Arc<RwLock<Vec<Print>>>, message: Print) {
@@ -165,6 +169,11 @@ pub fn load_gui_settings() -> GuiSettingsContainer {
     })
 }
 
+pub enum ColorWindow {
+    NoShow,
+    ColorIndex(usize),
+}
+
 pub struct MyApp {
     connected_to_device: bool,
     command: String,
@@ -184,13 +193,16 @@ pub struct MyApp {
     devices_lock: Arc<RwLock<Vec<String>>>,
     connected_lock: Arc<RwLock<bool>>,
     data_lock: Arc<RwLock<DataContainer>>,
-    names_tx: Sender<Vec<String>>,
     save_tx: Sender<FileOptions>,
     send_tx: Sender<String>,
     clear_tx: Sender<bool>,
     history: Vec<String>,
     index: usize,
     eol: String,
+    colors: Vec<Color32>,
+    color_vals: Vec<f32>,
+    labels: Vec<String>,
+    show_color_window: ColorWindow,
     show_sent_cmds: bool,
     show_timestamps: bool,
     save_raw: bool,
@@ -208,7 +220,6 @@ impl MyApp {
         devices: SerialDevices,
         connected_lock: Arc<RwLock<bool>>,
         gui_conf: GuiSettingsContainer,
-        names_tx: Sender<Vec<String>>,
         save_tx: Sender<FileOptions>,
         send_tx: Sender<String>,
         clear_tx: Sender<bool>,
@@ -230,7 +241,6 @@ impl MyApp {
             print_lock,
             gui_conf,
             data_lock,
-            names_tx,
             save_tx,
             send_tx,
             clear_tx,
@@ -241,11 +251,15 @@ impl MyApp {
             show_timestamps: true,
             save_raw: false,
             eol: "\\r\\n".to_string(),
+            colors: vec![COLORS[0]],
+            color_vals: vec![0.0],
+            labels: vec!["Column 0".to_string()],
             history: vec![],
             index: 0,
             plot_location: None,
             do_not_show_clear_warning: false,
             show_warning_window: WindowFeedback::None,
+            show_color_window: ColorWindow::NoShow,
         }
     }
 
@@ -319,6 +333,17 @@ impl MyApp {
                         self.data = read_guard.clone();
                     }
 
+                    if self.data.dataset.len() != self.labels.len() {
+                        self.labels = (0..max(self.data.dataset.len(), 1))
+                            .map(|i| format!("Column {i}"))
+                            .collect();
+                        self.colors = (0..max(self.data.dataset.len(), 1))
+                            .map(|i| COLORS[i % COLORS.len()])
+                            .collect();
+                        self.color_vals =
+                            (0..max(self.data.dataset.len(), 1)).map(|_| 0.0).collect();
+                    }
+
                     let mut graphs: Vec<Vec<PlotPoint>> = vec![vec![]; self.data.dataset.len()];
                     let window = self.data.dataset[0]
                         .len()
@@ -355,11 +380,11 @@ impl MyApp {
                             let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
                                 for (i, graph) in graphs.iter().enumerate() {
                                     // this check needs to be here for when we change devices (not very elegant)
-                                    if i < self.serial_devices.labels[self.device_idx].len() {
+                                    if i < self.labels.len() {
                                         signal_plot_ui.line(
-                                            Line::new(PlotPoints::Owned(graph.to_vec())).name(
-                                                &self.serial_devices.labels[self.device_idx][i],
-                                            ),
+                                            Line::new(PlotPoints::Owned(graph.to_vec()))
+                                                .name(&self.labels[i])
+                                                .color(self.colors[i]),
                                         );
                                     }
                                 }
@@ -397,9 +422,9 @@ impl MyApp {
                     let row_height = ui.text_style_height(&egui::TextStyle::Body);
 
                     let color = if self.gui_conf.dark_mode {
-                        egui::Color32::WHITE
+                        Color32::WHITE
                     } else {
-                        egui::Color32::BLACK
+                        Color32::BLACK
                     };
 
                     egui::ScrollArea::vertical()
@@ -496,7 +521,11 @@ impl MyApp {
                     if !devices.contains(&self.device) {
                         self.device.clear();
                     }
-
+                    if let Ok(dev) = self.device_lock.read() {
+                        if !dev.name.is_empty() {
+                            self.device = dev.name.clone();
+                        }
+                    }
                     ui.add_space(10.0);
                     ui.horizontal(|ui| {
                         ui.label("Device");
@@ -732,6 +761,7 @@ impl MyApp {
                                         file_path: self.picked_path.clone(),
                                         save_absolute_time: self.gui_conf.save_absolute_time,
                                         save_raw_traffic: self.save_raw,
+                                        names: self.serial_devices.labels[self.device_idx].clone(),
                                     }) {
                                         print_to_console(
                                             &self.print_lock,
@@ -771,7 +801,7 @@ impl MyApp {
                                 }
                                 // need to clear the data here in order to prevent errors in the gui (plot)
                                 self.data = DataContainer::default();
-                                self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
+                                // self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
 
                             }
                             ui.end_row();
@@ -799,33 +829,53 @@ impl MyApp {
                             clear_serial_settings();
                         }
                         if ui.button("Reset Labels").clicked() {
-                            self.serial_devices.labels[self.device_idx] = self.data.names.clone();
+                            // self.serial_devices.labels[self.device_idx] = self.serial_devices.labels.clone();
                         }
                     });
-                    if self.data.names.len() == 1 {
+                    if self.labels.len() == 1 {
                         ui.label("Detected 1 Dataset:");
                     } else {
-                        ui.label(format!("Detected {} Datasets:", self.data.names.len()));
+                        ui.label(format!("Detected {} Datasets:", self.labels.len()));
                     }
                     ui.add_space(5.0);
-                    for i in 0..self.data.names.len().min(10) {
+                    for i in 0..self.labels.len().min(10) {
                         // if init, set names to what has been stored in the device last time
                         if init {
-                            self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
+                            // self.names_tx.send(self.labels.clone()).expect("Failed to send names");
                             init = false;
                         }
-                        if self.serial_devices.labels[self.device_idx].len() <= i {
+
+                        if self.labels.len() <= i {
                             break;
                         }
+                        ui.horizontal(|ui| {
 
-                        if ui.add(
-                            egui::TextEdit::singleline(&mut self.serial_devices.labels[self.device_idx][i])
-                                .desired_width(0.95 * RIGHT_PANEL_WIDTH)
-                        ).on_hover_text("Use custom names for your Datasets.").changed() {
-                            self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
-                        };
+                            let response = color_picker_widget(ui,"", &mut self.colors,i );
+
+                            // Check if the square was clicked and toggle color picker window
+                            if response.clicked() {
+                                self.show_color_window = ColorWindow::ColorIndex(i);
+                            };
+
+                            if ui.add(
+                                egui::TextEdit::singleline(&mut self.labels[i])
+                                    .desired_width(0.95 * RIGHT_PANEL_WIDTH)
+                            ).on_hover_text("Use custom names for your Datasets.").changed() {
+                                // self.names_tx.send(self.labels.clone()).expect("Failed to send names");
+                            };
+                        });
                     }
-                    if self.data.names.len() > 10 {
+                    match self.show_color_window {ColorWindow::NoShow => {
+
+                    }
+                        ColorWindow::ColorIndex(index) => {
+                            if color_picker_window(ui.ctx(), &mut self.colors[index], &mut self.color_vals[index]) {
+                                self.show_color_window = ColorWindow::NoShow;
+                            }
+                        }
+                    }
+
+                    if self.labels.len() > 10 {
                         ui.label("Only renaming up to 10 Datasets is currently supported.");
                     }
                 });
@@ -867,9 +917,9 @@ impl MyApp {
     fn paint_connection_indicator(&self, ui: &mut egui::Ui) {
         let (color, color_stroke) = if !self.connected_to_device {
             ui.add(egui::Spinner::new());
-            (egui::Color32::DARK_RED, egui::Color32::RED)
+            (Color32::DARK_RED, Color32::RED)
         } else {
-            (egui::Color32::DARK_GREEN, egui::Color32::GREEN)
+            (Color32::DARK_GREEN, Color32::GREEN)
         };
 
         let radius = ui.spacing().interact_size.y * 0.375;

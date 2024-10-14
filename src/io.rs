@@ -11,6 +11,7 @@ pub struct FileOptions {
     pub file_path: PathBuf,
     pub save_absolute_time: bool,
     pub save_raw_traffic: bool,
+    pub names: Vec<String>,
 }
 
 pub fn save_to_csv(data: &DataContainer, csv_options: &FileOptions) -> Result<(), Box<dyn Error>> {
@@ -19,7 +20,7 @@ pub fn save_to_csv(data: &DataContainer, csv_options: &FileOptions) -> Result<()
         .from_path(&csv_options.file_path)?;
     // serialize does not work, so we do it with a loop..
     let mut header = vec!["Time [ms]".to_string()];
-    header.extend_from_slice(&data.names);
+    header.extend_from_slice(&csv_options.names);
     wtr.write_record(header)?;
     for j in 0..data.dataset[0].len() {
         let time = if csv_options.save_absolute_time {
