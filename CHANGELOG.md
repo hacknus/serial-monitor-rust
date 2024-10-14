@@ -6,6 +6,12 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 ### Added:
 
+* ...
+
+## 0.3.0 - 14.10.2024 - Automatic Reconnection
+
+### Added:
+
 * Color-picker for curves
 * Automatically reconnect when device becomes available again (only after unplugging)
 * minor bug fixes
