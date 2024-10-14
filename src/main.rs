@@ -46,6 +46,7 @@ fn split(payload: &str) -> Vec<f32> {
 }
 
 fn main_thread(
+    sync_tx: Sender<bool>,
     data_lock: Arc<RwLock<DataContainer>>,
     print_lock: Arc<RwLock<Vec<Print>>>,
     raw_data_rx: Receiver<Packet>,
@@ -65,6 +66,7 @@ fn main_thread(
 
         if let Ok(packet) = raw_data_rx.recv_timeout(Duration::from_millis(1)) {
             if !packet.payload.is_empty() {
+                sync_tx.send(true).expect("unable to send sync tx");
                 data.raw_traffic.push(packet.clone());
                 let split_data = split(&packet.payload);
                 if data.dataset.is_empty() || failed_format_counter > 10 {
@@ -134,6 +136,7 @@ fn main() {
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
     let (raw_data_tx, raw_data_rx): (Sender<Packet>, Receiver<Packet>) = mpsc::channel();
+    let (sync_tx, sync_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
 
     let serial_device_lock = device_lock.clone();
     let serial_devices_lock = devices_lock.clone();
@@ -158,6 +161,7 @@ fn main() {
     println!("starting main thread..");
     let _main_thread_handler = thread::spawn(|| {
         main_thread(
+            sync_tx,
             main_data_lock,
             main_print_lock,
             raw_data_rx,
@@ -191,6 +195,15 @@ fn main() {
             egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
             _cc.egui_ctx.set_fonts(fonts);
             _cc.egui_ctx.set_visuals(Visuals::dark());
+
+            let repaint_signal = _cc.egui_ctx.clone();
+            thread::spawn(move || loop {
+                if let Ok(_) = sync_rx.recv() {
+                    println!("requested repaint!");
+                    repaint_signal.request_repaint();
+                }
+            });
+
             Ok(Box::new(MyApp::new(
                 gui_print_lock,
                 gui_data_lock,

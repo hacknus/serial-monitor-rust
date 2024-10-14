@@ -25,8 +25,6 @@ use crate::toggle::toggle;
 use crate::FileOptions;
 use crate::{APP_INFO, PREFS_KEY};
 
-const MAX_FPS: f64 = 60.0;
-
 const DEFAULT_FONT_ID: FontId = FontId::new(14.0, FontFamily::Monospace);
 pub const RIGHT_PANEL_WIDTH: f32 = 350.0;
 const BAUD_RATES: &[u32] = &[
@@ -494,8 +492,6 @@ impl MyApp {
                             self.command = self.history[self.index].clone();
                         }
                     }
-
-                    ctx.request_repaint()
                 });
                 ui.add_space(left_border);
             });
@@ -979,8 +975,6 @@ impl eframe::App for MyApp {
                 eprintln!("Image saved to {path:?}.");
             }
         }
-
-        std::thread::sleep(Duration::from_millis((1000.0 / MAX_FPS) as u64));
     }
 
     fn save(&mut self, _storage: &mut dyn Storage) {
