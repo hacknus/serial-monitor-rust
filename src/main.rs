@@ -198,8 +198,7 @@ fn main() {
 
             let repaint_signal = _cc.egui_ctx.clone();
             thread::spawn(move || loop {
-                if let Ok(_) = sync_rx.recv() {
-                    println!("requested repaint!");
+                if sync_rx.recv().is_ok() {
                     repaint_signal.request_repaint();
                 }
             });
