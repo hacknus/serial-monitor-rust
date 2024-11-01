@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use crate::color_picker::COLORS;
 use crate::data::{get_epoch_ms, SerialDirection};
-use crate::{print_to_console, Packet, Print, APP_INFO, PREFS_KEY_SERIAL};
+use crate::{Packet, APP_INFO, PREFS_KEY_SERIAL};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerialDevices {

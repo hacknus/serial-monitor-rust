@@ -12,7 +12,7 @@ use std::thread;
 use std::time::Duration;
 
 use crate::data::{DataContainer, Packet};
-use crate::gui::{load_gui_settings, print_to_console, MyApp, Print, RIGHT_PANEL_WIDTH};
+use crate::gui::{load_gui_settings, MyApp, RIGHT_PANEL_WIDTH};
 use crate::io::{save_to_csv, FileOptions};
 use crate::serial::{load_serial_settings, serial_thread, Device};
 use eframe::egui::{vec2, ViewportBuilder, Visuals};

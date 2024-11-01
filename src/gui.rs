@@ -44,91 +44,12 @@ const SAVE_PLOT_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(
 const CLEAR_PLOT_SHORTCUT: KeyboardShortcut =
     KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::X);
 
-#[derive(Clone)]
-#[allow(unused)]
-pub enum Print {
-    Empty,
-    Message(String),
-    Error(String),
-    Debug(String),
-    Ok(String),
-}
-
 #[derive(PartialEq)]
 pub enum WindowFeedback {
     None,
     Waiting,
     Clear,
     Cancel,
-}
-
-impl Print {
-    pub fn scroll_area_message(
-        &self,
-        gui_conf: &GuiSettingsContainer,
-    ) -> Option<ScrollAreaMessage> {
-        match self {
-            Print::Empty => None,
-            Print::Message(s) => {
-                let color = if gui_conf.dark_mode {
-                    Color32::WHITE
-                } else {
-                    Color32::BLACK
-                };
-                Some(ScrollAreaMessage {
-                    label: "[MSG] ".to_owned(),
-                    content: s.to_owned(),
-                    color,
-                })
-            }
-            Print::Error(s) => {
-                let color = Color32::RED;
-                Some(ScrollAreaMessage {
-                    label: "[ERR] ".to_owned(),
-                    content: s.to_owned(),
-                    color,
-                })
-            }
-            Print::Debug(s) => {
-                let color = if gui_conf.dark_mode {
-                    Color32::YELLOW
-                } else {
-                    Color32::LIGHT_RED
-                };
-                Some(ScrollAreaMessage {
-                    label: "[DBG] ".to_owned(),
-                    content: s.to_owned(),
-                    color,
-                })
-            }
-            Print::Ok(s) => {
-                let color = Color32::GREEN;
-                Some(ScrollAreaMessage {
-                    label: "[OK] ".to_owned(),
-                    content: s.to_owned(),
-                    color,
-                })
-            }
-        }
-    }
-}
-
-#[allow(dead_code)]
-pub struct ScrollAreaMessage {
-    label: String,
-    content: String,
-    color: Color32,
-}
-
-pub fn print_to_console(print_lock: &Arc<RwLock<Vec<Print>>>, message: Print) {
-    match print_lock.write() {
-        Ok(mut write_guard) => {
-            write_guard.push(message);
-        }
-        Err(e) => {
-            println!("Error while writing to print_lock: {}", e);
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
@@ -183,7 +104,6 @@ pub struct MyApp {
     serial_devices: SerialDevices,
     plotting_range: usize,
     plot_serial_display_ratio: f32,
-    console: Vec<Print>,
     picked_path: PathBuf,
     plot_location: Option<egui::Rect>,
     data: DataContainer,
@@ -228,9 +148,6 @@ impl MyApp {
             device: "".to_string(),
             old_device: "".to_string(),
             data: DataContainer::default(),
-            console: vec![Print::Message(
-                "waiting for serial connection..,".to_owned(),
-            )],
             connected_lock,
             device_lock,
             devices_lock,
