@@ -6,7 +6,7 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 ### Added:
 
-* ...
+* removed the custom implementation of Print and Scrollarea and implemented the `log` crate and `egui_logger`
 
 ## 0.3.0 - 14.10.2024 - Automatic Reconnection
 
