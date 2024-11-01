@@ -772,40 +772,12 @@ impl MyApp {
                     }
                 });
 
-                // if let Ok(read_guard) = self.print_lock.read() {
-                //     self.console = read_guard.clone();
-                // }
-                // let num_rows = self.console.len();
-                // let row_height = ui.text_style_height(&egui::TextStyle::Body);
-
                 ui.add_space(20.0);
                 ui.separator();
                 ui.label("Debug Info:");
                 ui.add_space(5.0);
 
                 egui_logger::logger_ui().show(ui);
-
-                // egui::ScrollArea::vertical()
-                //     .id_salt("console_scroll_area")
-                //     .auto_shrink([false; 2])
-                //     .stick_to_bottom(true)
-                //     .max_height(row_height * 15.5)
-                //     .show_rows(ui, row_height, num_rows, |ui, _row_range| {
-                //         let content: String = self
-                //             .console
-                //             .iter()
-                //             .flat_map(|row| row.scroll_area_message(&self.gui_conf))
-                //             .map(|msg| msg.label + msg.content.as_str())
-                //             .collect::<Vec<_>>()
-                //             .join("\n");
-                //         // we need to add it as one multiline object, such that we can select and copy
-                //         // text over multiple lines
-                //         ui.add(
-                //             egui::TextEdit::multiline(&mut content.as_str())
-                //                 .font(DEFAULT_FONT_ID) // for cursor height
-                //                 .lock_focus(true), // TODO: add a layouter to highlight the labels
-                //         );
-                //     });
             });
     }
 
