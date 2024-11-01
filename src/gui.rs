@@ -188,7 +188,6 @@ pub struct MyApp {
     plot_location: Option<egui::Rect>,
     data: DataContainer,
     gui_conf: GuiSettingsContainer,
-    print_lock: Arc<RwLock<Vec<Print>>>,
     device_lock: Arc<RwLock<Device>>,
     devices_lock: Arc<RwLock<Vec<String>>>,
     connected_lock: Arc<RwLock<bool>>,
@@ -213,7 +212,6 @@ pub struct MyApp {
 #[allow(clippy::too_many_arguments)]
 impl MyApp {
     pub fn new(
-        print_lock: Arc<RwLock<Vec<Print>>>,
         data_lock: Arc<RwLock<DataContainer>>,
         device_lock: Arc<RwLock<Device>>,
         devices_lock: Arc<RwLock<Vec<String>>>,
@@ -238,7 +236,6 @@ impl MyApp {
             devices_lock,
             device_idx: 0,
             serial_devices: devices,
-            print_lock,
             gui_conf,
             data_lock,
             save_tx,
@@ -470,10 +467,7 @@ impl MyApp {
                             self.index = self.history.len() - 1;
                             let eol = self.eol.replace("\\r", "\r").replace("\\n", "\n");
                             if let Err(err) = self.send_tx.send(self.command.clone() + &eol) {
-                                print_to_console(
-                                    &self.print_lock,
-                                    Print::Error(format!("send_tx thread send failed: {:?}", err)),
-                                );
+                                log::error!("send_tx thread send failed: {:?}", err);
                             }
                             // stay in focus!
                             cmd_line.request_focus();
@@ -652,7 +646,6 @@ impl MyApp {
                                 ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Seven, DataBits::Seven.to_string());
                                 ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Six, DataBits::Six.to_string());
                                 ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Five, DataBits::Five.to_string());
-
                             });
                         egui::ComboBox::from_id_salt("Parity")
                             .selected_text(self.serial_devices.devices[self.device_idx].parity.to_string())
@@ -763,13 +756,7 @@ impl MyApp {
                                         save_raw_traffic: self.save_raw,
                                         names: self.serial_devices.labels[self.device_idx].clone(),
                                     }) {
-                                        print_to_console(
-                                            &self.print_lock,
-                                            Print::Error(format!(
-                                                "save_tx thread send failed: {:?}",
-                                                e
-                                            )),
-                                        );
+                                        log::error!( "save_tx thread send failed: {:?}", e);
                                     }
                                 }
                             };
@@ -778,7 +765,6 @@ impl MyApp {
                                 .button(egui::RichText::new(format!("{} Save Plot", egui_phosphor::regular::FLOPPY_DISK)))
                                 .on_hover_text("Save an image of the Plot.")
                                 .clicked() || ui.input_mut(|i| i.consume_shortcut(&SAVE_PLOT_SHORTCUT))
-
                             {
                                 ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot);
                             }
@@ -786,18 +772,9 @@ impl MyApp {
                             if ui.button(egui::RichText::new(format!("{} Clear Data", egui_phosphor::regular::X)))
                                 .on_hover_text("Clear Data from Plot.")
                                 .clicked() || ui.input_mut(|i| i.consume_shortcut(&CLEAR_PLOT_SHORTCUT)) {
-                                print_to_console(
-                                    &self.print_lock,
-                                    Print::Ok("Cleared recorded Data".to_string()),
-                                );
+                                log::info!("Cleared recorded Data");
                                 if let Err(err) = self.clear_tx.send(true) {
-                                    print_to_console(
-                                        &self.print_lock,
-                                        Print::Error(format!(
-                                            "clear_tx thread send failed: {:?}",
-                                            err
-                                        )),
-                                    );
+                                    log::error!("clear_tx thread send failed: {:?}", err );
                                 }
                                 // need to clear the data here in order to prevent errors in the gui (plot)
                                 self.data = DataContainer::default();
@@ -821,7 +798,7 @@ impl MyApp {
                     };
                     ui.add_space(25.0);
                     self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
-                    ui.horizontal( |ui| {
+                    ui.horizontal(|ui| {
                         if ui.button("Clear Device History").clicked() {
                             self.serial_devices = SerialDevices::default();
                             self.device.clear();
@@ -849,8 +826,7 @@ impl MyApp {
                             break;
                         }
                         ui.horizontal(|ui| {
-
-                            let response = color_picker_widget(ui,"", &mut self.colors,i );
+                            let response = color_picker_widget(ui, "", &mut self.colors, i);
 
                             // Check if the square was clicked and toggle color picker window
                             if response.clicked() {
@@ -865,9 +841,8 @@ impl MyApp {
                             };
                         });
                     }
-                    match self.show_color_window {ColorWindow::NoShow => {
-
-                    }
+                    match self.show_color_window {
+                        ColorWindow::NoShow => {}
                         ColorWindow::ColorIndex(index) => {
                             if color_picker_window(ui.ctx(), &mut self.colors[index], &mut self.color_vals[index]) {
                                 self.show_color_window = ColorWindow::NoShow;
@@ -880,37 +855,40 @@ impl MyApp {
                     }
                 });
 
-                if let Ok(read_guard) = self.print_lock.read() {
-                    self.console = read_guard.clone();
-                }
-                let num_rows = self.console.len();
-                let row_height = ui.text_style_height(&egui::TextStyle::Body);
+                // if let Ok(read_guard) = self.print_lock.read() {
+                //     self.console = read_guard.clone();
+                // }
+                // let num_rows = self.console.len();
+                // let row_height = ui.text_style_height(&egui::TextStyle::Body);
 
                 ui.add_space(20.0);
                 ui.separator();
                 ui.label("Debug Info:");
                 ui.add_space(5.0);
-                egui::ScrollArea::vertical()
-                    .id_salt("console_scroll_area")
-                    .auto_shrink([false; 2])
-                    .stick_to_bottom(true)
-                    .max_height(row_height * 15.5)
-                    .show_rows(ui, row_height, num_rows, |ui, _row_range| {
-                        let content: String = self
-                            .console
-                            .iter()
-                            .flat_map(|row| row.scroll_area_message(&self.gui_conf))
-                            .map(|msg| msg.label + msg.content.as_str())
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        // we need to add it as one multiline object, such that we can select and copy
-                        // text over multiple lines
-                        ui.add(
-                            egui::TextEdit::multiline(&mut content.as_str())
-                                .font(DEFAULT_FONT_ID) // for cursor height
-                                .lock_focus(true), // TODO: add a layouter to highlight the labels
-                        );
-                    });
+
+                egui_logger::logger_ui().show(ui);
+
+                // egui::ScrollArea::vertical()
+                //     .id_salt("console_scroll_area")
+                //     .auto_shrink([false; 2])
+                //     .stick_to_bottom(true)
+                //     .max_height(row_height * 15.5)
+                //     .show_rows(ui, row_height, num_rows, |ui, _row_range| {
+                //         let content: String = self
+                //             .console
+                //             .iter()
+                //             .flat_map(|row| row.scroll_area_message(&self.gui_conf))
+                //             .map(|msg| msg.label + msg.content.as_str())
+                //             .collect::<Vec<_>>()
+                //             .join("\n");
+                //         // we need to add it as one multiline object, such that we can select and copy
+                //         // text over multiple lines
+                //         ui.add(
+                //             egui::TextEdit::multiline(&mut content.as_str())
+                //                 .font(DEFAULT_FONT_ID) // for cursor height
+                //                 .lock_focus(true), // TODO: add a layouter to highlight the labels
+                //         );
+                //     });
             });
     }
 
