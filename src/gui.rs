@@ -774,10 +774,9 @@ impl MyApp {
 
                 ui.add_space(20.0);
                 ui.separator();
-                ui.label("Debug Info:");
-                ui.add_space(5.0);
-
-                egui_logger::logger_ui().show(ui);
+                ui.collapsing("Debug logs:", |ui| {
+                    egui_logger::logger_ui().show(ui);
+                });
             });
     }
 
@@ -839,7 +838,7 @@ impl eframe::App for MyApp {
                     image::ColorType::Rgba8,
                 )
                 .unwrap();
-                eprintln!("Image saved to {path:?}.");
+                println!("Image saved to {path:?}.");
             }
         }
     }
