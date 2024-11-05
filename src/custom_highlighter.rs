@@ -45,25 +45,37 @@ pub fn highlight_impl(
             my_tokens.remove(index);
         }
     }
-    let set = RegexSet::new(my_tokens.clone()).unwrap();
+
     let content_string = String::from(text);
     // let _ = file.read_to_string(&mut isi);
     let mut regexs:Vec<Regex> = Vec::new();
     for sentence in my_tokens.clone() {
-        let re = Regex::new(&sentence).unwrap(); // should not panic because we parsed Regexes above already
-        regexs.push(re);
+        match Regex::new(&sentence){
+            Ok(re) => {
+                regexs.push(re);
+            },
+            Err(_err) =>{
+
+            },
+        };
     }
 
     let mut highlight_list : Vec<HighLightElement> = Vec::<HighLightElement>::new();
+    match RegexSet::new(my_tokens.clone()){
+        Ok(set) => {
+            for idx in set.matches(&content_string).into_iter() {
+                for caps in regexs[idx].captures_iter(&content_string) {
+                    highlight_list.push(HighLightElement::new(
+                        caps.get(0).unwrap().start(), 
+                        caps.get(0).unwrap().end(),
+                        idx));
+                }
+            }
+        },
+        Err(_err) => {
 
-    for idx in set.matches(&content_string).into_iter() {
-        for caps in regexs[idx].captures_iter(&content_string) {
-            highlight_list.push(HighLightElement::new(
-                caps.get(0).unwrap().start(), 
-                caps.get(0).unwrap().end(),
-                idx));
         }
-    }
+    };
 
     highlight_list.sort_by_key(|item| (item.pos_start, item.pos_end));
 
