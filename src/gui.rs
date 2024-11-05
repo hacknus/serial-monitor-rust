@@ -8,7 +8,8 @@ use std::time::Duration;
 
 use eframe::egui::panel::Side;
 use eframe::egui::{
-    Align2, Color32, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Ui, Vec2, Visuals
+    Align2, CollapsingHeader, Color32, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Ui, Vec2,
+    Visuals,
 };
 use eframe::{egui, Storage};
 use egui::ThemePreference;
@@ -32,7 +33,6 @@ const BAUD_RATES: &[u32] = &[
     300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 74880, 115200, 230400, 128000, 460800,
     576000, 921600,
 ];
-
 const SAVE_FILE_SHORTCUT: KeyboardShortcut =
     KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::S);
 
@@ -61,12 +61,6 @@ pub enum WindowFeedback {
     Waiting,
     Clear,
     Cancel,
-}
-
-#[derive(PartialEq)]
-pub enum AvailableTab {
-    Plot,
-    TextHighlighting
 }
 
 impl Print {
@@ -215,8 +209,7 @@ pub struct MyApp {
     save_raw: bool,
     show_warning_window: WindowFeedback,
     do_not_show_clear_warning: bool,
-    selected_tab:AvailableTab,
-    init:bool,
+    init: bool,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -268,8 +261,7 @@ impl MyApp {
             plot_location: None,
             do_not_show_clear_warning: false,
             show_warning_window: WindowFeedback::None,
-            selected_tab:AvailableTab::TextHighlighting,
-            init:false,
+            init: false,
             show_color_window: ColorWindow::NoShow,
         }
     }
@@ -433,8 +425,7 @@ impl MyApp {
                             ui.add_space(top_spacing);
                         });
                         plot_ui_heigh = plots_ui.response.rect.height();
-
-                    }else {
+                    } else {
                         plot_ui_heigh = 0.0;
                     }
 
@@ -452,7 +443,7 @@ impl MyApp {
                         Color32::BLACK
                     };
 
-                    let mut text_edit_size:Vec2 = ui.available_size();
+                    let mut text_edit_size = ui.available_size();
                     text_edit_size.x = width;
                     egui::ScrollArea::vertical()
                         .id_salt("serial_output")
@@ -483,7 +474,8 @@ impl MyApp {
                                 ui.fonts(|f| f.layout_job(layout_job))
                             };
 
-                            ui.add(egui::TextEdit::multiline(&mut content.as_str())
+                            ui.add(
+                                egui::TextEdit::multiline(&mut content.as_str())
                                     .font(DEFAULT_FONT_ID) // for cursor height
                                     .lock_focus(true)
                                     .text_color(color)
@@ -534,75 +526,195 @@ impl MyApp {
         });
     }
 
-    fn draw_plot_settings(&mut self, ctx: &egui::Context, ui:&mut Ui) {
-        egui::Grid::new("upper")
+    fn draw_serial_settings(&mut self, ctx: &egui::Context, ui :&mut Ui)
+    {
+        ui.horizontal(|ui| {
+            ui.heading("Serial Monitor");
+            self.paint_connection_indicator(ui);
+        });
+
+        let devices: Vec<String> = if let Ok(read_guard) = self.devices_lock.read() {
+            read_guard.clone()
+        } else {
+            vec![]
+        };
+
+        if !devices.contains(&self.device) {
+            self.device.clear();
+        }
+        if let Ok(dev) = self.device_lock.read() {
+            if !dev.name.is_empty() {
+                self.device = dev.name.clone();
+            }
+        }
+        ui.add_space(10.0);
+        ui.horizontal(|ui| {
+            ui.label("Device");
+            ui.add_space(130.0);
+            ui.label("Baud");
+        });
+
+        let old_name = self.device.clone();
+        ui.horizontal(|ui| {
+            let dev_text = self.device.replace("/dev/tty.", "");
+            ui.horizontal(|ui| {
+                if self.connected_to_device {
+                    ui.disable();
+                }
+                let _response = egui::ComboBox::from_id_salt("Device")
+                    .selected_text(dev_text)
+                    .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
+                    .show_ui(ui, |ui| {
+                        devices
+                            .into_iter()
+                            // on macOS each device appears as /dev/tty.* and /dev/cu.*
+                            // we only display the /dev/tty.* here
+                            .filter(|dev| !dev.contains("/dev/cu."))
+                            .for_each(|dev| {
+                                // this makes the names shorter in the UI on UNIX and UNIX-like platforms
+                                let dev_text = dev.replace("/dev/tty.", "");
+                                ui.selectable_value(&mut self.device, dev, dev_text);
+                            });
+                    }).response;
+                // let selected_new_device = response.changed();  //somehow this does not work
+                // if selected_new_device {
+                if old_name != self.device {
+                    if !self.data.time.is_empty() {
+                        self.show_warning_window = WindowFeedback::Waiting;
+                        self.old_device = old_name;
+                    } else {
+                        self.show_warning_window = WindowFeedback::Clear;
+                    }
+                }
+            });
+            match self.show_warning_window {
+                WindowFeedback::None => {}
+                WindowFeedback::Waiting => {
+                    self.show_warning_window = self.clear_warning_window(ctx);
+                }
+                WindowFeedback::Clear => {
+                    // new device selected, check in previously used devices
+                    let mut device_is_already_saved = false;
+                    for (idx, dev) in self.serial_devices.devices.iter().enumerate() {
+                        if dev.name == self.device {
+                            // this is the device!
+                            self.device = dev.name.clone();
+                            self.device_idx = idx;
+                            self.init = true;
+                            device_is_already_saved = true;
+                        }
+                    }
+                    if !device_is_already_saved {
+                        // create new device in the archive
+                        let mut device = Device::default();
+                        device.name = self.device.clone();
+                        self.serial_devices.devices.push(device);
+                        self.serial_devices.number_of_plots.push(1);
+                        self.serial_devices.labels.push(vec!["Column 0".to_string()]);
+                        self.device_idx = self.serial_devices.devices.len() - 1;
+                        save_serial_settings(&self.serial_devices);
+                    }
+                    self.clear_tx.send(true).expect("failed to send clear after choosing new device");
+                    // need to clear the data here such that we don't get errors in the gui (plot)
+                    self.data = DataContainer::default();
+                    self.show_warning_window = WindowFeedback::None;
+                }
+                WindowFeedback::Cancel => {
+                    self.device = self.old_device.clone();
+                    self.show_warning_window = WindowFeedback::None;
+                }
+            }
+            egui::ComboBox::from_id_salt("Baud Rate")
+                .selected_text(format!("{}", self.serial_devices.devices[self.device_idx].baud_rate))
+                .width(80.0)
+                .show_ui(ui, |ui| {
+                    if self.connected_to_device {
+                        ui.disable();
+                    }
+                    BAUD_RATES.iter().for_each(|baud_rate| {
+                        ui.selectable_value(
+                            &mut self.serial_devices.devices[self.device_idx].baud_rate,
+                            *baud_rate,
+                            baud_rate.to_string(),
+                        );
+                    });
+                });
+            let connect_text = if self.connected_to_device { "Disconnect" } else { "Connect" };
+            if ui.button(connect_text).clicked() {
+                if let Ok(mut device) = self.device_lock.write() {
+                    if self.connected_to_device {
+                        device.name.clear();
+                    } else {
+                        device.name = self.serial_devices.devices[self.device_idx].name.clone();
+                        device.baud_rate = self.serial_devices.devices[self.device_idx].baud_rate;
+                    }
+                }
+            }
+        });
+        ui.add_space(5.0);
+        ui.horizontal(|ui| {
+            ui.label("Data Bits");
+            ui.add_space(5.0);
+            ui.label("Parity");
+            ui.add_space(20.0);
+            ui.label("Stop Bits");
+            ui.label("Flow Control");
+            ui.label("Timeout");
+        });
+        ui.horizontal(|ui| {
+            if self.connected_to_device {
+                ui.disable();
+            }
+            egui::ComboBox::from_id_salt("Data Bits")
+                .selected_text(self.serial_devices.devices[self.device_idx].data_bits.to_string())
+                .width(30.0)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Eight, DataBits::Eight.to_string());
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Seven, DataBits::Seven.to_string());
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Six, DataBits::Six.to_string());
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Five, DataBits::Five.to_string());
+
+                });
+            egui::ComboBox::from_id_salt("Parity")
+                .selected_text(self.serial_devices.devices[self.device_idx].parity.to_string())
+                .width(30.0)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::None, Parity::None.to_string());
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::Odd, Parity::Odd.to_string());
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::Even, Parity::Even.to_string());
+                });
+            egui::ComboBox::from_id_salt("Stop Bits")
+                .selected_text(self.serial_devices.devices[self.device_idx].stop_bits.to_string())
+                .width(30.0)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].stop_bits, StopBits::One, StopBits::One.to_string());
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].stop_bits, StopBits::Two, StopBits::Two.to_string());
+                });
+            egui::ComboBox::from_id_salt("Flow Control")
+                .selected_text(self.serial_devices.devices[self.device_idx].flow_control.to_string())
+                .width(75.0)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::None, FlowControl::None.to_string());
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Hardware, FlowControl::Hardware.to_string());
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Software, FlowControl::Software.to_string());
+                });
+            egui::ComboBox::from_id_salt("Timeout")
+                .selected_text(self.serial_devices.devices[self.device_idx].timeout.as_millis().to_string())
+                .width(55.0)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(0), "0");
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(10), "10");
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(100), "100");
+                    ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(1000), "1000");
+                });
+        });
+    }
+    fn draw_export_settings(&mut self, ctx: &egui::Context, ui: &mut Ui) {
+        egui::Grid::new("export_settings")
         .num_columns(2)
         .spacing(Vec2 { x: 10.0, y: 10.0 })
         .striped(true)
         .show(ui, |ui| {
-            ui.label("Plotting range [#]: ");
-
-            let window_fmt = |val: f64, _range: RangeInclusive<usize>| {
-                if val != usize::MAX as f64 {
-                    val.to_string()
-                } else {
-                    "∞".to_string()
-                }
-            };
-
-            ui.horizontal(|ui| {
-                ui.add(egui::DragValue::new(&mut self.plotting_range)
-                    .custom_formatter(window_fmt))
-                    .on_hover_text("Select a window of the last datapoints to be displayed in the plot.");
-                if ui.button("Full Dataset")
-                    .on_hover_text("Show the full dataset.")
-                    .clicked() {
-                    self.plotting_range = usize::MAX;
-                }
-            });
-            ui.end_row();
-            ui.label("Number of plots [#]: ");
-
-            ui.horizontal(|ui| {
-                if ui.button(egui::RichText::new(egui_phosphor::regular::ARROW_FAT_LEFT.to_string())).clicked() {
-                    if self.serial_devices.number_of_plots[self.device_idx] == 0
-                    {
-                        return;
-                    }
-                    self.serial_devices.number_of_plots[self.device_idx] =
-                        (self.serial_devices.number_of_plots[self.device_idx] - 1).clamp(0, 10);
-                }
-                ui.add(egui::DragValue::new(&mut self.serial_devices.number_of_plots[self.device_idx])
-                    .range(0..=10))
-                    .on_hover_text("Select the number of plots to be shown.");
-                if ui.button(egui::RichText::new(egui_phosphor::regular::ARROW_FAT_RIGHT.to_string())).clicked() {
-                    if self.serial_devices.number_of_plots[self.device_idx] == 10
-                    {
-                        return;
-                    }
-                    self.serial_devices.number_of_plots[self.device_idx] =
-                        (self.serial_devices.number_of_plots[self.device_idx] + 1).clamp(0, 10);
-                }
-            });
-
-            ui.end_row();
-            ui.label("Show Sent Commands");
-            ui.add(toggle(&mut self.show_sent_cmds))
-                .on_hover_text("Show sent commands in console.");
-            ui.end_row();
-            ui.label("Show Timestamp");
-            ui.add(toggle(&mut self.show_timestamps))
-                .on_hover_text("Show timestamp in console.");
-            ui.end_row();
-            ui.label("EOL character");
-            ui.add(
-                egui::TextEdit::singleline(&mut self.eol)
-                    .desired_width(ui.available_width() * 0.9))
-                .on_hover_text("Configure your EOL character for sent commands..");
-            // ui.checkbox(&mut self.gui_conf.debug, "Debug Mode");
-            ui.end_row();
-            ui.end_row();
-
             if ui.button(egui::RichText::new(format!("{} Save CSV", egui_phosphor::regular::FLOPPY_DISK)))
                 .on_hover_text("Save Plot Data to CSV.")
                 .clicked() || ui.input_mut(|i| i.consume_shortcut(&SAVE_FILE_SHORTCUT))
@@ -654,7 +766,7 @@ impl MyApp {
                 }
                 // need to clear the data here in order to prevent errors in the gui (plot)
                 self.data = DataContainer::default();
-                //self.names_tx.send(self.serial_devices.plot_labels[self.device_idx].clone()).expect("Failed to send names");
+                // self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
 
             }
             ui.end_row();
@@ -668,8 +780,43 @@ impl MyApp {
                 .on_hover_text("Save absolute time in CSV.");
             ui.end_row();
         });
-        ui.add_space(25.0);
-        ui.horizontal( |ui| {
+    }
+
+    fn draw_global_settings(&mut self, ui: &mut Ui) {
+        ui.add_space(20.0);
+        if ui
+            .add(ThemeSwitch::new(&mut self.gui_conf.theme_preference))
+            .changed()
+        {
+            ui.ctx().set_theme(self.gui_conf.theme_preference);
+        };
+        self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
+        ui.add_space(20.0);
+
+        if ui
+            .button(egui::RichText::new(format!(
+                "{} Clear Data",
+                egui_phosphor::regular::X
+            )))
+            .on_hover_text("Clear Data from Plot.")
+            .clicked()
+            || ui.input_mut(|i| i.consume_shortcut(&CLEAR_PLOT_SHORTCUT))
+        {
+            print_to_console(
+                &self.print_lock,
+                Print::Ok("Cleared recorded Data".to_string()),
+            );
+            if let Err(err) = self.clear_tx.send(true) {
+                print_to_console(
+                    &self.print_lock,
+                    Print::Error(format!("clear_tx thread send failed: {:?}", err)),
+                );
+            }
+            // need to clear the data here in order to prevent errors in the gui (plot)
+            self.data = DataContainer::default();
+            //self.names_tx.send(self.serial_devices.plot_labels[self.device_idx].clone()).expect("Failed to send names");
+        }
+        ui.horizontal(|ui| {
             if ui.button("Clear Device History").clicked() {
                 self.serial_devices = SerialDevices::default();
                 self.device.clear();
@@ -680,6 +827,96 @@ impl MyApp {
                 // self.serial_devices.labels[self.device_idx] = self.serial_devices.labels.clone();
             }
         });
+    }
+
+    fn draw_plot_settings(&mut self, ui: &mut Ui) {
+        egui::Grid::new("plot_settings")
+            .num_columns(2)
+            .spacing(Vec2 { x: 10.0, y: 10.0 })
+            .striped(true)
+            .show(ui, |ui| {
+                ui.label("Plotting range [#]: ");
+
+                let window_fmt = |val: f64, _range: RangeInclusive<usize>| {
+                    if val != usize::MAX as f64 {
+                        val.to_string()
+                    } else {
+                        "∞".to_string()
+                    }
+                };
+
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::DragValue::new(&mut self.plotting_range).custom_formatter(window_fmt),
+                    )
+                    .on_hover_text(
+                        "Select a window of the last datapoints to be displayed in the plot.",
+                    );
+                    if ui
+                        .button("Full Dataset")
+                        .on_hover_text("Show the full dataset.")
+                        .clicked()
+                    {
+                        self.plotting_range = usize::MAX;
+                    }
+                });
+                ui.end_row();
+                ui.label("Number of plots [#]: ");
+
+                ui.horizontal(|ui| {
+                    if ui
+                        .button(egui::RichText::new(
+                            egui_phosphor::regular::ARROW_FAT_LEFT.to_string(),
+                        ))
+                        .clicked()
+                    {
+                        if self.serial_devices.number_of_plots[self.device_idx] == 0 {
+                            return;
+                        }
+                        self.serial_devices.number_of_plots[self.device_idx] =
+                            (self.serial_devices.number_of_plots[self.device_idx] - 1).clamp(0, 10);
+                    }
+                    ui.add(
+                        egui::DragValue::new(
+                            &mut self.serial_devices.number_of_plots[self.device_idx],
+                        )
+                        .range(0..=10),
+                    )
+                    .on_hover_text("Select the number of plots to be shown.");
+                    if ui
+                        .button(egui::RichText::new(
+                            egui_phosphor::regular::ARROW_FAT_RIGHT.to_string(),
+                        ))
+                        .clicked()
+                    {
+                        if self.serial_devices.number_of_plots[self.device_idx] == 10 {
+                            return;
+                        }
+                        self.serial_devices.number_of_plots[self.device_idx] =
+                            (self.serial_devices.number_of_plots[self.device_idx] + 1).clamp(0, 10);
+                    }
+                });
+
+                ui.end_row();
+                ui.label("Show Sent Commands");
+                ui.add(toggle(&mut self.show_sent_cmds))
+                    .on_hover_text("Show sent commands in console.");
+                ui.end_row();
+                ui.label("Show Timestamp");
+                ui.add(toggle(&mut self.show_timestamps))
+                    .on_hover_text("Show timestamp in console.");
+                ui.end_row();
+                ui.label("EOL character");
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.eol)
+                        .desired_width(ui.available_width() * 0.9),
+                )
+                .on_hover_text("Configure your EOL character for sent commands..");
+                // ui.checkbox(&mut self.gui_conf.debug, "Debug Mode");
+                ui.end_row();
+            });
+        ui.add_space(25.0);
+
         if self.labels.len() == 1 {
             ui.label("Detected 1 Dataset:");
         } else {
@@ -697,18 +934,21 @@ impl MyApp {
                 break;
             }
             ui.horizontal(|ui| {
-
-                let response = color_picker_widget(ui,"", &mut self.colors,i );
+                let response = color_picker_widget(ui, "", &mut self.colors, i);
 
                 // Check if the square was clicked and toggle color picker window
                 if response.clicked() {
                     self.show_color_window = ColorWindow::ColorIndex(i);
                 };
 
-                if ui.add(
-                    egui::TextEdit::singleline(&mut self.labels[i])
-                        .desired_width(0.95 * RIGHT_PANEL_WIDTH)
-                ).on_hover_text("Use custom names for your Datasets.").changed() {
+                if ui
+                    .add(
+                        egui::TextEdit::singleline(&mut self.labels[i])
+                            .desired_width(0.95 * RIGHT_PANEL_WIDTH),
+                    )
+                    .on_hover_text("Use custom names for your Datasets.")
+                    .changed()
+                {
                     // self.names_tx.send(self.labels.clone()).expect("Failed to send names");
                 };
             });
@@ -716,7 +956,11 @@ impl MyApp {
         match self.show_color_window {
             ColorWindow::NoShow => {}
             ColorWindow::ColorIndex(index) => {
-                if color_picker_window(ui.ctx(), &mut self.colors[index], &mut self.color_vals[index]) {
+                if color_picker_window(
+                    ui.ctx(),
+                    &mut self.colors[index],
+                    &mut self.color_vals[index],
+                ) {
                     self.show_color_window = ColorWindow::NoShow;
                 }
             }
@@ -727,60 +971,80 @@ impl MyApp {
         }
     }
 
-    fn draw_highlight_settings(&mut self, _ctx: &egui::Context, ui:&mut Ui) {
-        egui::Grid::new("upper")
-        .num_columns(2)
-        .spacing(Vec2 { x: 10.0, y: 10.0 })
-        .striped(true)
-        .show(ui, |ui| {
-            ui.label("Number of sentence [#]: ");
+    fn draw_highlight_settings(&mut self, _ctx: &egui::Context, ui: &mut Ui) {
+        egui::Grid::new("highlight_settings")
+            .num_columns(2)
+            .spacing(Vec2 { x: 10.0, y: 10.0 })
+            .striped(true)
+            .show(ui, |ui| {
+                ui.label("Number of sentence [#]: ");
 
-            ui.horizontal(|ui| {
-                if ui.button(egui::RichText::new(egui_phosphor::regular::ARROW_FAT_LEFT.to_string())).clicked() {
-                    self.serial_devices.number_of_highlights[self.device_idx] =
-                        (self.serial_devices.number_of_highlights[self.device_idx] - 1).clamp(1, 4);
-                    while self.serial_devices.number_of_highlights[self.device_idx] < self.serial_devices.highlight_labels[self.device_idx].len()
+                ui.horizontal(|ui| {
+                    if ui
+                        .button(egui::RichText::new(
+                            egui_phosphor::regular::ARROW_FAT_LEFT.to_string(),
+                        ))
+                        .clicked()
                     {
-                        self.serial_devices.highlight_labels[self.device_idx].truncate(self.serial_devices.number_of_highlights[self.device_idx]);
+                        self.serial_devices.number_of_highlights[self.device_idx] =
+                            (self.serial_devices.number_of_highlights[self.device_idx] - 1)
+                                .clamp(1, 4);
+                        while self.serial_devices.number_of_highlights[self.device_idx]
+                            < self.serial_devices.highlight_labels[self.device_idx].len()
+                        {
+                            self.serial_devices.highlight_labels[self.device_idx].truncate(
+                                self.serial_devices.number_of_highlights[self.device_idx],
+                            );
+                        }
                     }
-
-                }
-                ui.add(egui::DragValue::new(&mut self.serial_devices.number_of_highlights[self.device_idx])
-                    .range(1..=4))
+                    ui.add(
+                        egui::DragValue::new(
+                            &mut self.serial_devices.number_of_highlights[self.device_idx],
+                        )
+                        .range(1..=4),
+                    )
                     .on_hover_text("Select the number of sentence to be highlighted.");
-                if ui.button(egui::RichText::new(egui_phosphor::regular::ARROW_FAT_RIGHT.to_string())).clicked() {
-                    self.serial_devices.number_of_highlights[self.device_idx] =
-                        (self.serial_devices.number_of_highlights[self.device_idx] + 1).clamp(1, 4);
-                }
-                while self.serial_devices.number_of_highlights[self.device_idx] > self.serial_devices.highlight_labels[self.device_idx].len()
-                {
-                    self.serial_devices.highlight_labels[self.device_idx].push("".to_string());
-                }
+                    if ui
+                        .button(egui::RichText::new(
+                            egui_phosphor::regular::ARROW_FAT_RIGHT.to_string(),
+                        ))
+                        .clicked()
+                    {
+                        self.serial_devices.number_of_highlights[self.device_idx] =
+                            (self.serial_devices.number_of_highlights[self.device_idx] + 1)
+                                .clamp(1, 4);
+                    }
+                    while self.serial_devices.number_of_highlights[self.device_idx]
+                        > self.serial_devices.highlight_labels[self.device_idx].len()
+                    {
+                        self.serial_devices.highlight_labels[self.device_idx].push("".to_string());
+                    }
+                });
             });
 
-        });
-
-        ui.label(format!("Detected {} highlight:", self.serial_devices.number_of_highlights[self.device_idx]));
+        ui.label(format!(
+            "Detected {} highlight:",
+            self.serial_devices.number_of_highlights[self.device_idx]
+        ));
 
         ui.add_space(5.0);
         for i in 0..(self.serial_devices.number_of_highlights[self.device_idx]) {
-                ui.add(
-                    egui::TextEdit::singleline(&mut self.serial_devices.highlight_labels[self.device_idx][i])
-                        .desired_width(0.95 * RIGHT_PANEL_WIDTH)
-                ).on_hover_text("Sentence to highlight");
-
-                /*
-                // Todo implement the color picker for each sentence
-                let mut theme =
-                    egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), ui.style());
-                ui.collapsing(self.serial_devices.highlight_labels[self.device_idx][i].clone(), |ui| {
-                    theme.ui(ui);
-                    theme.store_in_memory(ui.ctx());
-                });
-                */
-
+            ui.add(
+                egui::TextEdit::singleline(&mut self.serial_devices.highlight_labels[self.device_idx][i])
+                    .desired_width(0.95 * RIGHT_PANEL_WIDTH)
+            ).on_hover_text("Sentence to highlight");
+            /*
+            // Todo implement the color picker for each sentence
+            let mut theme =
+                egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), ui.style());
+            ui.collapsing(self.serial_devices.highlight_labels[self.device_idx][i].clone(), |ui| {
+                theme.ui(ui);
+                theme.store_in_memory(ui.ctx());
+            });
+            */
         }
     }
+
     fn draw_side_panel(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::SidePanel::new(Side::Right, "settings panel")
             .min_width(RIGHT_PANEL_WIDTH)
@@ -788,248 +1052,65 @@ impl MyApp {
             .resizable(false)
             //.default_width(right_panel_width)
             .show(ctx, |ui| {
-                ui.add_enabled_ui(true, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.heading("Serial Monitor");
-                        self.paint_connection_indicator(ui);
-                    });
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    ui.add_enabled_ui(true, |ui| {
 
-                    let devices: Vec<String> = if let Ok(read_guard) = self.devices_lock.read() {
-                        read_guard.clone()
-                    } else {
-                        vec![]
-                    };
+                        self.draw_serial_settings(ctx,ui);
 
-                    if !devices.contains(&self.device) {
-                        self.device.clear();
-                    }
-                    if let Ok(dev) = self.device_lock.read() {
-                        if !dev.name.is_empty() {
-                            self.device = dev.name.clone();
-                        }
-                    }
-                    ui.add_space(10.0);
-                    ui.horizontal(|ui| {
-                        ui.label("Device");
-                        ui.add_space(130.0);
-                        ui.label("Baud");
-                    });
-
-                    let old_name = self.device.clone();
-                    ui.horizontal(|ui| {
-                        let dev_text = self.device.replace("/dev/tty.", "");
-                        ui.horizontal(|ui| {
-                            if self.connected_to_device {
-                                ui.disable();
-                            }
-                            let _response = egui::ComboBox::from_id_salt("Device")
-                                .selected_text(dev_text)
-                                .width(RIGHT_PANEL_WIDTH * 0.92 - 155.0)
-                                .show_ui(ui, |ui| {
-                                    devices
-                                        .into_iter()
-                                        // on macOS each device appears as /dev/tty.* and /dev/cu.*
-                                        // we only display the /dev/tty.* here
-                                        .filter(|dev| !dev.contains("/dev/cu."))
-                                        .for_each(|dev| {
-                                            // this makes the names shorter in the UI on UNIX and UNIX-like platforms
-                                            let dev_text = dev.replace("/dev/tty.", "");
-                                            ui.selectable_value(&mut self.device, dev, dev_text);
-                                        });
-                                }).response;
-                            // let selected_new_device = response.changed();  //somehow this does not work
-                            // if selected_new_device {
-                            if old_name != self.device {
-                                if !self.data.time.is_empty() {
-                                    self.show_warning_window = WindowFeedback::Waiting;
-                                    self.old_device = old_name;
-                                } else {
-                                    self.show_warning_window = WindowFeedback::Clear;
-                                }
-                            }
-                        });
-                        match self.show_warning_window {
-                            WindowFeedback::None => {}
-                            WindowFeedback::Waiting => {
-                                self.show_warning_window = self.clear_warning_window(ctx);
-                            }
-                            WindowFeedback::Clear => {
-                                // new device selected, check in previously used devices
-                                let mut device_is_already_saved = false;
-                                for (idx, dev) in self.serial_devices.devices.iter().enumerate() {
-                                    if dev.name == self.device {
-                                        // this is the device!
-                                        self.device = dev.name.clone();
-                                        self.device_idx = idx;
-                                        self.init = true;
-                                        device_is_already_saved = true;
-                                    }
-                                }
-                                if !device_is_already_saved {
-                                    // create new device in the archive
-                                    let mut device = Device::default();
-                                    device.name = self.device.clone();
-                                    self.serial_devices.devices.push(device);
-                                    self.serial_devices.number_of_plots.push(1);
-                                    self.serial_devices.number_of_highlights.push(1);
-                                    self.serial_devices.labels.push(vec!["Column 0".to_string()]);
-                                    self.serial_devices.highlight_labels.push(vec!["".to_string()]);
-
-                                    self.device_idx = self.serial_devices.devices.len() - 1;
-                                    save_serial_settings(&self.serial_devices);
-                                }
-                                self.clear_tx.send(true).expect("failed to send clear after choosing new device");
-                                // need to clear the data here such that we don't get errors in the gui (plot)
-                                self.data = DataContainer::default();
-                                self.show_warning_window = WindowFeedback::None;
-                            }
-                            WindowFeedback::Cancel => {
-                                self.device = self.old_device.clone();
-                                self.show_warning_window = WindowFeedback::None;
-                            }
-                        }
-                        egui::ComboBox::from_id_salt("Baud Rate")
-                            .selected_text(format!("{}", self.serial_devices.devices[self.device_idx].baud_rate))
-                            .width(80.0)
-                            .show_ui(ui, |ui| {
-                                if self.connected_to_device {
-                                    ui.disable();
-                                }
-                                BAUD_RATES.iter().for_each(|baud_rate| {
-                                    ui.selectable_value(
-                                        &mut self.serial_devices.devices[self.device_idx].baud_rate,
-                                        *baud_rate,
-                                        baud_rate.to_string(),
-                                    );
-                                });
+                        self.draw_global_settings(ui);
+                        ui.add_space(10.0);
+                        CollapsingHeader::new("Plot")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                self.draw_plot_settings(ui);
                             });
-                        let connect_text = if self.connected_to_device { "Disconnect" } else { "Connect" };
-                        if ui.button(connect_text).clicked() {
-                            if let Ok(mut device) = self.device_lock.write() {
-                                if self.connected_to_device {
-                                    device.name.clear();
-                                } else {
-                                    device.name = self.serial_devices.devices[self.device_idx].name.clone();
-                                    device.baud_rate = self.serial_devices.devices[self.device_idx].baud_rate;
-                                }
-                            }
+
+                        CollapsingHeader::new("Text Highlight")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                self.draw_highlight_settings(ctx, ui);
+                            });
+
+                        CollapsingHeader::new("Export")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                self.draw_export_settings(ctx, ui);
+                            });
+
+                        if let Ok(read_guard) = self.print_lock.read() {
+                            self.console = read_guard.clone();
                         }
-                    });
-                    ui.add_space(5.0);
-                    ui.horizontal(|ui| {
-                        ui.label("Data Bits");
-                        ui.add_space(5.0);
-                        ui.label("Parity");
+                        let num_rows = self.console.len();
+                        let row_height = ui.text_style_height(&egui::TextStyle::Body);
+
                         ui.add_space(20.0);
-                        ui.label("Stop Bits");
-                        ui.label("Flow Control");
-                        ui.label("Timeout");
-                    });
-                    ui.horizontal(|ui| {
-                        if self.connected_to_device {
-                            ui.disable();
-                        }
-                        egui::ComboBox::from_id_salt("Data Bits")
-                            .selected_text(self.serial_devices.devices[self.device_idx].data_bits.to_string())
-                            .width(30.0)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Eight, DataBits::Eight.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Seven, DataBits::Seven.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Six, DataBits::Six.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].data_bits, DataBits::Five, DataBits::Five.to_string());
-
+                        ui.separator();
+                        ui.label("Debug Info:");
+                        ui.add_space(5.0);
+                        egui::ScrollArea::vertical()
+                            .id_salt("console_scroll_area")
+                            .auto_shrink([false; 2])
+                            .stick_to_bottom(true)
+                            .max_height(row_height * 15.5)
+                            .show_rows(ui, row_height, num_rows, |ui, _row_range| {
+                                let content: String = self
+                                    .console
+                                    .iter()
+                                    .flat_map(|row| row.scroll_area_message(&self.gui_conf))
+                                    .map(|msg| msg.label + msg.content.as_str())
+                                    .collect::<Vec<_>>()
+                                    .join("\n");
+                                // we need to add it as one multiline object, such that we can select and copy
+                                // text over multiple lines
+                                ui.add(
+                                    egui::TextEdit::multiline(&mut content.as_str())
+                                        .font(DEFAULT_FONT_ID) // for cursor height
+                                        .lock_focus(true), // TODO: add a layouter to highlight the labels
+                                );
                             });
-                        egui::ComboBox::from_id_salt("Parity")
-                            .selected_text(self.serial_devices.devices[self.device_idx].parity.to_string())
-                            .width(30.0)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::None, Parity::None.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::Odd, Parity::Odd.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].parity, Parity::Even, Parity::Even.to_string());
-                            });
-                        egui::ComboBox::from_id_salt("Stop Bits")
-                            .selected_text(self.serial_devices.devices[self.device_idx].stop_bits.to_string())
-                            .width(30.0)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].stop_bits, StopBits::One, StopBits::One.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].stop_bits, StopBits::Two, StopBits::Two.to_string());
-                            });
-                        egui::ComboBox::from_id_salt("Flow Control")
-                            .selected_text(self.serial_devices.devices[self.device_idx].flow_control.to_string())
-                            .width(75.0)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::None, FlowControl::None.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Hardware, FlowControl::Hardware.to_string());
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].flow_control, FlowControl::Software, FlowControl::Software.to_string());
-                            });
-                        egui::ComboBox::from_id_salt("Timeout")
-                            .selected_text(self.serial_devices.devices[self.device_idx].timeout.as_millis().to_string())
-                            .width(55.0)
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(0), "0");
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(10), "10");
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(100), "100");
-                                ui.selectable_value(&mut self.serial_devices.devices[self.device_idx].timeout, Duration::from_millis(1000), "1000");
-                            });
-                    });
-
-                    ui.add_space(20.0);
-                    ui.horizontal(|ui| {
-                        if ui.button(egui::RichText::new("Plot")).clicked() {
-                            self.selected_tab = AvailableTab::Plot;
-
-                        }
-                        if ui.button(egui::RichText::new("Text Highlight")).clicked() {
-                            self.selected_tab = AvailableTab::TextHighlighting
-                        }
-                    });
-                    ui.add_space(25.0);
-                    if ui.add(ThemeSwitch::new(&mut self.gui_conf.theme_preference)).changed() {
-                        ui.ctx().set_theme(self.gui_conf.theme_preference);
-                    };
-                    self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
-
-                    if self.selected_tab == AvailableTab::Plot
-                    {
-                        self.draw_plot_settings(ctx,ui);
-                    }else if self.selected_tab == AvailableTab::TextHighlighting
-                    {
-                        self.draw_highlight_settings(ctx,ui);
-                    }
-                });
-
-                if let Ok(read_guard) = self.print_lock.read() {
-                    self.console = read_guard.clone();
-                }
-                let num_rows = self.console.len();
-                let row_height = ui.text_style_height(&egui::TextStyle::Body);
-
-                ui.add_space(20.0);
-                ui.separator();
-                ui.label("Debug Info:");
-                ui.add_space(5.0);
-                egui::ScrollArea::vertical()
-                    .id_salt("console_scroll_area")
-                    .auto_shrink([false; 2])
-                    .stick_to_bottom(true)
-                    .max_height(row_height * 15.5)
-                    .show_rows(ui, row_height, num_rows, |ui, _row_range| {
-                        let content: String = self
-                            .console
-                            .iter()
-                            .flat_map(|row| row.scroll_area_message(&self.gui_conf))
-                            .map(|msg| msg.label + msg.content.as_str())
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        // we need to add it as one multiline object, such that we can select and copy
-                        // text over multiple lines
-                        ui.add(
-                            egui::TextEdit::multiline(&mut content.as_str())
-                                .font(DEFAULT_FONT_ID) // for cursor height
-                                .lock_focus(true), // TODO: add a layouter to highlight the labels
-                        );
                     });
             });
+        });
     }
 
     fn paint_connection_indicator(&self, ui: &mut egui::Ui) {
