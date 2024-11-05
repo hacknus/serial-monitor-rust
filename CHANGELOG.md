@@ -6,7 +6,8 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 ### Added:
 
-* ...
+* Up to 4 Sentences highlightments using regex
+* Groups settings in the side bar by category into collapsing menu. 
 
 ## 0.3.0 - 14.10.2024 - Automatic Reconnection
 
