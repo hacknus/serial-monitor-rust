@@ -610,6 +610,8 @@ impl MyApp {
                         device.name = self.device.clone();
                         self.serial_devices.devices.push(device);
                         self.serial_devices.number_of_plots.push(1);
+                        self.serial_devices.number_of_highlights.push(1);
+                        self.serial_devices.highlight_labels.push(vec!["".to_string()]);
                         self.serial_devices.labels.push(vec!["Column 0".to_string()]);
                         self.device_idx = self.serial_devices.devices.len() - 1;
                         save_serial_settings(&self.serial_devices);
