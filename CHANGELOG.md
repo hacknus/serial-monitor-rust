@@ -6,8 +6,9 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 ### Added:
 
-* Up to 4 Sentences highlightments using regex
-* Groups settings in the side bar by category into collapsing menu. 
+* removed the custom implementation of `Print` and `ScrollArea` and implemented the `log` crate and `egui_logger`
+* Up to 4 Sentences highlightings using regex (thanks [@simon0356](https://github.com/simon0356))
+* Groups settings in the side bar by category into collapsing menu. (thanks [@simon0356](https://github.com/simon0356))
 
 ## 0.3.0 - 14.10.2024 - Automatic Reconnection
 

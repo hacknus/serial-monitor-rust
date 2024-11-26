@@ -12,7 +12,7 @@ use std::thread;
 use std::time::Duration;
 
 use crate::data::{DataContainer, Packet};
-use crate::gui::{load_gui_settings, print_to_console, MyApp, Print, RIGHT_PANEL_WIDTH};
+use crate::gui::{load_gui_settings, MyApp, RIGHT_PANEL_WIDTH};
 use crate::io::{save_to_csv, FileOptions};
 use crate::serial::{load_serial_settings, serial_thread, Device};
 use eframe::egui::{vec2, ViewportBuilder, Visuals};
@@ -49,7 +49,6 @@ fn split(payload: &str) -> Vec<f32> {
 fn main_thread(
     sync_tx: Sender<bool>,
     data_lock: Arc<RwLock<DataContainer>>,
-    print_lock: Arc<RwLock<Vec<Print>>>,
     raw_data_rx: Receiver<Packet>,
     save_rx: Receiver<FileOptions>,
     clear_rx: Receiver<bool>,
@@ -102,18 +101,13 @@ fn main_thread(
         if let Ok(csv_options) = save_rx.recv_timeout(Duration::from_millis(1)) {
             match save_to_csv(&data, &csv_options) {
                 Ok(_) => {
-                    print_to_console(
-                        &print_lock,
-                        Print::Ok(format!("saved data file to {:?} ", csv_options.file_path)),
-                    );
+                    log::info!("saved data file to {:?} ", csv_options.file_path);
                 }
                 Err(e) => {
-                    print_to_console(
-                        &print_lock,
-                        Print::Error(format!(
-                            "failed to save file to {:?}: {:?}",
-                            csv_options.file_path, e
-                        )),
+                    log::error!(
+                        "failed to save file to {:?}: {:?}",
+                        csv_options.file_path,
+                        e
                     );
                 }
             }
@@ -124,13 +118,14 @@ fn main_thread(
 }
 
 fn main() {
+    egui_logger::builder().init().unwrap();
+
     let gui_settings = load_gui_settings();
     let saved_serial_device_configs = load_serial_settings();
 
     let device_lock = Arc::new(RwLock::new(Device::default()));
     let devices_lock = Arc::new(RwLock::new(vec![gui_settings.device.clone()]));
     let data_lock = Arc::new(RwLock::new(DataContainer::default()));
-    let print_lock = Arc::new(RwLock::new(vec![Print::Empty]));
     let connected_lock = Arc::new(RwLock::new(false));
 
     let (save_tx, save_rx): (Sender<FileOptions>, Receiver<FileOptions>) = mpsc::channel();
@@ -141,7 +136,6 @@ fn main() {
 
     let serial_device_lock = device_lock.clone();
     let serial_devices_lock = devices_lock.clone();
-    let serial_print_lock = print_lock.clone();
     let serial_connected_lock = connected_lock.clone();
 
     println!("starting connection thread..");
@@ -151,24 +145,15 @@ fn main() {
             raw_data_tx,
             serial_device_lock,
             serial_devices_lock,
-            serial_print_lock,
             serial_connected_lock,
         );
     });
 
     let main_data_lock = data_lock.clone();
-    let main_print_lock = print_lock.clone();
 
     println!("starting main thread..");
     let _main_thread_handler = thread::spawn(|| {
-        main_thread(
-            sync_tx,
-            main_data_lock,
-            main_print_lock,
-            raw_data_rx,
-            save_rx,
-            clear_rx,
-        );
+        main_thread(sync_tx, main_data_lock, raw_data_rx, save_rx, clear_rx);
     });
 
     let options = eframe::NativeOptions {
@@ -186,7 +171,6 @@ fn main() {
     let gui_device_lock = device_lock;
     let gui_devices_lock = devices_lock;
     let gui_connected_lock = connected_lock;
-    let gui_print_lock = print_lock;
 
     if let Err(e) = eframe::run_native(
         "Serial Monitor",
@@ -205,7 +189,6 @@ fn main() {
             });
 
             Ok(Box::new(MyApp::new(
-                gui_print_lock,
                 gui_data_lock,
                 gui_device_lock,
                 gui_devices_lock,

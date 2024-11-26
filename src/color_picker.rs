@@ -165,7 +165,7 @@ fn color_slider_1d(ui: &mut Ui, value: &mut f32, color_at: impl Fn(f32) -> Color
             mesh.colored_vertex(pos2(x, rect.top()), color);
             mesh.colored_vertex(pos2(x, rect.bottom()), color);
             if i < N {
-                mesh.add_triangle((2 * i + 0) as u32, (2 * i + 1) as u32, (2 * i + 2) as u32);
+                mesh.add_triangle((2 * i) as u32, (2 * i + 1) as u32, (2 * i + 2) as u32);
                 mesh.add_triangle((2 * i + 1) as u32, (2 * i + 2) as u32, (2 * i + 3) as u32);
             }
         }
