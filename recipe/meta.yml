@@ -1,0 +1,41 @@
+---
+package:
+  name: serial-monitor-rust
+  version: 0.2.0
+source:
+  git_url: https://github.com/hacknus/serial-monitor-rust.git
+  git_rev: main
+build:
+  number: 0
+  script: |
+    
+    if [[ $(uname) == "Darwin" ]]; then     
+      cargo install cargo-bundle
+
+    elif [[ $(uname) == "Linux" ]]; then     
+      sudo apt-get update && sudo apt-get install -y \
+        libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev \
+        libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libudev-dev
+      cargo install cargo-bundle
+
+    elif [[ $(uname) == "Windows" ]]; then
+      cargo install cargo-wix
+    fi
+
+    cargo build --release
+    cargo bundle --release
+requirements:
+  host:
+    - rust
+    - cargo
+    - python
+  run:
+    - rust
+    - cargo
+about:
+  home: https://github.com/hacknus/serial-monitor-rust
+  license: GPL-3.0
+  summary: Serial monitor written in Rust for multiple platforms
+extra:
+  recipe-maintainers:
+    - hacknus
