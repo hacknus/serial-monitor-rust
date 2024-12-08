@@ -1,6 +1,6 @@
 [package]
 name = "serial-monitor-rust"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 authors = ["Linus Leo Stöckli"]
 description = "Serial Monitor and Plotter written in rust."
@@ -11,30 +11,24 @@ homepage = "https://github.com/hacknus/serial-monitor-rust"
 [dependencies]
 csv = "1.3"
 eframe = { version = "0.29.0", features = ["persistence"] }
-egui_extras = { version = "0.29.0", features = ["serde"] }
 egui_plot = "0.29.0"
-egui-phosphor = { git = "https://github.com/hacknus/egui-phosphor" }
+egui-phosphor = { version = "0.7.3" }
 egui-theme-switch = { version = "0.2.0", default-features = true }
 egui_logger = "0.6.1"
-hex = "0.4"
 image = { version = "0.25", default-features = false, features = ["png"] }
-itertools-num = "0.1"
-keepawake = { git = "https://github.com/segevfiner/keepawake-rs" }
-preferences = { git = "https://github.com/andybarron/preferences-rs" }
-rand = "0.8.5"
-realfft = "3.3.0"
+keepawake = { version = "0.5.1" }
+preferences = { version = "2.0.0" }
 regex = "1"
 rfd = "0.15.0"
-safe-transmute = "0.11"
 serde = { version = "1.0", features = ["derive"] }
-serialport = { git = "https://github.com/serialport/serialport-rs", features = ["serde"] }
+serialport = { version = "4.6.1", features = ["serde"] }
 log = "0.4.22"
 
 [package.metadata.bundle]
 name = "Serial Monitor"
 identifier = "com.hacknus.serial_monitor"
 icon = ["./icons/install.png"]
-version = "0.3.0"
+version = "0.3.1"
 copyright = "Copyright (c) hacknus 2023. All rights reserved."
 category = "Developer Tool"
 short_description = "Serial Monitor and Plotter written in rust."
@@ -48,5 +42,5 @@ dbg-name = false
 name = "Serial Monitor"
 no-build = false
 output = "target/wix/SerialMonitorInstaller.msi"
-version = "0.3.0"
+version = "0.3.1"
 license = "GPL-3.0"
