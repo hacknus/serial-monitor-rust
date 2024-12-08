@@ -36,7 +36,7 @@ jobs:
   build-macos-x86:
     permissions: write-all
     name: macos x86
-    runs-on: macos-12
+    runs-on: macos-13
     steps:
       - uses: actions/checkout@v3
       - name: Update Libs
