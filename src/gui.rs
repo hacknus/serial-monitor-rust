@@ -307,11 +307,11 @@ impl MyApp {
                                 let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
                                     for (i, graph) in graphs.iter().enumerate() {
                                         // this check needs to be here for when we change devices (not very elegant)
-                                        if i < self.serial_devices.labels[self.device_idx].len() {
+                                        if i < self.labels.len() {
                                             signal_plot_ui.line(
-                                                Line::new(PlotPoints::Owned(graph.to_vec())).name(
-                                                    &self.serial_devices.labels[self.device_idx][i],
-                                                ),
+                                                Line::new(PlotPoints::Owned(graph.to_vec()))
+                                                    .name(&self.labels[i])
+                                                    .color(self.colors[i]),
                                             );
                                         }
                                     }

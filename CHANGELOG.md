@@ -2,7 +2,13 @@
 
 All notable changes to the `Serial Monitor` crate will be documented in this file.
 
-# Unreleased 0.3.0
+# Unreleased 0.3.x
+
+# 0.3.2
+
+* fixed display of only one dataset bug
+
+## 0.3.1 - 8.12.2024
 
 ### Added:
 
