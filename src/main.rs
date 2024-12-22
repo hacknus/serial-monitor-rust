@@ -178,6 +178,7 @@ fn main() {
             egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
             ctx.egui_ctx.set_fonts(fonts);
             ctx.egui_ctx.set_visuals(Visuals::dark());
+            egui_extras::install_image_loaders(&ctx.egui_ctx);
 
             let repaint_signal = ctx.egui_ctx.clone();
             thread::spawn(move || loop {
