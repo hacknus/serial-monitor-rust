@@ -31,6 +31,7 @@ Features:
 - [X] Use keyboard shortcuts (ctrl-S to save data, ctrl-shift-S to save plot, ctrl-X to clear plot)
 - [X] Automatic reconnect after device has been unplugged
 - [X] Color-picker for curves
+- [X] Open a CSV file and display data in plot
 - [ ] Allow to select (and copy) more than just the displayed raw traffic (also implement ctrl + A)
 - [ ] Smarter data parser
 - [ ] make serial print selectable and show corresponding datapoint in plot
@@ -56,8 +57,10 @@ It can be compiled and run on all platforms.
 
 Tested on:
 
-- macOS 12.4 Monterey x86
-- macOS 13.2.1 Ventura ARM
+- macOS 12 Monterey x86
+- macOS 13 Ventura x86
+- macOS 13 Ventura ARM
+- macOS 14 Sonoma ARM
 - Debian 12 (Testing) x86
 - Windows 10 x86
 - ...
