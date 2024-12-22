@@ -127,6 +127,7 @@ pub struct MyApp {
     connected_lock: Arc<RwLock<bool>>,
     data_lock: Arc<RwLock<DataContainer>>,
     save_tx: Sender<FileOptions>,
+    load_tx: Sender<PathBuf>,
     send_tx: Sender<String>,
     clear_tx: Sender<bool>,
     history: Vec<String>,
@@ -155,6 +156,7 @@ impl MyApp {
         connected_lock: Arc<RwLock<bool>>,
         gui_conf: GuiSettingsContainer,
         save_tx: Sender<FileOptions>,
+        load_tx: Sender<PathBuf>,
         send_tx: Sender<String>,
         clear_tx: Sender<bool>,
     ) -> Self {
@@ -214,6 +216,7 @@ impl MyApp {
             gui_conf,
             data_lock,
             save_tx,
+            load_tx,
             send_tx,
             clear_tx,
             plotting_range: usize::MAX,
@@ -805,6 +808,8 @@ impl MyApp {
                     .clicked()
             {
                 self.file_opened = false;
+                let _ = self.load_tx.send(PathBuf::new());
+                self.file_dialog_state = FileDialogState::None;
             }
         });
     }
@@ -1157,9 +1162,9 @@ impl MyApp {
                                 self.picked_path = path.to_path_buf();
                                 self.file_opened = true;
                                 self.file_dialog_state = FileDialogState::None;
-                                // if let Err(e) = self.load_tx.send(self.picked_path.clone()) {
-                                //     log::error!("load_tx thread send failed: {:?}", e);
-                                // }
+                                if let Err(e) = self.load_tx.send(self.picked_path.clone()) {
+                                    log::error!("load_tx thread send failed: {:?}", e);
+                                }
                             }
                         }
                         FileDialogState::SavePlot => {
@@ -1189,7 +1194,9 @@ impl MyApp {
                                 }
                             }
                         }
-                        FileDialogState::None => {}
+                        FileDialogState::None => {
+                            self.file_opened = false;
+                        }
                     }
                 });
             });
