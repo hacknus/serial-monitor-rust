@@ -759,7 +759,7 @@ impl MyApp {
                     .clicked()
                     || ui.input_mut(|i| i.consume_shortcut(&SAVE_PLOT_SHORTCUT))
                 {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot);
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(Default::default()));
                 }
                 ui.end_row();
                 ui.label("Save Raw Traffic");

@@ -19,9 +19,6 @@ jobs:
       - name: Install libraries
         run: sudo apt-get update  && sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev && sudo apt-get install libudev-dev && cargo install cargo-bundle
 
-      - name: Update
-        run: cargo update
-
       - name: Build
         run: cargo build --all --all-features
 
