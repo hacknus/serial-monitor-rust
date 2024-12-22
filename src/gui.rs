@@ -1194,9 +1194,7 @@ impl MyApp {
                                 }
                             }
                         }
-                        FileDialogState::None => {
-                            self.file_opened = false;
-                        }
+                        FileDialogState::None => {}
                     }
                 });
             });

@@ -252,8 +252,8 @@ fn perform_writes(
         }
 
         let packet = Packet {
-            relative_time: Instant::now().duration_since(t_zero).as_millis(),
-            absolute_time: get_epoch_ms(),
+            relative_time: Instant::now().duration_since(t_zero).as_millis() as f64,
+            absolute_time: get_epoch_ms() as f64,
             direction: SerialDirection::Send,
             payload: cmd,
         };
@@ -274,8 +274,8 @@ fn perform_reads(
             let delimiter = if buf.contains("\r\n") { "\r\n" } else { "\0\0" };
             buf.split_terminator(delimiter).for_each(|s| {
                 let packet = Packet {
-                    relative_time: Instant::now().duration_since(t_zero).as_millis(),
-                    absolute_time: get_epoch_ms(),
+                    relative_time: Instant::now().duration_since(t_zero).as_millis() as f64,
+                    absolute_time: get_epoch_ms() as f64,
                     direction: SerialDirection::Receive,
                     payload: s.to_owned(),
                 };
