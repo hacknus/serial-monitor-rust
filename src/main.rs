@@ -53,6 +53,7 @@ fn main_thread(
     raw_data_rx: Receiver<Packet>,
     save_rx: Receiver<FileOptions>,
     load_rx: Receiver<PathBuf>,
+    load_names_tx: Sender<Vec<String>>,
     clear_rx: Receiver<bool>,
 ) {
     // reads data from mutex, samples and saves if needed
@@ -70,6 +71,7 @@ fn main_thread(
         }
         if !file_opened {
             if let Ok(packet) = raw_data_rx.recv_timeout(Duration::from_millis(1)) {
+                data.loaded_from_file = false;
                 if !packet.payload.is_empty() {
                     sync_tx.send(true).expect("unable to send sync tx");
                     data.raw_traffic.push(packet.clone());
@@ -114,6 +116,9 @@ fn main_thread(
                         match open_from_csv(&mut data, &mut file_options) {
                             Ok(_) => {
                                 log::info!("opened {:?}", fp);
+                                load_names_tx
+                                    .send(file_options.names)
+                                    .expect("unable to send names on channel after loading");
                             }
                             Err(err) => {
                                 file_opened = false;
@@ -170,6 +175,8 @@ fn main() {
 
     let (save_tx, save_rx): (Sender<FileOptions>, Receiver<FileOptions>) = mpsc::channel();
     let (load_tx, load_rx): (Sender<PathBuf>, Receiver<PathBuf>) = mpsc::channel();
+    let (loaded_names_tx, loaded_names_rx): (Sender<Vec<String>>, Receiver<Vec<String>>) =
+        mpsc::channel();
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
     let (raw_data_tx, raw_data_rx): (Sender<Packet>, Receiver<Packet>) = mpsc::channel();
@@ -198,6 +205,7 @@ fn main() {
             raw_data_rx,
             save_rx,
             load_rx,
+            loaded_names_tx,
             clear_rx,
         );
     });
@@ -245,6 +253,7 @@ fn main() {
                 gui_settings,
                 save_tx,
                 load_tx,
+                loaded_names_rx,
                 send_tx,
                 clear_tx,
             )))

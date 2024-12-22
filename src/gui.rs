@@ -2,7 +2,7 @@ use core::f32;
 use std::cmp::max;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -128,6 +128,7 @@ pub struct MyApp {
     data_lock: Arc<RwLock<DataContainer>>,
     save_tx: Sender<FileOptions>,
     load_tx: Sender<PathBuf>,
+    load_names_rx: Receiver<Vec<String>>,
     send_tx: Sender<String>,
     clear_tx: Sender<bool>,
     history: Vec<String>,
@@ -157,6 +158,7 @@ impl MyApp {
         gui_conf: GuiSettingsContainer,
         save_tx: Sender<FileOptions>,
         load_tx: Sender<PathBuf>,
+        load_names_rx: Receiver<Vec<String>>,
         send_tx: Sender<String>,
         clear_tx: Sender<bool>,
     ) -> Self {
@@ -217,6 +219,7 @@ impl MyApp {
             data_lock,
             save_tx,
             load_tx,
+            load_names_rx,
             send_tx,
             clear_tx,
             plotting_range: usize::MAX,
@@ -317,8 +320,20 @@ impl MyApp {
                     if let Ok(read_guard) = self.data_lock.read() {
                         self.data = read_guard.clone();
                     }
+
+                    if self.data.loaded_from_file && self.file_opened {
+                        if let Ok(labels) =
+                            self.load_names_rx.recv_timeout(Duration::from_millis(10))
+                        {
+                            self.labels = labels;
+                            self.colors = (0..max(self.labels.len(), 1))
+                                .map(|i| COLORS[i % COLORS.len()])
+                                .collect();
+                            self.color_vals = (0..max(self.labels.len(), 1)).map(|_| 0.0).collect();
+                        }
+                    }
                     if self.serial_devices.number_of_plots[self.device_idx] > 0 {
-                        if self.data.dataset.len() != self.labels.len() {
+                        if self.data.dataset.len() != self.labels.len() && !self.file_opened {
                             self.labels = (0..max(self.data.dataset.len(), 1))
                                 .map(|i| format!("Column {i}"))
                                 .collect();

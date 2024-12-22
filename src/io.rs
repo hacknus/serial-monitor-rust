@@ -62,6 +62,8 @@ pub fn open_from_csv(
         }
     }
 
+    data.loaded_from_file = true;
+
     Ok(())
 }
 

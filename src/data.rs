@@ -48,6 +48,7 @@ pub struct DataContainer {
     pub absolute_time: Vec<f64>,
     pub dataset: Vec<Vec<f32>>,
     pub raw_traffic: Vec<Packet>,
+    pub loaded_from_file: bool,
 }
 
 impl Default for DataContainer {
@@ -57,6 +58,7 @@ impl Default for DataContainer {
             absolute_time: vec![],
             dataset: vec![vec![]],
             raw_traffic: vec![],
+            loaded_from_file: false,
         }
     }
 }
