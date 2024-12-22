@@ -20,7 +20,6 @@ pub struct SerialDevices {
     pub color_vals: Vec<Vec<f32>>,
     pub number_of_plots: Vec<usize>,
     pub number_of_highlights: Vec<usize>,
-
 }
 
 impl Default for SerialDevices {
@@ -28,7 +27,7 @@ impl Default for SerialDevices {
         SerialDevices {
             devices: vec![Device::default()],
             labels: vec![vec!["Column 0".to_string()]],
-            highlight_labels:vec![vec!["".to_string()]],
+            highlight_labels: vec![vec!["".to_string()]],
             colors: vec![vec![COLORS[0]]],
             color_vals: vec![vec![0.0]],
             number_of_plots: vec![1],

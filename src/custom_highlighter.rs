@@ -1,7 +1,7 @@
+extern crate regex;
 use eframe::egui::{self, text::LayoutJob, Color32, TextFormat};
 use eframe::egui::{FontFamily, FontId};
 
-extern crate regex;
 use regex::Regex;
 use regex::RegexSet;
 const DEFAULT_FONT_ID: FontId = FontId::new(14.0, FontFamily::Monospace);

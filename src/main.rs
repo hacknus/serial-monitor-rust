@@ -20,12 +20,12 @@ use eframe::{egui, icon_data};
 use preferences::AppInfo;
 
 mod color_picker;
+mod custom_highlighter;
 mod data;
 mod gui;
 mod io;
 mod serial;
 mod toggle;
-mod custom_highlighter;
 
 const APP_INFO: AppInfo = AppInfo {
     name: "Serial Monitor",
