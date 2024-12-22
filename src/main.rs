@@ -138,7 +138,6 @@ fn main() {
     let serial_devices_lock = devices_lock.clone();
     let serial_connected_lock = connected_lock.clone();
 
-    println!("starting connection thread..");
     let _serial_thread_handler = thread::spawn(|| {
         serial_thread(
             send_rx,
@@ -151,7 +150,6 @@ fn main() {
 
     let main_data_lock = data_lock.clone();
 
-    println!("starting main thread..");
     let _main_thread_handler = thread::spawn(|| {
         main_thread(sync_tx, main_data_lock, raw_data_rx, save_rx, clear_rx);
     });
@@ -175,13 +173,13 @@ fn main() {
     if let Err(e) = eframe::run_native(
         "Serial Monitor",
         options,
-        Box::new(|_cc| {
+        Box::new(|ctx| {
             let mut fonts = egui::FontDefinitions::default();
             egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
-            _cc.egui_ctx.set_fonts(fonts);
-            _cc.egui_ctx.set_visuals(Visuals::dark());
+            ctx.egui_ctx.set_fonts(fonts);
+            ctx.egui_ctx.set_visuals(Visuals::dark());
 
-            let repaint_signal = _cc.egui_ctx.clone();
+            let repaint_signal = ctx.egui_ctx.clone();
             thread::spawn(move || loop {
                 if sync_rx.recv().is_ok() {
                     repaint_signal.request_repaint();
@@ -189,6 +187,7 @@ fn main() {
             });
 
             Ok(Box::new(MyApp::new(
+                ctx,
                 gui_data_lock,
                 gui_device_lock,
                 gui_devices_lock,
@@ -201,6 +200,6 @@ fn main() {
             )))
         }),
     ) {
-        println!("error: {e:?}");
+        log::error!("{e:?}");
     }
 }
