@@ -120,6 +120,7 @@ pub struct MyApp {
     file_dialog_state: FileDialogState,
     file_dialog: FileDialog,
     information_panel: InformationPanel,
+    file_opened: bool,
     gui_conf: GuiSettingsContainer,
     device_lock: Arc<RwLock<Device>>,
     devices_lock: Arc<RwLock<Vec<String>>>,
@@ -232,6 +233,7 @@ impl MyApp {
             show_warning_window: WindowFeedback::None,
             init: false,
             show_color_window: ColorWindow::NoShow,
+            file_opened: false,
         }
     }
 
@@ -523,6 +525,9 @@ impl MyApp {
 
         let old_name = self.device.clone();
         ui.horizontal(|ui| {
+            if self.file_opened {
+                ui.disable();
+            }
             let dev_text = self.device.replace("/dev/tty.", "");
             ui.horizontal(|ui| {
                 if self.connected_to_device {
@@ -774,6 +779,33 @@ impl MyApp {
                         "1000",
                     );
                 });
+        });
+        ui.add_space(5.0);
+        ui.horizontal(|ui| {
+            if self.connected_to_device {
+                ui.disable();
+            }
+            if ui
+                .button(egui::RichText::new(format!(
+                    "{} Open file",
+                    egui_phosphor::regular::FOLDER_OPEN
+                )))
+                .on_hover_text("Load data from .csv")
+                .clicked()
+            {
+                self.file_dialog_state = FileDialogState::Open;
+                self.file_dialog.pick_file();
+            }
+            if self.file_opened
+                && ui
+                    .button(egui::RichText::new(
+                        egui_phosphor::regular::X_SQUARE.to_string(),
+                    ))
+                    .on_hover_text("Close file.")
+                    .clicked()
+            {
+                self.file_opened = false;
+            }
         });
     }
     fn draw_export_settings(&mut self, _ctx: &egui::Context, ui: &mut Ui) {
@@ -1122,9 +1154,9 @@ impl MyApp {
                                 })
                                 .picked()
                             {
-                                // self.picked_path = path.to_path_buf();
-                                // self.file_opened = true;
-                                // self.file_dialog_state = FileDialogState::None;
+                                self.picked_path = path.to_path_buf();
+                                self.file_opened = true;
+                                self.file_dialog_state = FileDialogState::None;
                                 // if let Err(e) = self.load_tx.send(self.picked_path.clone()) {
                                 //     log::error!("load_tx thread send failed: {:?}", e);
                                 // }
