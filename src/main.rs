@@ -6,6 +6,7 @@ extern crate preferences;
 extern crate serde;
 
 use std::cmp::max;
+use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
@@ -13,7 +14,7 @@ use std::time::Duration;
 
 use crate::data::{DataContainer, Packet};
 use crate::gui::{load_gui_settings, MyApp, RIGHT_PANEL_WIDTH};
-use crate::io::{save_to_csv, FileOptions};
+use crate::io::{open_from_csv, save_to_csv, FileOptions};
 use crate::serial::{load_serial_settings, serial_thread, Device};
 use eframe::egui::{vec2, ViewportBuilder, Visuals};
 use eframe::{egui, icon_data};
@@ -51,11 +52,16 @@ fn main_thread(
     data_lock: Arc<RwLock<DataContainer>>,
     raw_data_rx: Receiver<Packet>,
     save_rx: Receiver<FileOptions>,
+    load_rx: Receiver<PathBuf>,
+    load_names_tx: Sender<Vec<String>>,
     clear_rx: Receiver<bool>,
 ) {
     // reads data from mutex, samples and saves if needed
     let mut data = DataContainer::default();
     let mut failed_format_counter = 0;
+
+    let mut file_opened = false;
+
     loop {
         if let Ok(cl) = clear_rx.recv_timeout(Duration::from_millis(1)) {
             if cl {
@@ -63,39 +69,78 @@ fn main_thread(
                 failed_format_counter = 0;
             }
         }
-
-        if let Ok(packet) = raw_data_rx.recv_timeout(Duration::from_millis(1)) {
-            if !packet.payload.is_empty() {
-                sync_tx.send(true).expect("unable to send sync tx");
-                data.raw_traffic.push(packet.clone());
-                let split_data = split(&packet.payload);
-                if data.dataset.is_empty() || failed_format_counter > 10 {
-                    // resetting dataset
-                    data.dataset = vec![vec![]; max(split_data.len(), 1)];
-                    failed_format_counter = 0;
-                    // println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
-                } else if split_data.len() == data.dataset.len() {
-                    // appending data
-                    for (i, set) in data.dataset.iter_mut().enumerate() {
-                        set.push(split_data[i]);
-                        failed_format_counter = 0;
-                    }
-                    data.time.push(packet.relative_time);
-                    data.absolute_time.push(packet.absolute_time);
-                    if data.time.len() != data.dataset[0].len() {
+        if !file_opened {
+            if let Ok(packet) = raw_data_rx.recv_timeout(Duration::from_millis(1)) {
+                data.loaded_from_file = false;
+                if !packet.payload.is_empty() {
+                    sync_tx.send(true).expect("unable to send sync tx");
+                    data.raw_traffic.push(packet.clone());
+                    let split_data = split(&packet.payload);
+                    if data.dataset.is_empty() || failed_format_counter > 10 {
                         // resetting dataset
-                        data.time = vec![];
                         data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                        failed_format_counter = 0;
+                        // log::error!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
+                    } else if split_data.len() == data.dataset.len() {
+                        // appending data
+                        for (i, set) in data.dataset.iter_mut().enumerate() {
+                            set.push(split_data[i]);
+                            failed_format_counter = 0;
+                        }
+                        data.time.push(packet.relative_time);
+                        data.absolute_time.push(packet.absolute_time);
+                        if data.time.len() != data.dataset[0].len() {
+                            // resetting dataset
+                            data.time = vec![];
+                            data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                        }
+                    } else {
+                        // not same length
+                        failed_format_counter += 1;
+                        // log::error!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
                     }
-                } else {
-                    // not same length
-                    failed_format_counter += 1;
-                    // println!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
-                }
-                if let Ok(mut write_guard) = data_lock.write() {
-                    *write_guard = data.clone();
                 }
             }
+        }
+        if let Ok(fp) = load_rx.recv_timeout(Duration::from_millis(10)) {
+            if let Some(file_ending) = fp.extension() {
+                match file_ending.to_str().unwrap() {
+                    "csv" => {
+                        file_opened = true;
+                        let mut file_options = FileOptions {
+                            file_path: fp.clone(),
+                            save_absolute_time: false,
+                            save_raw_traffic: false,
+                            names: vec![],
+                        };
+                        match open_from_csv(&mut data, &mut file_options) {
+                            Ok(_) => {
+                                log::info!("opened {:?}", fp);
+                                load_names_tx
+                                    .send(file_options.names)
+                                    .expect("unable to send names on channel after loading");
+                            }
+                            Err(err) => {
+                                file_opened = false;
+                                log::error!("failed opening {:?}: {:?}", fp, err);
+                            }
+                        };
+                    }
+                    _ => {
+                        file_opened = false;
+                        log::error!("file not supported: {:?} \n Close the file to connect to a spectrometer or open another file.", fp);
+                        continue;
+                    }
+                }
+            } else {
+                file_opened = false;
+            }
+        } else {
+            file_opened = false;
+        }
+
+        if let Ok(mut write_guard) = data_lock.write() {
+            *write_guard = data.clone();
         }
 
         if let Ok(csv_options) = save_rx.recv_timeout(Duration::from_millis(1)) {
@@ -129,6 +174,9 @@ fn main() {
     let connected_lock = Arc::new(RwLock::new(false));
 
     let (save_tx, save_rx): (Sender<FileOptions>, Receiver<FileOptions>) = mpsc::channel();
+    let (load_tx, load_rx): (Sender<PathBuf>, Receiver<PathBuf>) = mpsc::channel();
+    let (loaded_names_tx, loaded_names_rx): (Sender<Vec<String>>, Receiver<Vec<String>>) =
+        mpsc::channel();
     let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
     let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
     let (raw_data_tx, raw_data_rx): (Sender<Packet>, Receiver<Packet>) = mpsc::channel();
@@ -138,7 +186,6 @@ fn main() {
     let serial_devices_lock = devices_lock.clone();
     let serial_connected_lock = connected_lock.clone();
 
-    println!("starting connection thread..");
     let _serial_thread_handler = thread::spawn(|| {
         serial_thread(
             send_rx,
@@ -151,9 +198,16 @@ fn main() {
 
     let main_data_lock = data_lock.clone();
 
-    println!("starting main thread..");
     let _main_thread_handler = thread::spawn(|| {
-        main_thread(sync_tx, main_data_lock, raw_data_rx, save_rx, clear_rx);
+        main_thread(
+            sync_tx,
+            main_data_lock,
+            raw_data_rx,
+            save_rx,
+            load_rx,
+            loaded_names_tx,
+            clear_rx,
+        );
     });
 
     let options = eframe::NativeOptions {
@@ -175,13 +229,14 @@ fn main() {
     if let Err(e) = eframe::run_native(
         "Serial Monitor",
         options,
-        Box::new(|_cc| {
+        Box::new(|ctx| {
             let mut fonts = egui::FontDefinitions::default();
             egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
-            _cc.egui_ctx.set_fonts(fonts);
-            _cc.egui_ctx.set_visuals(Visuals::dark());
+            ctx.egui_ctx.set_fonts(fonts);
+            ctx.egui_ctx.set_visuals(Visuals::dark());
+            egui_extras::install_image_loaders(&ctx.egui_ctx);
 
-            let repaint_signal = _cc.egui_ctx.clone();
+            let repaint_signal = ctx.egui_ctx.clone();
             thread::spawn(move || loop {
                 if sync_rx.recv().is_ok() {
                     repaint_signal.request_repaint();
@@ -189,6 +244,7 @@ fn main() {
             });
 
             Ok(Box::new(MyApp::new(
+                ctx,
                 gui_data_lock,
                 gui_device_lock,
                 gui_devices_lock,
@@ -196,11 +252,13 @@ fn main() {
                 gui_connected_lock,
                 gui_settings,
                 save_tx,
+                load_tx,
+                loaded_names_rx,
                 send_tx,
                 clear_tx,
             )))
         }),
     ) {
-        println!("error: {e:?}");
+        log::error!("{e:?}");
     }
 }

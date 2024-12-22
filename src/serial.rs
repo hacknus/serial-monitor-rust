@@ -47,14 +47,14 @@ pub fn load_serial_settings() -> SerialDevices {
 
 pub fn save_serial_settings(serial_configs: &SerialDevices) {
     if serial_configs.save(&APP_INFO, PREFS_KEY_SERIAL).is_err() {
-        println!("failed to save gui_settings");
+        log::error!("failed to save gui_settings");
     }
 }
 
 pub fn clear_serial_settings() {
     let serial_configs = SerialDevices::default();
     if serial_configs.save(&APP_INFO, PREFS_KEY_SERIAL).is_err() {
-        println!("failed to clear gui_settings");
+        log::error!("failed to clear gui_settings");
     }
 }
 
@@ -247,13 +247,13 @@ fn perform_writes(
 ) {
     if let Ok(cmd) = send_rx.recv_timeout(Duration::from_millis(1)) {
         if let Err(e) = serial_write(port, cmd.as_bytes()) {
-            println!("Error sending command: {e}");
+            log::error!("Error sending command: {e}");
             return;
         }
 
         let packet = Packet {
-            relative_time: Instant::now().duration_since(t_zero).as_millis(),
-            absolute_time: get_epoch_ms(),
+            relative_time: Instant::now().duration_since(t_zero).as_millis() as f64,
+            absolute_time: get_epoch_ms() as f64,
             direction: SerialDirection::Send,
             payload: cmd,
         };
@@ -274,8 +274,8 @@ fn perform_reads(
             let delimiter = if buf.contains("\r\n") { "\r\n" } else { "\0\0" };
             buf.split_terminator(delimiter).for_each(|s| {
                 let packet = Packet {
-                    relative_time: Instant::now().duration_since(t_zero).as_millis(),
-                    absolute_time: get_epoch_ms(),
+                    relative_time: Instant::now().duration_since(t_zero).as_millis() as f64,
+                    absolute_time: get_epoch_ms() as f64,
                     direction: SerialDirection::Receive,
                     payload: s.to_owned(),
                 };
@@ -285,7 +285,7 @@ fn perform_reads(
         // Timeout is ok, just means there is no data to read
         Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {}
         Err(e) => {
-            println!("Error reading: {:?}", e);
+            log::error!("Error reading: {:?}", e);
         }
     }
 }

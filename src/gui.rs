@@ -2,7 +2,7 @@ use core::f32;
 use std::cmp::max;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -13,6 +13,8 @@ use eframe::egui::{
 };
 use eframe::{egui, Storage};
 use egui::ThemePreference;
+use egui_file_dialog::information_panel::InformationPanel;
+use egui_file_dialog::FileDialog;
 use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoint, PlotPoints};
 use egui_theme_switch::ThemeSwitch;
 use preferences::Preferences;
@@ -45,6 +47,13 @@ const SAVE_PLOT_SHORTCUT: KeyboardShortcut = KeyboardShortcut::new(
 const CLEAR_PLOT_SHORTCUT: KeyboardShortcut =
     KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::X);
 
+#[derive(Clone)]
+pub enum FileDialogState {
+    Open,
+    Save,
+    SavePlot,
+    None,
+}
 #[derive(PartialEq)]
 pub enum WindowFeedback {
     None,
@@ -85,7 +94,7 @@ pub fn load_gui_settings() -> GuiSettingsContainer {
         let gui_settings = GuiSettingsContainer::default();
         // save default settings
         if gui_settings.save(&APP_INFO, PREFS_KEY).is_err() {
-            println!("failed to save gui_settings");
+            log::error!("failed to save gui_settings");
         }
         gui_settings
     })
@@ -108,12 +117,18 @@ pub struct MyApp {
     picked_path: PathBuf,
     plot_location: Option<egui::Rect>,
     data: DataContainer,
+    file_dialog_state: FileDialogState,
+    file_dialog: FileDialog,
+    information_panel: InformationPanel,
+    file_opened: bool,
     gui_conf: GuiSettingsContainer,
     device_lock: Arc<RwLock<Device>>,
     devices_lock: Arc<RwLock<Vec<String>>>,
     connected_lock: Arc<RwLock<bool>>,
     data_lock: Arc<RwLock<DataContainer>>,
     save_tx: Sender<FileOptions>,
+    load_tx: Sender<PathBuf>,
+    load_names_rx: Receiver<Vec<String>>,
     send_tx: Sender<String>,
     clear_tx: Sender<bool>,
     history: Vec<String>,
@@ -134,6 +149,7 @@ pub struct MyApp {
 #[allow(clippy::too_many_arguments)]
 impl MyApp {
     pub fn new(
+        cc: &eframe::CreationContext,
         data_lock: Arc<RwLock<DataContainer>>,
         device_lock: Arc<RwLock<Device>>,
         devices_lock: Arc<RwLock<Vec<String>>>,
@@ -141,15 +157,59 @@ impl MyApp {
         connected_lock: Arc<RwLock<bool>>,
         gui_conf: GuiSettingsContainer,
         save_tx: Sender<FileOptions>,
+        load_tx: Sender<PathBuf>,
+        load_names_rx: Receiver<Vec<String>>,
         send_tx: Sender<String>,
         clear_tx: Sender<bool>,
     ) -> Self {
+        let mut file_dialog = FileDialog::default()
+            //.initial_directory(PathBuf::from("/path/to/app"))
+            .default_file_name("measurement.csv")
+            .default_size([600.0, 400.0])
+            // .add_quick_access("Project", |s| {
+            //     s.add_path("☆  Examples", "examples");
+            //     s.add_path("📷  Media", "media");
+            //     s.add_path("📂  Source", "src");
+            // })
+            .set_file_icon(
+                "🖹",
+                Arc::new(|path| path.extension().unwrap_or_default().to_ascii_lowercase() == "md"),
+            )
+            .set_file_icon(
+                "",
+                Arc::new(|path| {
+                    path.file_name().unwrap_or_default().to_ascii_lowercase() == ".gitignore"
+                }),
+            )
+            .add_file_filter(
+                "CSV files",
+                Arc::new(|p| p.extension().unwrap_or_default().to_ascii_lowercase() == "csv"),
+            );
+        // Load the persistent data of the file dialog.
+        // Alternatively, you can also use the `FileDialog::storage` builder method.
+        if let Some(storage) = cc.storage {
+            *file_dialog.storage_mut() =
+                eframe::get_value(storage, "file_dialog_storage").unwrap_or_default()
+        }
+
         Self {
             connected_to_device: false,
             picked_path: PathBuf::new(),
             device: "".to_string(),
             old_device: "".to_string(),
             data: DataContainer::default(),
+            file_dialog_state: FileDialogState::None,
+            file_dialog,
+            information_panel: InformationPanel::default().add_file_preview("csv", |ui, item| {
+                ui.label("CSV preview:");
+                if let Some(mut content) = item.content() {
+                    egui::ScrollArea::vertical()
+                        .max_height(ui.available_height())
+                        .show(ui, |ui| {
+                            ui.add(egui::TextEdit::multiline(&mut content).code_editor());
+                        });
+                }
+            }),
             connected_lock,
             device_lock,
             devices_lock,
@@ -158,6 +218,8 @@ impl MyApp {
             gui_conf,
             data_lock,
             save_tx,
+            load_tx,
+            load_names_rx,
             send_tx,
             clear_tx,
             plotting_range: usize::MAX,
@@ -177,6 +239,7 @@ impl MyApp {
             show_warning_window: WindowFeedback::None,
             init: false,
             show_color_window: ColorWindow::NoShow,
+            file_opened: false,
         }
     }
 
@@ -257,8 +320,20 @@ impl MyApp {
                     if let Ok(read_guard) = self.data_lock.read() {
                         self.data = read_guard.clone();
                     }
+
+                    if self.data.loaded_from_file && self.file_opened {
+                        if let Ok(labels) =
+                            self.load_names_rx.recv_timeout(Duration::from_millis(10))
+                        {
+                            self.labels = labels;
+                            self.colors = (0..max(self.labels.len(), 1))
+                                .map(|i| COLORS[i % COLORS.len()])
+                                .collect();
+                            self.color_vals = (0..max(self.labels.len(), 1)).map(|_| 0.0).collect();
+                        }
+                    }
                     if self.serial_devices.number_of_plots[self.device_idx] > 0 {
-                        if self.data.dataset.len() != self.labels.len() {
+                        if self.data.dataset.len() != self.labels.len() && !self.file_opened {
                             self.labels = (0..max(self.data.dataset.len(), 1))
                                 .map(|i| format!("Column {i}"))
                                 .collect();
@@ -468,6 +543,9 @@ impl MyApp {
 
         let old_name = self.device.clone();
         ui.horizontal(|ui| {
+            if self.file_opened {
+                ui.disable();
+            }
             let dev_text = self.device.replace("/dev/tty.", "");
             ui.horizontal(|ui| {
                 if self.connected_to_device {
@@ -720,8 +798,37 @@ impl MyApp {
                     );
                 });
         });
+        ui.add_space(5.0);
+        ui.horizontal(|ui| {
+            if self.connected_to_device {
+                ui.disable();
+            }
+            if ui
+                .button(egui::RichText::new(format!(
+                    "{} Open file",
+                    egui_phosphor::regular::FOLDER_OPEN
+                )))
+                .on_hover_text("Load data from .csv")
+                .clicked()
+            {
+                self.file_dialog_state = FileDialogState::Open;
+                self.file_dialog.pick_file();
+            }
+            if self.file_opened
+                && ui
+                    .button(egui::RichText::new(
+                        egui_phosphor::regular::X_SQUARE.to_string(),
+                    ))
+                    .on_hover_text("Close file.")
+                    .clicked()
+            {
+                self.file_opened = false;
+                let _ = self.load_tx.send(PathBuf::new());
+                self.file_dialog_state = FileDialogState::None;
+            }
+        });
     }
-    fn draw_export_settings(&mut self, ctx: &egui::Context, ui: &mut Ui) {
+    fn draw_export_settings(&mut self, _ctx: &egui::Context, ui: &mut Ui) {
         egui::Grid::new("export_settings")
             .num_columns(2)
             .spacing(Vec2 { x: 10.0, y: 10.0 })
@@ -736,19 +843,9 @@ impl MyApp {
                     .clicked()
                     || ui.input_mut(|i| i.consume_shortcut(&SAVE_FILE_SHORTCUT))
                 {
-                    if let Some(path) = rfd::FileDialog::new().save_file() {
-                        self.picked_path = path;
-                        self.picked_path.set_extension("csv");
-                        if let Err(e) = self.save_tx.send(FileOptions {
-                            file_path: self.picked_path.clone(),
-                            save_absolute_time: self.gui_conf.save_absolute_time,
-                            save_raw_traffic: self.save_raw,
-                            names: self.serial_devices.labels[self.device_idx].clone(),
-                        }) {
-                            log::error!("save_tx thread send failed: {:?}", e);
-                        }
-                    }
-                };
+                    self.file_dialog_state = FileDialogState::Save;
+                    self.file_dialog.save_file();
+                }
 
                 if ui
                     .button(egui::RichText::new(format!(
@@ -759,7 +856,8 @@ impl MyApp {
                     .clicked()
                     || ui.input_mut(|i| i.consume_shortcut(&SAVE_PLOT_SHORTCUT))
                 {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(Default::default()));
+                    self.file_dialog_state = FileDialogState::SavePlot;
+                    self.file_dialog.save_file();
                 }
                 ui.end_row();
                 ui.label("Save Raw Traffic");
@@ -1066,6 +1164,53 @@ impl MyApp {
                     ui.collapsing("Debug logs:", |ui| {
                         egui_logger::logger_ui().show(ui);
                     });
+
+                    match self.file_dialog_state {
+                        FileDialogState::Open => {
+                            if let Some(path) = self
+                                .file_dialog
+                                .update_with_right_panel_ui(ctx, &mut |ui, dia| {
+                                    self.information_panel.ui(ui, dia);
+                                })
+                                .picked()
+                            {
+                                self.picked_path = path.to_path_buf();
+                                self.file_opened = true;
+                                self.file_dialog_state = FileDialogState::None;
+                                if let Err(e) = self.load_tx.send(self.picked_path.clone()) {
+                                    log::error!("load_tx thread send failed: {:?}", e);
+                                }
+                            }
+                        }
+                        FileDialogState::SavePlot => {
+                            if let Some(path) = self.file_dialog.update(ctx).picked() {
+                                self.picked_path = path.to_path_buf();
+                                self.file_dialog_state = FileDialogState::None;
+                                self.picked_path.set_extension("png");
+
+                                ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(
+                                    Default::default(),
+                                ));
+                            }
+                        }
+                        FileDialogState::Save => {
+                            if let Some(path) = self.file_dialog.update(ctx).picked() {
+                                self.picked_path = path.to_path_buf();
+                                self.file_dialog_state = FileDialogState::None;
+                                self.picked_path.set_extension("csv");
+
+                                if let Err(e) = self.save_tx.send(FileOptions {
+                                    file_path: self.picked_path.clone(),
+                                    save_absolute_time: self.gui_conf.save_absolute_time,
+                                    save_raw_traffic: self.save_raw,
+                                    names: self.labels.clone(),
+                                }) {
+                                    log::error!("save_tx thread send failed: {:?}", e);
+                                }
+                            }
+                        }
+                        FileDialogState::None => {}
+                    }
                 });
             });
     }
@@ -1110,32 +1255,28 @@ impl eframe::App for MyApp {
         });
 
         if let (Some(screenshot), Some(plot_location)) = (screenshot, self.plot_location) {
-            if let Some(mut path) = rfd::FileDialog::new().save_file() {
-                path.set_extension("png");
+            // for a full size application, we should put this in a different thread,
+            // so that the GUI doesn't lag during saving
 
-                // for a full size application, we should put this in a different thread,
-                // so that the GUI doesn't lag during saving
-
-                let pixels_per_point = ctx.pixels_per_point();
-                let plot = screenshot.region(&plot_location, Some(pixels_per_point));
-                // save the plot to png
-                image::save_buffer(
-                    &path,
-                    plot.as_raw(),
-                    plot.width() as u32,
-                    plot.height() as u32,
-                    image::ColorType::Rgba8,
-                )
-                .unwrap();
-                println!("Image saved to {path:?}.");
-            }
+            let pixels_per_point = ctx.pixels_per_point();
+            let plot = screenshot.region(&plot_location, Some(pixels_per_point));
+            // save the plot to png
+            image::save_buffer(
+                &self.picked_path,
+                plot.as_raw(),
+                plot.width() as u32,
+                plot.height() as u32,
+                image::ColorType::Rgba8,
+            )
+            .unwrap();
+            log::info!("Image saved to {:?}.", self.picked_path);
         }
     }
 
     fn save(&mut self, _storage: &mut dyn Storage) {
         save_serial_settings(&self.serial_devices);
         if let Err(err) = self.gui_conf.save(&APP_INFO, PREFS_KEY) {
-            println!("gui settings save failed: {:?}", err);
+            log::error!("gui settings save failed: {:?}", err);
         }
     }
 }

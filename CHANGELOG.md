@@ -4,6 +4,8 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 # Unreleased 0.3.x
 
+* implement `egui-file-dialog` and the feature to open `.csv` files.
+
 # 0.3.2
 
 * fixed display of only one dataset bug

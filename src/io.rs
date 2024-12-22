@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use csv::WriterBuilder;
+use csv::{ReaderBuilder, WriterBuilder};
 
 use crate::DataContainer;
 
@@ -12,6 +12,59 @@ pub struct FileOptions {
     pub save_absolute_time: bool,
     pub save_raw_traffic: bool,
     pub names: Vec<String>,
+}
+
+pub fn open_from_csv(
+    data: &mut DataContainer,
+    csv_options: &mut FileOptions,
+) -> Result<(), Box<dyn Error>> {
+    let mut rdr = ReaderBuilder::new()
+        .has_headers(true)
+        .from_path(&csv_options.file_path)?;
+
+    csv_options.names = rdr
+        .headers()
+        .unwrap()
+        .into_iter()
+        .skip(1)
+        .map(|s| s.to_string())
+        .collect::<Vec<String>>();
+
+    // Clear any existing data in the DataContainer
+    data.absolute_time.clear();
+    data.time.clear();
+    data.dataset = vec![vec![]; csv_options.names.len()];
+
+    // Read and parse each record in the CSV
+    for result in rdr.records() {
+        let record = result?;
+
+        // Ensure the record has the correct number of fields
+        if record.len() != csv_options.names.len() + 1 {
+            return Err("CSV record does not match the expected number of columns".into());
+        }
+
+        // Parse the time field (first column)
+        let time_value = record.get(0).unwrap();
+        if csv_options.save_absolute_time {
+            data.absolute_time.push(time_value.parse()?);
+        } else {
+            data.time.push(time_value.parse()?);
+        }
+
+        // Parse the remaining columns and populate the dataset
+        for (i, value) in record.iter().skip(1).enumerate() {
+            if let Some(dataset_column) = data.dataset.get_mut(i) {
+                dataset_column.push(value.parse()?);
+            } else {
+                return Err("Unexpected number of data columns in the CSV".into());
+            }
+        }
+    }
+
+    data.loaded_from_file = true;
+
+    Ok(())
 }
 
 pub fn save_to_csv(data: &DataContainer, csv_options: &FileOptions) -> Result<(), Box<dyn Error>> {
