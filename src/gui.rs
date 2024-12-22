@@ -1203,7 +1203,7 @@ impl MyApp {
                                     file_path: self.picked_path.clone(),
                                     save_absolute_time: self.gui_conf.save_absolute_time,
                                     save_raw_traffic: self.save_raw,
-                                    names: self.serial_devices.labels[self.device_idx].clone(),
+                                    names: self.labels.clone(),
                                 }) {
                                     log::error!("save_tx thread send failed: {:?}", e);
                                 }
