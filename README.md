@@ -7,13 +7,43 @@ using [egui](https://github.com/emilk/egui).
 Inspired by the serial monitor/plotter from the Arduino IDE, but both plotting and reading the traffic can be done
 simultaneously.
 
+## Installation:
+
+### Download pre-built executables
+
 [Binary bundles](https://github.com/hacknus/serial-monitor-rust/releases) are available for Linux, macOS and Windows.
 
 Running the apple silicon binary may result to the message "Serial Monitor is damaged and cannot be opened.", to get
 around this you first need to run:  
 `xattr -rd com.apple.quarantine Serial\ Monitor.app`
 
-Features:
+On Linux first install the following:
+
+```sh
+sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+```
+
+### Compile from source
+
+The source code can be run using ```cargo run``` or bundled to a platform-executable using cargo bundle.  
+Currently [cargo bundle](https://github.com/burtonageo/cargo-bundle) only supports linux and macOS
+bundles [see github issue](https://github.com/burtonageo/cargo-bundle/issues/77).
+As a work-around we can use [cargo wix](https://github.com/volks73/cargo-wix) to create a windows installer.
+
+On Linux first install the following:
+
+```sh
+sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+```
+
+After downloading  
+```cargo install cargo-bundle``` or ```cargo install cargo-wix```  
+run  
+```cargo bundle``` or ```cargo wix``` to create platform-executable bundles.
+
+It can be compiled and run on all platforms.
+
+## Features:
 
 - [X] Plotting and printing of data simultaneously
 - [X] Smart data parser, works with ", " or "," or ":" or ": "
@@ -43,18 +73,6 @@ Features:
 
 ![Screenshot of the application on macOS](screenshot.png)
 
-The source code can be run using ```cargo run``` or bundled to a platform-executable using cargo bundle.  
-Currently [cargo bundle](https://github.com/burtonageo/cargo-bundle) only supports linux and macOS
-bundles [see github issue](https://github.com/burtonageo/cargo-bundle/issues/77).
-As a work-around we can use [cargo wix](https://github.com/volks73/cargo-wix) to create a windows installer.
-
-After downloading  
-```cargo install cargo-bundle``` or ```cargo install cargo-wix```  
-run  
-```cargo bundle``` or ```cargo wix``` to create platform-executable bundles.
-
-It can be compiled and run on all platforms.
-
 Tested on:
 
 - macOS 12 Monterey x86
@@ -64,11 +82,5 @@ Tested on:
 - Debian 12 (Testing) x86
 - Windows 10 x86
 - ...
-
-On Linux first install the following:
-
-```sh
-sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
-```
 
 One might have to delete the ```Cargo.lock``` file before compiling.  
