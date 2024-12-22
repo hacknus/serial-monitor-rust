@@ -78,7 +78,7 @@ fn main_thread(
                         // resetting dataset
                         data.dataset = vec![vec![]; max(split_data.len(), 1)];
                         failed_format_counter = 0;
-                        // println!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
+                        // log::error!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
                     } else if split_data.len() == data.dataset.len() {
                         // appending data
                         for (i, set) in data.dataset.iter_mut().enumerate() {
@@ -95,7 +95,7 @@ fn main_thread(
                     } else {
                         // not same length
                         failed_format_counter += 1;
-                        // println!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
+                        // log::error!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
                     }
                 }
             }
