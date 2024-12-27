@@ -15,7 +15,7 @@ egui_plot = "0.30.0"
 egui_extras = { version = "0.30.0", features = ["all_loaders"] }
 egui-phosphor = { version = "0.8.0" }
 egui-theme-switch = { version = "0.2.3", default-features = true }
-egui_logger = { git = "https://github.com/hacknus/egui_logger" }
+egui_logger = "0.6.2"
 egui-file-dialog = { version = "0.8.0", git = "https://github.com/hacknus/egui-file-dialog", branch = "sort_by_metadata", features = ["information_view"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 keepawake = { version = "0.5.1" }

@@ -1370,8 +1370,9 @@ dependencies = [
 
 [[package]]
 name = "egui_logger"
-version = "0.6.1"
-source = "git+https://github.com/hacknus/egui_logger#28da7e0d0a304d6626ac418d5abf9fc290bd4626"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3eee84b0b39f308f08b96b9710bb96c04d69eed7c66085fc98084d0e54890b8"
 dependencies = [
  "chrono",
  "egui",
