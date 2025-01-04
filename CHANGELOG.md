@@ -6,6 +6,12 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 * ...
 
+## 0.3.4
+
+### Added:
+
+* provide DMG for macOS bundles
+
 ## 0.3.3
 
 ### Added:
