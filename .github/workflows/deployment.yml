@@ -43,23 +43,16 @@ jobs:
         run: cargo install cargo-bundle
       - name: Build
         run: cargo bundle --release
-      - name: Create DMG
-        run: |
-          cd target/release/bundle/osx
-          ls
-          hdiutil create -volname "Rust Serial Monitor" \
-                         -srcfolder "Serial Monitor.app" \
-                         -ov \
-                         -format UDZO \
-                         rust-serial-monitor.dmg
+      - name: Compress
+        run: cd target/release/bundle/osx && ls && zip -r rust-serial-monitor.app.zip Serial\ Monitor.app/*
       - name: Upload
         uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./target/release/bundle/osx/rust-serial-monitor.dmg
-          asset_name: rust-serial-monitor-macos_x86.dmg
+          asset_path: ./target/release/bundle/osx/rust-serial-monitor.app.zip
+          asset_name: rust-serial-monitor-macos_x86.app.zip
           asset_content_type: binary
 
   build-macos-arm:
@@ -72,23 +65,16 @@ jobs:
         run: cargo install cargo-bundle
       - name: Build
         run: cargo bundle --release
-      - name: Create DMG
-        run: |
-          cd target/release/bundle/osx
-          ls
-          hdiutil create -volname "Rust Serial Monitor" \
-                         -srcfolder "Serial Monitor.app" \
-                         -ov \
-                         -format UDZO \
-                         rust-serial-monitor.dmg
+      - name: Compress
+        run: cd target/release/bundle/osx && ls && zip -r rust-serial-monitor.app.zip Serial\ Monitor.app/*
       - name: Upload
         uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./target/release/bundle/osx/rust-serial-monitor.dmg
-          asset_name: rust-serial-monitor-macos_arm.dmg
+          asset_path: ./target/release/bundle/osx/rust-serial-monitor.app.zip
+          asset_name: rust-serial-monitor-macos_arm.app.zip
           asset_content_type: binary
 
   build-windows:
