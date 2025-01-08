@@ -37,9 +37,9 @@ sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev lib
 ```
 
 After downloading  
-```cargo install cargo-bundle``` or ```cargo install cargo-wix```  
+```cargo install cargo-bundle``` on linux and macOS or ```cargo install cargo-wix``` on windows
 run  
-```cargo bundle``` or ```cargo wix``` to create platform-executable bundles.
+```cargo bundle``` on linux and macOS or ```cargo wix``` on windows to create platform-executable bundles.
 
 It can be compiled and run on all platforms.
 
