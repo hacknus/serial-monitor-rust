@@ -12,6 +12,7 @@ use crate::data::{DataContainer, SerialDirection};
 use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialDevices};
 use crate::settings_window::settings_window;
 use crate::toggle::toggle;
+use crate::update::check_update;
 use crate::FileOptions;
 use crate::{APP_INFO, PREFS_KEY};
 use eframe::egui::panel::Side;
@@ -121,6 +122,7 @@ pub struct MyApp {
     information_panel: InformationPanel,
     file_opened: bool,
     settings_window_open: bool,
+    update_text: String,
     gui_conf: GuiSettingsContainer,
     device_lock: Arc<RwLock<Device>>,
     devices_lock: Arc<RwLock<Vec<String>>>,
@@ -243,6 +245,7 @@ impl MyApp {
             file_opened: false,
             new_release: None,
             settings_window_open: false,
+            update_text: "".to_string(),
         }
     }
 
@@ -882,6 +885,7 @@ impl MyApp {
             .button(format!("{} Settings", egui_phosphor::regular::GEAR_FINE))
             .clicked()
         {
+            self.new_release = check_update();
             self.settings_window_open = true;
         }
         if self.settings_window_open {
@@ -890,6 +894,7 @@ impl MyApp {
                 &mut self.gui_conf,
                 &mut self.new_release,
                 &mut self.settings_window_open,
+                &mut self.update_text,
             );
         }
 

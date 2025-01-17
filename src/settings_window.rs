@@ -1,5 +1,5 @@
 use crate::gui::GuiSettingsContainer;
-use crate::update::{check_update, update};
+use crate::update::{check_update, restart_application, update};
 use eframe::egui;
 use eframe::egui::{Align2, InnerResponse, Vec2, Visuals};
 use egui_theme_switch::ThemeSwitch;
@@ -11,6 +11,7 @@ pub fn settings_window(
     gui_conf: &mut GuiSettingsContainer,
     new_release: &mut Option<Release>,
     settings_window_open: &mut bool,
+    update_text: &mut String,
 ) -> Option<InnerResponse<Option<()>>> {
     egui::Window::new("Settings")
         .fixed_size(Vec2 { x: 600.0, y: 200.0 })
@@ -44,6 +45,7 @@ pub fn settings_window(
                     if ui.button("Update").clicked() {
                         if let Ok(()) = update(r.clone()) {
                             *new_release = None;
+                            *update_text = "Update done. Please Restart Application.".to_string();
                         }
                     }
                 } else {
@@ -55,10 +57,19 @@ pub fn settings_window(
                     });
                     ui.label("No new update");
                 }
+            });
+            ui.label(update_text.clone());
 
-                ui.end_row();
+            ui.horizontal(|ui| {
                 if ui.button("Exit Settings").clicked() {
                     *settings_window_open = false;
+                    *update_text = "".to_string();
+                }
+
+                if !update_text.is_empty() && ui.button("Restart").clicked() {
+                    let _ = restart_application();
+                    ctx.request_repaint(); // Optional: Request repaint for immediate feedback
+                    ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 }
             });
         })

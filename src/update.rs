@@ -3,6 +3,7 @@ use self_update::update::Release;
 use semver::Version;
 use std::fs::File;
 use std::path::Path;
+use std::process::{Command, ExitStatus};
 use std::{env, fs, io};
 use zip::ZipArchive;
 
@@ -10,6 +11,17 @@ const REPO_OWNER: &str = "hacknus";
 const REPO_NAME: &str = "serial-monitor-rust";
 
 const MACOS_APP_NAME: &str = "Serial Monitor.app";
+
+pub fn restart_application() -> std::io::Result<ExitStatus> {
+    // Get the current executable path
+    let current_exe = std::env::current_exe().expect("Failed to get current executable path");
+
+    // Launch a new instance of the application
+    Command::new(current_exe)
+        .spawn()
+        .expect("Failed to restart application")
+        .wait()
+}
 
 fn extract_zip(tmp_archive_path: &Path, tmp_archive_dir: &Path) -> io::Result<()> {
     // Open the zip file
