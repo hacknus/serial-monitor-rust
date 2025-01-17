@@ -3,24 +3,20 @@ use self_update::update::Release;
 use semver::Version;
 use std::fs::File;
 use std::path::Path;
-use std::process::{Command, ExitStatus};
+use std::process::Command;
 use std::{env, fs, io};
 use zip::ZipArchive;
 
 const REPO_OWNER: &str = "hacknus";
 const REPO_NAME: &str = "serial-monitor-rust";
-
 const MACOS_APP_NAME: &str = "Serial Monitor.app";
 
-pub fn restart_application() -> std::io::Result<ExitStatus> {
+pub fn restart_application() {
     // Get the current executable path
     let current_exe = std::env::current_exe().expect("Failed to get current executable path");
 
     // Launch a new instance of the application
-    Command::new(current_exe)
-        .spawn()
-        .expect("Failed to restart application")
-        .wait()
+    let _ = Command::new(current_exe).spawn();
 }
 
 fn extract_zip(tmp_archive_path: &Path, tmp_archive_dir: &Path) -> io::Result<()> {
@@ -173,6 +169,10 @@ pub fn update(release: Release) -> Result<(), Box<dyn std::error::Error>> {
 
         let _ = copy_dir(&tmp_archive_dir.path().join(&app_name), &app_dir, &binary);
 
+        // MACOS_APP_NAME either needs to be hardcoded or extracted from the downloaded and
+        // extracted archive, but we cannot just assume that the parent directory of the
+        // currently running executable is equal to the app name - this is especially not
+        // the case if we run the code with `cargo run`.
         tmp_archive_dir
             .path()
             .join(format!("{}/Contents/MacOS/{}", MACOS_APP_NAME, binary))

@@ -55,19 +55,24 @@ pub fn settings_window(
                         ui.disable();
                         let _ = ui.button("Update");
                     });
-                    ui.label("No new update");
+                    ui.label("You have the latest version");
                 }
             });
             ui.label(update_text.clone());
 
             ui.horizontal(|ui| {
-                if ui.button("Exit Settings").clicked() {
-                    *settings_window_open = false;
-                    *update_text = "".to_string();
-                }
+                ui.horizontal(|ui| {
+                    if !update_text.is_empty() {
+                        ui.disable();
+                    };
+                    if ui.button("Exit Settings").clicked() {
+                        *settings_window_open = false;
+                        *update_text = "".to_string();
+                    }
+                });
 
                 if !update_text.is_empty() && ui.button("Restart").clicked() {
-                    let _ = restart_application();
+                    restart_application();
                     ctx.request_repaint(); // Optional: Request repaint for immediate feedback
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 }
