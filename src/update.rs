@@ -104,8 +104,17 @@ pub fn check_update() -> Option<Release> {
 }
 
 pub fn update(release: Release) -> Result<(), Box<dyn std::error::Error>> {
-    let target_asset = release.asset_for(self_update::get_target(), None).unwrap();
-
+    let target_asset = if cfg!(target_os = "windows") {
+        release
+            .asset_for(self_update::get_target(), Some("exe"))
+            .unwrap()
+    } else if cfg!(target_os = "linux") {
+        release
+            .asset_for(self_update::get_target(), Some("bin"))
+            .unwrap()
+    } else {
+        release.asset_for(self_update::get_target(), None).unwrap()
+    };
     let tmp_archive_dir = tempfile::TempDir::new()?;
     let tmp_archive_path = tmp_archive_dir.path().join(&target_asset.name);
     let tmp_archive = fs::File::create(&tmp_archive_path)?;

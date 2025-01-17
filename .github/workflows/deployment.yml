@@ -9,7 +9,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-linux:
+  build-linux-deb:
     permissions: write-all
     name: linux
     runs-on: ubuntu-20.04
@@ -19,18 +19,40 @@ jobs:
         run: sudo apt-get update  && sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev && sudo apt-get install libudev-dev && cargo install cargo-bundle
       - name: Build
         run: cargo bundle --release
-      #    - name: Compress.
-      #      run: ls target/release/bundle/deb && cd target/release/bundle/deb && zip rust-serial-monitor.deb.zip *.deb
-      - name: Rename
-        run: ls target/release/bundle/deb && cd target/release/bundle/deb && mv *.deb rust-serial-monitor.deb
+      - name: Compress.
+        run: ls target/release/bundle/deb && cd target/release/bundle/deb && zip serial-monitor.deb.zip *.deb
+      #      - name: Rename
+      #        run: ls target/release/bundle/deb && cd target/release/bundle/deb && mv *.deb serial-monitor.deb
       - name: Upload Deb
         uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./target/release/bundle/deb/rust-serial-monitor.deb
-          asset_name: rust-serial-monitor-linux_x86.deb
+          asset_path: ./target/release/bundle/deb/serial-monitor.deb.zip
+          asset_name: serial-monitor-i686-unknown-linux-gnu.deb.zip
+          asset_content_type: binary
+
+  build-linux-bin:
+    permissions: write-all
+    name: linux
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - name: Update Libs
+        run: sudo apt-get update  && sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev && sudo apt-get install libudev-dev && cargo install cargo-bundle
+      - name: Build
+        run: cargo build --release
+      - name: Compress.
+        run: cd target/release && zip -r serial-monitor.zip serial-monitor-rust
+      - name: Upload Bin
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./target/release/bundle/deb/serial-monitor.zip
+          asset_name: serial-monitor-i686-unknown-linux-gnu-bin.zip
           asset_content_type: binary
 
   build-macos-x86:
@@ -44,15 +66,15 @@ jobs:
       - name: Build
         run: cargo bundle --release
       - name: Compress
-        run: cd target/release/bundle/osx && ls && zip -r rust-serial-monitor.app.zip Serial\ Monitor.app/*
+        run: cd target/release/bundle/osx && ls && zip -r serial-monitor.app.zip Serial\ Monitor.app/*
       - name: Upload
         uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./target/release/bundle/osx/rust-serial-monitor.app.zip
-          asset_name: rust-serial-monitor-macos_x86.app.zip
+          asset_path: ./target/release/bundle/osx/serial-monitor.app.zip
+          asset_name: serial-monitor-i686-apple-darwin.app.zip
           asset_content_type: binary
 
   build-macos-arm:
@@ -66,18 +88,42 @@ jobs:
       - name: Build
         run: cargo bundle --release
       - name: Compress
-        run: cd target/release/bundle/osx && ls && zip -r rust-serial-monitor.app.zip Serial\ Monitor.app/*
+        run: cd target/release/bundle/osx && ls && zip -r serial-monitor.app.zip Serial\ Monitor.app/*
       - name: Upload
         uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./target/release/bundle/osx/rust-serial-monitor.app.zip
-          asset_name: rust-serial-monitor-macos_arm.app.zip
+          asset_path: ./target/release/bundle/osx/serial-monitor.app.zip
+          asset_name: serial-monitor-x86_64-apple-darwin.app.zip
           asset_content_type: binary
 
-  build-windows:
+  build-windows-exe:
+    permissions: write-all
+    name: windows
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v3
+      - name: Update Libs
+        run: cargo install --force cargo-wix
+      - name: Build
+        run: cargo build --release
+      - name: Compress
+        run: |
+          cd target/release
+          Compress-Archive serial-monitor-rust.exe serial-monitor.exe.zip
+      - name: Upload
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: target/release/rust-serial-monitor.exe.zip
+          asset_name: serial-monitor-i686-pc-windows-msvc.exe.zip
+          asset_content_type: binary
+
+  build-windows-msi:
     permissions: write-all
     name: windows
     runs-on: windows-2019
@@ -88,13 +134,13 @@ jobs:
       - name: Build
         run: cargo wix
       - name: Compress
-        run: cd target/wix && ls && Compress-Archive *.msi rust-serial-monitor.msi.zip
+        run: cd target/wix && ls && Compress-Archive *.msi serial-monitor.msi.zip
       - name: Upload
         uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: target/wix/rust-serial-monitor.msi.zip
-          asset_name: rust-serial-monitor-windows_x86.msi.zip
+          asset_path: target/wix/serial-monitor.msi.zip
+          asset_name: serial-monitor-i686-pc-windows-msvc.msi.zip
           asset_content_type: binary
