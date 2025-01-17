@@ -245,7 +245,7 @@ fn perform_writes(
     raw_data_tx: &Sender<Packet>,
     t_zero: Instant,
 ) {
-    if let Ok(cmd) = send_rx.recv_timeout(Duration::from_millis(1)) {
+    if let Ok(cmd) = send_rx.try_recv() {
         if let Err(e) = serial_write(port, cmd.as_bytes()) {
             log::error!("Error sending command: {e}");
             return;
