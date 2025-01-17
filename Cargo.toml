@@ -23,6 +23,11 @@ regex = "1"
 serde = { version = "1.0", features = ["derive"] }
 serialport = { version = "4.6.1", features = ["serde"] }
 log = "0.4.22"
+self_update = { version = "0.42.0", features = ["archive-zip"] }
+tempfile = "3.14.0"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "http2"] }
+zip = "2.2.2"
+semver = "1.0.24"
 
 [build-dependencies]
 regex = "1.11"

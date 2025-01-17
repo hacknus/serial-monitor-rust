@@ -6,28 +6,27 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
+use crate::color_picker::{color_picker_widget, color_picker_window, COLORS};
+use crate::custom_highlighter::highlight_impl;
+use crate::data::{DataContainer, SerialDirection};
+use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialDevices};
+use crate::settings_window::settings_window;
+use crate::toggle::toggle;
+use crate::FileOptions;
+use crate::{APP_INFO, PREFS_KEY};
 use eframe::egui::panel::Side;
 use eframe::egui::{
     Align2, CollapsingHeader, Color32, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Ui, Vec2,
-    Visuals,
 };
 use eframe::{egui, Storage};
 use egui::ThemePreference;
 use egui_file_dialog::information_panel::InformationPanel;
 use egui_file_dialog::FileDialog;
 use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoint, PlotPoints};
-use egui_theme_switch::ThemeSwitch;
 use preferences::Preferences;
+use self_update::update::Release;
 use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
-
-use crate::color_picker::{color_picker_widget, color_picker_window, COLORS};
-use crate::custom_highlighter::highlight_impl;
-use crate::data::{DataContainer, SerialDirection};
-use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialDevices};
-use crate::toggle::toggle;
-use crate::FileOptions;
-use crate::{APP_INFO, PREFS_KEY};
 
 const DEFAULT_FONT_ID: FontId = FontId::new(14.0, FontFamily::Monospace);
 pub const RIGHT_PANEL_WIDTH: f32 = 350.0;
@@ -121,6 +120,7 @@ pub struct MyApp {
     file_dialog: FileDialog,
     information_panel: InformationPanel,
     file_opened: bool,
+    settings_window_open: bool,
     gui_conf: GuiSettingsContainer,
     device_lock: Arc<RwLock<Device>>,
     devices_lock: Arc<RwLock<Vec<String>>>,
@@ -144,6 +144,7 @@ pub struct MyApp {
     show_warning_window: WindowFeedback,
     do_not_show_clear_warning: bool,
     init: bool,
+    new_release: Option<Release>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -240,6 +241,8 @@ impl MyApp {
             init: false,
             show_color_window: ColorWindow::NoShow,
             file_opened: false,
+            new_release: None,
+            settings_window_open: false,
         }
     }
 
@@ -350,7 +353,7 @@ impl MyApp {
                             .saturating_sub(self.plotting_range);
 
                         for (i, time) in self.data.time[window..].iter().enumerate() {
-                            let x = *time as f64 / 1000.0;
+                            let x = *time / 1000.0;
                             for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
                                 if self.data.time.len() == data.len() {
                                     if let Some(y) = data.get(i + window) {
@@ -874,13 +877,22 @@ impl MyApp {
 
     fn draw_global_settings(&mut self, ui: &mut Ui) {
         ui.add_space(20.0);
+
         if ui
-            .add(ThemeSwitch::new(&mut self.gui_conf.theme_preference))
-            .changed()
+            .button(format!("{} Settings", egui_phosphor::regular::GEAR_FINE))
+            .clicked()
         {
-            ui.ctx().set_theme(self.gui_conf.theme_preference);
-        };
-        self.gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
+            self.settings_window_open = true;
+        }
+        if self.settings_window_open {
+            settings_window(
+                ui.ctx(),
+                &mut self.gui_conf,
+                &mut self.new_release,
+                &mut self.settings_window_open,
+            );
+        }
+
         ui.add_space(20.0);
 
         if ui
@@ -900,6 +912,7 @@ impl MyApp {
             self.data = DataContainer::default();
             // self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
         }
+        ui.add_space(5.0);
         ui.horizontal(|ui| {
             if ui.button("Clear Device History").clicked() {
                 self.serial_devices = SerialDevices::default();
@@ -911,19 +924,26 @@ impl MyApp {
                 // self.serial_devices.labels[self.device_idx] = self.serial_devices.labels.clone();
             }
         });
-
-        ui.end_row();
-        ui.label("Show Sent Commands");
-        ui.add(toggle(&mut self.show_sent_cmds))
-            .on_hover_text("Show sent commands in console.");
-        ui.end_row();
-        ui.label("Show Timestamp");
-        ui.add(toggle(&mut self.show_timestamps))
-            .on_hover_text("Show timestamp in console.");
-        ui.end_row();
-        ui.label("EOL character");
-        ui.add(egui::TextEdit::singleline(&mut self.eol).desired_width(ui.available_width() * 0.9))
+        ui.add_space(5.0);
+        ui.horizontal(|ui| {
+            ui.add(toggle(&mut self.show_sent_cmds))
+                .on_hover_text("Show sent commands in console.");
+            ui.label("Show Sent Commands");
+        });
+        ui.add_space(5.0);
+        ui.horizontal(|ui| {
+            ui.add(toggle(&mut self.show_timestamps))
+                .on_hover_text("Show timestamp in console.");
+            ui.label("Show Timestamp");
+        });
+        ui.add_space(5.0);
+        ui.horizontal(|ui| {
+            ui.label("EOL character");
+            ui.add(
+                egui::TextEdit::singleline(&mut self.eol).desired_width(ui.available_width() * 0.9),
+            )
             .on_hover_text("Configure your EOL character for sent commands..");
+        });
     }
 
     fn draw_plot_settings(&mut self, ui: &mut Ui) {

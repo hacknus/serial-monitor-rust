@@ -26,7 +26,9 @@ mod data;
 mod gui;
 mod io;
 mod serial;
+mod settings_window;
 mod toggle;
+mod update;
 
 const APP_INFO: AppInfo = AppInfo {
     name: "Serial Monitor",
