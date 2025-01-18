@@ -1,6 +1,6 @@
 [package]
 name = "serial-monitor-rust"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2021"
 authors = ["Linus Leo Stöckli"]
 description = "Serial Monitor and Plotter written in rust."
@@ -21,8 +21,12 @@ keepawake = { version = "0.5.1" }
 preferences = { version = "2.0.0" }
 regex = "1"
 serde = { version = "1.0", features = ["derive"] }
-serialport = { version = "4.6.1", features = ["serde"] }
-log = "0.4.22"
+serialport = { version = "4.7", features = ["serde"] }
+log = "0.4"
+self_update = { git = "https://github.com/hacknus/self_update", features = ["archive-zip"] }
+tempfile = "3.15"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "http2"] }
+semver = "1.0.24"
 
 [build-dependencies]
 regex = "1.11"
@@ -31,11 +35,9 @@ regex = "1.11"
 name = "Serial Monitor"
 identifier = "com.hacknus.serial_monitor"
 icon = ["./icons/install.png"]
-version = "0.3.3"
 copyright = "Copyright (c) hacknus 2025. All rights reserved."
 category = "Developer Tool"
 short_description = "Serial Monitor and Plotter written in rust."
-license = "GPL-3.0"
 osx_minimum_system_version = "10.8"
 osx_url_schemes = ["com.hacknus.serial_monitor"]
 
@@ -45,4 +47,3 @@ dbg-name = false
 name = "Serial Monitor"
 no-build = false
 output = "target/wix/SerialMonitorInstaller.msi"
-version = "0.3.3"
