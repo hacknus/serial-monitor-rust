@@ -1,63 +1,15 @@
 use self_update::self_replace;
 use self_update::update::Release;
 use semver::Version;
-use std::fs::File;
 use std::path::Path;
-use std::process::Command;
 use std::{env, fs, io};
-use zip::ZipArchive;
 
 const REPO_OWNER: &str = "hacknus";
 const REPO_NAME: &str = "serial-monitor-rust";
 const MACOS_APP_NAME: &str = "Serial Monitor.app";
 
-pub fn restart_application() {
-    // Get the current executable path
-    let current_exe = std::env::current_exe().expect("Failed to get current executable path");
-
-    // Launch a new instance of the application
-    let _ = Command::new(current_exe).spawn();
-}
-
-fn extract_zip(tmp_archive_path: &Path, tmp_archive_dir: &Path) -> io::Result<()> {
-    // Open the zip file
-    let file = File::open(tmp_archive_path)?;
-    let mut archive = ZipArchive::new(file)?;
-
-    // Iterate through the entries in the zip file
-    for i in 0..archive.len() {
-        let mut file = archive.by_index(i)?;
-        let outpath = Path::new(tmp_archive_dir).join(file.name());
-
-        if file.is_dir() {
-            // Create directories
-            std::fs::create_dir_all(&outpath)?;
-        } else {
-            // If the parent directory doesn't exist, create it
-            if let Some(parent) = outpath.parent() {
-                if !parent.exists() {
-                    std::fs::create_dir_all(parent)?;
-                }
-            }
-
-            // Write the file to disk
-            let mut outfile = File::create(&outpath)?;
-            io::copy(&mut file, &mut outfile)?;
-        }
-
-        // Set file permissions if needed
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if let Some(mode) = file.unix_mode() {
-                std::fs::set_permissions(&outpath, std::fs::Permissions::from_mode(mode))?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
+/// method to copy the complete directory `src` to `dest` but skipping the binary `binary_name`
+/// since we have to  use `self-replace` for that.
 fn copy_dir(src: &Path, dest: &Path, binary_name: &str) -> io::Result<()> {
     // Ensure the destination directory exists
     if !dest.exists() {
@@ -84,6 +36,7 @@ fn copy_dir(src: &Path, dest: &Path, binary_name: &str) -> io::Result<()> {
     Ok(())
 }
 
+/// Function to check for updates and return the latest one, if it is more recent than the current version
 pub fn check_update() -> Option<Release> {
     if let Ok(builder) = self_update::backends::github::ReleaseList::configure()
         .repo_owner(REPO_OWNER)
@@ -111,6 +64,7 @@ pub fn check_update() -> Option<Release> {
     None
 }
 
+/// custom update function for use with bundles
 pub fn update(release: Release) -> Result<(), Box<dyn std::error::Error>> {
     let target_asset = if cfg!(target_os = "windows") {
         release
@@ -131,7 +85,7 @@ pub fn update(release: Release) -> Result<(), Box<dyn std::error::Error>> {
         .set_header(reqwest::header::ACCEPT, "application/octet-stream".parse()?)
         .download_to(&tmp_archive)?;
 
-    extract_zip(&tmp_archive_path, tmp_archive_dir.path())?;
+    self_update::Extract::from_source(&tmp_archive_path).extract_into(tmp_archive_dir.path())?;
     let new_exe = if cfg!(target_os = "windows") {
         let binary = env::current_exe()
             .unwrap()

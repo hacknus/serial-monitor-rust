@@ -1,6 +1,6 @@
 [package]
 name = "serial-monitor-rust"
-version = "0.3.2"
+version = "0.3.4"
 edition = "2021"
 authors = ["Linus Leo Stöckli"]
 description = "Serial Monitor and Plotter written in rust."
@@ -21,12 +21,11 @@ keepawake = { version = "0.5.1" }
 preferences = { version = "2.0.0" }
 regex = "1"
 serde = { version = "1.0", features = ["derive"] }
-serialport = { version = "4.6.1", features = ["serde"] }
-log = "0.4.22"
-self_update = { version = "0.42.0", features = ["archive-zip"] }
-tempfile = "3.14.0"
+serialport = { version = "4.7", features = ["serde"] }
+log = "0.4"
+self_update = { git = "https://github.com/hacknus/self_update", features = ["archive-zip"] }
+tempfile = "3.15"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "http2"] }
-zip = "2.2.2"
 semver = "1.0.24"
 
 [build-dependencies]

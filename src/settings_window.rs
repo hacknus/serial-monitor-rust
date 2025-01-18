@@ -1,8 +1,9 @@
 use crate::gui::GuiSettingsContainer;
-use crate::update::{check_update, restart_application, update};
+use crate::update::{check_update, update};
 use eframe::egui;
 use eframe::egui::{Align2, InnerResponse, Vec2, Visuals};
 use egui_theme_switch::ThemeSwitch;
+use self_update::restart::restart;
 use self_update::update::Release;
 use semver::Version;
 
@@ -72,7 +73,7 @@ pub fn settings_window(
                 });
 
                 if !update_text.is_empty() && ui.button("Restart").clicked() {
-                    restart_application();
+                    restart();
                     ctx.request_repaint(); // Optional: Request repaint for immediate feedback
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 }
