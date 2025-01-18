@@ -74,7 +74,7 @@ jobs:
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ./target/release/bundle/osx/serial-monitor.app.zip
-          asset_name: serial-monitor-aarch64-apple-darwin.app.zip
+          asset_name: serial-monitor-x86_64-apple-darwin.app.zip
           asset_content_type: binary
 
   build-macos-arm:
@@ -96,7 +96,7 @@ jobs:
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ./target/release/bundle/osx/serial-monitor.app.zip
-          asset_name: serial-monitor-x86_64-apple-darwin.app.zip
+          asset_name: serial-monitor-aarch64-apple-darwin.app.zip
           asset_content_type: binary
 
   build-windows-exe:
