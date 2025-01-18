@@ -11,7 +11,7 @@ env:
 jobs:
   build-linux-deb:
     permissions: write-all
-    name: linux
+    name: linux deb
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
@@ -35,7 +35,7 @@ jobs:
 
   build-linux-bin:
     permissions: write-all
-    name: linux
+    name: linux bin
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
@@ -51,7 +51,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./target/release/bundle/deb/serial-monitor.zip
+          asset_path: ./target/release/serial-monitor.zip
           asset_name: serial-monitor-i686-unknown-linux-gnu-bin.zip
           asset_content_type: binary
 
@@ -101,7 +101,7 @@ jobs:
 
   build-windows-exe:
     permissions: write-all
-    name: windows
+    name: windows exe
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v3
@@ -119,13 +119,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: target/release/rust-serial-monitor.exe.zip
+          asset_path: target/release/serial-monitor.exe.zip
           asset_name: serial-monitor-i686-pc-windows-msvc.exe.zip
           asset_content_type: binary
 
   build-windows-msi:
     permissions: write-all
-    name: windows
+    name: windows msi
     runs-on: windows-2019
     steps:
       - uses: actions/checkout@v3
