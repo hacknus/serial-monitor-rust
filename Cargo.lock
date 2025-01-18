@@ -2755,6 +2755,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lockfree-object-pool"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9374ef4228402d4b7e403e5838cb880d9ee663314b0a900d5a6aabf0c213552e"
+
+[[package]]
 name = "log"
 version = "0.4.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4087,7 +4093,6 @@ dependencies = [
 [[package]]
 name = "self_update"
 version = "0.42.0"
-source = "git+https://github.com/hacknus/self_update#5bb7379d02012843cb65b34ef243c18fdffde6b7"
 dependencies = [
  "hyper",
  "indicatif",
@@ -6244,10 +6249,12 @@ dependencies = [
  "crc32fast",
  "crossbeam-utils",
  "displaydoc",
+ "flate2",
  "indexmap 2.7.0",
  "memchr",
  "thiserror 2.0.11",
  "time",
+ "zopfli",
 ]
 
 [[package]]
@@ -6258,6 +6265,20 @@ checksum = "6413a546ada9dbcd0b9a3e0b0880581279e35047bce9797e523b3408e1df607c"
 dependencies = [
  "ed25519-dalek",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "zopfli"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5019f391bac5cf252e93bbcc53d039ffd62c7bfb7c150414d61369afe57e946"
+dependencies = [
+ "bumpalo",
+ "crc32fast",
+ "lockfree-object-pool",
+ "log",
+ "once_cell",
+ "simd-adler32",
 ]
 
 [[package]]
