@@ -133,7 +133,7 @@ pub fn update(release: Release) -> Result<(), Box<dyn std::error::Error>> {
             .to_string();
         tmp_archive_dir.path().join(binary)
     } else {
-        panic!("Running on an unsupported OS");
+        return Err("Running on unsupported OS".into());
     };
 
     self_replace::self_replace(new_exe)?;
