@@ -23,7 +23,7 @@ regex = "1"
 serde = { version = "1.0", features = ["derive"] }
 serialport = { version = "4.7", features = ["serde"] }
 log = "0.4"
-self_update = { path = "../../RustroverProjects/self_update", features = ["archive-zip", "compression-zip-deflate"] }
+self_update = { git = "https://github.com/hacknus/self_update", features = ["archive-zip", "compression-zip-deflate"] }
 tempfile = "3.15"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "http2"] }
 semver = "1.0.24"
