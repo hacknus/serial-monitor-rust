@@ -27,7 +27,6 @@ self_update = { git = "https://github.com/hacknus/self_update", features = ["arc
 tempfile = "3.15"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "http2"] }
 semver = "1.0.24"
-cargo_metadata = "0.19"
 
 [build-dependencies]
 regex = "1.11"

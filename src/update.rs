@@ -1,9 +1,12 @@
-use cargo_metadata::MetadataCommand;
 use self_update::self_replace;
 use self_update::update::Release;
 use semver::Version;
 use std::path::Path;
 use std::{env, fs, io};
+
+const REPO_OWNER: &str = "hacknus";
+const REPO_NAME: &str = "serial-monitor-rust";
+const MACOS_APP_NAME: &str = "Serial Monitor.app";
 
 /// method to copy the complete directory `src` to `dest` but skipping the binary `binary_name`
 /// since we have to  use `self-replace` for that.
@@ -35,17 +38,9 @@ fn copy_dir(src: &Path, dest: &Path, binary_name: &str) -> io::Result<()> {
 
 /// Function to check for updates and return the latest one, if it is more recent than the current version
 pub fn check_update() -> Option<Release> {
-    let metadata = MetadataCommand::new().exec().ok()?;
-    let url = metadata.root_package()?.clone().homepage?;
-    let parts: Vec<&str> = url.split('/').collect();
-    let (repo_owner, repo_name) = if parts.len() >= 5 && parts[2] == "github.com" {
-        (parts[3].to_string(), parts[4].to_string())
-    } else {
-        return None;
-    };
     if let Ok(builder) = self_update::backends::github::ReleaseList::configure()
-        .repo_owner(&repo_owner)
-        .repo_name(&repo_name)
+        .repo_owner(REPO_OWNER)
+        .repo_name(REPO_NAME)
         .build()
     {
         if let Ok(releases) = builder.fetch() {
@@ -126,24 +121,9 @@ pub fn update(release: Release) -> Result<(), Box<dyn std::error::Error>> {
         // extracted archive, but we cannot just assume that the parent directory of the
         // currently running executable is equal to the app name - this is especially not
         // the case if we run the code with `cargo run`.
-
-        // Fetch the metadata of the current Cargo project
-        let metadata = MetadataCommand::new().exec()?;
-
-        // Access the package metadata
-        let mac_os_app_name = metadata
-            .root_package()
-            .ok_or("Unable to get cargo metadata!")?
-            .metadata
-            .get("bundle")
-            .ok_or("Unable to get cargo bundle metadata!")?
-            .get("name")
-            .ok_or("Unable to get cargo bundle metadata name!")?
-            .as_str()
-            .unwrap();
         tmp_archive_dir
             .path()
-            .join(format!("{}.app/Contents/MacOS/{}", mac_os_app_name, binary))
+            .join(format!("{}/Contents/MacOS/{}", MACOS_APP_NAME, binary))
     } else if cfg!(target_os = "linux") {
         let binary = env::current_exe()?
             .file_name()
