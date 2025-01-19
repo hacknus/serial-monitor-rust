@@ -4,7 +4,11 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 # Unreleased 0.3.x
 
-* implement option to update the application
+* ...
+
+# Unreleased 0.3.4
+
+* implement option to self-update the application
 
 ## 0.3.3
 
