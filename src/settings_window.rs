@@ -44,9 +44,15 @@ pub fn settings_window(
                     ui.label(format!("New release: {}", r.version));
                     ui.end_row();
                     if ui.button("Update").clicked() {
-                        if let Ok(()) = update(r.clone()) {
-                            *new_release = None;
-                            *update_text = "Update done. Please Restart Application.".to_string();
+                        match update(r.clone()) {
+                            Ok(_) => {
+                                *new_release = None;
+                                *update_text =
+                                    "Update done. Please Restart Application.".to_string();
+                            }
+                            Err(err) => {
+                                log::error!("{}", err);
+                            }
                         }
                     }
                 } else {
