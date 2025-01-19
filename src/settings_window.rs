@@ -46,6 +46,7 @@ pub fn settings_window(
                     if ui.button("Update").clicked() {
                         match update(r.clone()) {
                             Ok(_) => {
+                                log::info!("Update done. {} >> {}", current_version, r.version);
                                 *new_release = None;
                                 *update_text =
                                     "Update done. Please Restart Application.".to_string();
