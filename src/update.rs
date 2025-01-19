@@ -67,16 +67,13 @@ pub fn check_update() -> Option<Release> {
 /// custom update function for use with bundles
 pub fn update(release: Release) -> Result<(), Box<dyn std::error::Error>> {
     let target_asset = if cfg!(target_os = "windows") {
-        release
-            .asset_for(self_update::get_target(), Some("exe"))
-            .unwrap()
+        release.asset_for(self_update::get_target(), Some("exe"))
     } else if cfg!(target_os = "linux") {
-        release
-            .asset_for(self_update::get_target(), Some("bin"))
-            .unwrap()
+        release.asset_for(self_update::get_target(), Some("bin"))
     } else {
-        release.asset_for(self_update::get_target(), None).unwrap()
-    };
+        release.asset_for(self_update::get_target(), None)
+    }
+    .ok_or("No asset found")?;
     let tmp_archive_dir = tempfile::TempDir::new()?;
     let tmp_archive_path = tmp_archive_dir.path().join(&target_asset.name);
     let tmp_archive = fs::File::create(&tmp_archive_path)?;
@@ -87,8 +84,7 @@ pub fn update(release: Release) -> Result<(), Box<dyn std::error::Error>> {
 
     self_update::Extract::from_source(&tmp_archive_path).extract_into(tmp_archive_dir.path())?;
     let new_exe = if cfg!(target_os = "windows") {
-        let binary = env::current_exe()
-            .unwrap()
+        let binary = env::current_exe()?
             .file_name()
             .unwrap()
             .to_str()
@@ -96,15 +92,13 @@ pub fn update(release: Release) -> Result<(), Box<dyn std::error::Error>> {
             .to_string();
         tmp_archive_dir.path().join(binary)
     } else if cfg!(target_os = "macos") {
-        let binary = env::current_exe()
-            .unwrap()
+        let binary = env::current_exe()?
             .file_name()
             .unwrap()
             .to_str()
             .unwrap()
             .to_string();
-        let app_dir = env::current_exe()
-            .unwrap()
+        let app_dir = env::current_exe()?
             .parent()
             .unwrap()
             .parent()
@@ -131,8 +125,7 @@ pub fn update(release: Release) -> Result<(), Box<dyn std::error::Error>> {
             .path()
             .join(format!("{}/Contents/MacOS/{}", MACOS_APP_NAME, binary))
     } else if cfg!(target_os = "linux") {
-        let binary = env::current_exe()
-            .unwrap()
+        let binary = env::current_exe()?
             .file_name()
             .unwrap()
             .to_str()
