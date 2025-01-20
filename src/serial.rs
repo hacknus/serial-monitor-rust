@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use crate::color_picker::COLORS;
 use crate::data::{get_epoch_ms, SerialDirection};
-use crate::{Packet, APP_INFO, PREFS_KEY_SERIAL};
+use crate::{Packet, APP_INFO, PREFERENCES_KEY_SERIAL};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SerialDevices {
@@ -37,7 +37,7 @@ impl Default for SerialDevices {
 }
 
 pub fn load_serial_settings() -> SerialDevices {
-    SerialDevices::load(&APP_INFO, PREFS_KEY_SERIAL).unwrap_or_else(|_| {
+    SerialDevices::load(&APP_INFO, PREFERENCES_KEY_SERIAL).unwrap_or_else(|_| {
         let serial_configs = SerialDevices::default();
         // save default settings
         save_serial_settings(&serial_configs);
@@ -46,14 +46,20 @@ pub fn load_serial_settings() -> SerialDevices {
 }
 
 pub fn save_serial_settings(serial_configs: &SerialDevices) {
-    if serial_configs.save(&APP_INFO, PREFS_KEY_SERIAL).is_err() {
+    if serial_configs
+        .save(&APP_INFO, PREFERENCES_KEY_SERIAL)
+        .is_err()
+    {
         log::error!("failed to save gui_settings");
     }
 }
 
 pub fn clear_serial_settings() {
     let serial_configs = SerialDevices::default();
-    if serial_configs.save(&APP_INFO, PREFS_KEY_SERIAL).is_err() {
+    if serial_configs
+        .save(&APP_INFO, PREFERENCES_KEY_SERIAL)
+        .is_err()
+    {
         log::error!("failed to clear gui_settings");
     }
 }

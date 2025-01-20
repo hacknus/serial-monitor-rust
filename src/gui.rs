@@ -14,7 +14,7 @@ use crate::settings_window::settings_window;
 use crate::toggle::toggle;
 use crate::update::check_update;
 use crate::FileOptions;
-use crate::{APP_INFO, PREFS_KEY};
+use crate::{APP_INFO, PREFERENCES_KEY};
 use eframe::egui::panel::Side;
 use eframe::egui::{
     Align2, CollapsingHeader, Color32, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Ui, Vec2,
@@ -90,10 +90,10 @@ impl Default for GuiSettingsContainer {
 }
 
 pub fn load_gui_settings() -> GuiSettingsContainer {
-    GuiSettingsContainer::load(&APP_INFO, PREFS_KEY).unwrap_or_else(|_| {
+    GuiSettingsContainer::load(&APP_INFO, PREFERENCES_KEY).unwrap_or_else(|_| {
         let gui_settings = GuiSettingsContainer::default();
         // save default settings
-        if gui_settings.save(&APP_INFO, PREFS_KEY).is_err() {
+        if gui_settings.save(&APP_INFO, PREFERENCES_KEY).is_err() {
             log::error!("failed to save gui_settings");
         }
         gui_settings
@@ -1300,7 +1300,7 @@ impl eframe::App for MyApp {
 
     fn save(&mut self, _storage: &mut dyn Storage) {
         save_serial_settings(&self.serial_devices);
-        if let Err(err) = self.gui_conf.save(&APP_INFO, PREFS_KEY) {
+        if let Err(err) = self.gui_conf.save(&APP_INFO, PREFERENCES_KEY) {
             log::error!("gui settings save failed: {:?}", err);
         }
     }

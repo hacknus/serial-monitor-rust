@@ -34,8 +34,8 @@ const APP_INFO: AppInfo = AppInfo {
     name: "Serial Monitor",
     author: "Linus Leo Stöckli",
 };
-const PREFS_KEY: &str = "config/gui";
-const PREFS_KEY_SERIAL: &str = "config/serial_devices";
+const PREFERENCES_KEY: &str = "config/gui";
+const PREFERENCES_KEY_SERIAL: &str = "config/serial_devices";
 
 fn split(payload: &str) -> Vec<f32> {
     let mut split_data: Vec<&str> = vec![];
