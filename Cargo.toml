@@ -38,8 +38,10 @@ icon = ["./icons/install.png"]
 copyright = "Copyright (c) hacknus 2025. All rights reserved."
 category = "Developer Tool"
 short_description = "Serial Monitor and Plotter written in rust."
+long_description = "Serial Monitor and Plotter written in rust. Interface with serial devices with the ability to log to a file and plot the data."
 osx_minimum_system_version = "10.8"
 osx_url_schemes = ["com.hacknus.serial_monitor"]
+deb_depends = ["libxcb-render0-dev", "libxcb-shape0-dev", "libxcb-xfixes0-dev", "libxkbcommon-dev", "libssl-dev"]
 
 [package.metadata.wix]
 dbg-build = false
