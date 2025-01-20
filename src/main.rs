@@ -9,8 +9,8 @@ use std::cmp::max;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, RwLock};
-use std::thread;
 use std::time::Duration;
+use std::{env, thread};
 
 use crate::data::{DataContainer, Packet};
 use crate::gui::{load_gui_settings, MyApp, RIGHT_PANEL_WIDTH};
@@ -159,8 +159,6 @@ fn main_thread(
                 }
             }
         }
-
-        // std::thread::sleep(Duration::from_millis(10));
     }
 }
 
@@ -211,6 +209,13 @@ fn main() {
             clear_rx,
         );
     });
+
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 {
+        load_tx
+            .send(PathBuf::from(&args[1]))
+            .expect("failed to send file");
+    }
 
     let options = eframe::NativeOptions {
         viewport: ViewportBuilder::default()
