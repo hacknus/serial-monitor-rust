@@ -29,7 +29,6 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 semver = { version = "1.0.24", optional = true }
 
 [features]
-default = ["self_update"]
 self_update = ["dep:self_update", "tempfile", "reqwest", "semver"]
 
 [build-dependencies]

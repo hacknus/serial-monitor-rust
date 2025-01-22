@@ -18,7 +18,7 @@ jobs:
       - name: Update Libs
         run: sudo apt-get update  && sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev && sudo apt-get install libudev-dev && cargo install cargo-bundle
       - name: Build
-        run: cargo bundle --release
+        run: cargo bundle --features self_update --release
       - name: Compress.
         run: ls target/release/bundle/deb && cd target/release/bundle/deb && zip serial-monitor.deb.zip *.deb
       #      - name: Rename
@@ -42,7 +42,7 @@ jobs:
       - name: Update Libs
         run: sudo apt-get update  && sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev && sudo apt-get install libudev-dev && cargo install cargo-bundle
       - name: Build
-        run: cargo build --release
+        run: cargo build --features self_update --release
       - name: Compress.
         run: cd target/release && zip -r serial-monitor.zip serial-monitor-rust
       - name: Upload Bin
@@ -64,7 +64,7 @@ jobs:
       - name: Update Libs
         run: cargo install cargo-bundle
       - name: Build
-        run: cargo bundle --release
+        run: cargo bundle --features self_update --release
       - name: Compress
         run: cd target/release/bundle/osx && ls && zip -r serial-monitor.app.zip Serial\ Monitor.app/*
       - name: Upload
@@ -86,7 +86,7 @@ jobs:
       - name: Update Libs
         run: cargo install cargo-bundle
       - name: Build
-        run: cargo bundle --release
+        run: cargo bundle --features self_update --release
       - name: Compress
         run: cd target/release/bundle/osx && ls && zip -r serial-monitor.app.zip Serial\ Monitor.app/*
       - name: Upload
@@ -108,7 +108,7 @@ jobs:
       - name: Update Libs
         run: cargo install --force cargo-wix
       - name: Build
-        run: cargo build --release
+        run: cargo build --features self_update --release
       - name: Compress
         run: |
           cd target/release
@@ -132,7 +132,7 @@ jobs:
       - name: Update Libs
         run: cargo install cargo-wix
       - name: Build
-        run: cargo wix
+        run: cargo wix --features self_update
       - name: Compress
         run: cd target/wix && ls && Compress-Archive *.msi serial-monitor.msi.zip
       - name: Upload
