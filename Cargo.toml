@@ -23,10 +23,14 @@ regex = "1"
 serde = { version = "1.0", features = ["derive"] }
 serialport = { version = "4.7", features = ["serde"] }
 log = "0.4"
-self_update = { git = "https://github.com/hacknus/self_update", features = ["archive-zip", "compression-zip-deflate"] }
-tempfile = "3.15"
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "http2"] }
-semver = "1.0.24"
+self_update = { git = "https://github.com/hacknus/self_update", features = ["archive-zip", "compression-zip-deflate"], optional = true }
+tempfile = { version = "3.15", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "http2"], optional = true }
+semver = { version = "1.0.24", optional = true }
+
+[features]
+default = ["self_update"]
+self_update = ["dep:self_update", "tempfile", "reqwest", "semver"]
 
 [build-dependencies]
 regex = "1.11"

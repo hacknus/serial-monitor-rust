@@ -1,3 +1,5 @@
+#![cfg(feature = "self_update")]
+
 use self_update::self_replace;
 use self_update::update::Release;
 use semver::Version;

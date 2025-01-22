@@ -12,6 +12,7 @@ use crate::data::{DataContainer, SerialDirection};
 use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialDevices};
 use crate::settings_window::settings_window;
 use crate::toggle::toggle;
+#[cfg(feature = "self_update")]
 use crate::update::check_update;
 use crate::FileOptions;
 use crate::{APP_INFO, PREFERENCES_KEY};
@@ -25,6 +26,7 @@ use egui_file_dialog::information_panel::InformationPanel;
 use egui_file_dialog::FileDialog;
 use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoint, PlotPoints};
 use preferences::Preferences;
+#[cfg(feature = "self_update")]
 use self_update::update::Release;
 use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, StopBits};
@@ -146,6 +148,7 @@ pub struct MyApp {
     show_warning_window: WindowFeedback,
     do_not_show_clear_warning: bool,
     init: bool,
+    #[cfg(feature = "self_update")]
     new_release: Option<Release>,
 }
 
@@ -243,6 +246,7 @@ impl MyApp {
             init: false,
             show_color_window: ColorWindow::NoShow,
             file_opened: false,
+            #[cfg(feature = "self_update")]
             new_release: None,
             settings_window_open: false,
             update_text: "".to_string(),
@@ -885,13 +889,17 @@ impl MyApp {
             .button(format!("{} Settings", egui_phosphor::regular::GEAR_FINE))
             .clicked()
         {
-            self.new_release = check_update();
+            #[cfg(feature = "self_update")]
+            {
+                self.new_release = check_update();
+            }
             self.settings_window_open = true;
         }
         if self.settings_window_open {
             settings_window(
                 ui.ctx(),
                 &mut self.gui_conf,
+                #[cfg(feature = "self_update")]
                 &mut self.new_release,
                 &mut self.settings_window_open,
                 &mut self.update_text,
