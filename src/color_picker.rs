@@ -2,6 +2,7 @@ use eframe::egui::{
     self, lerp, pos2, remap_clamp, vec2, Align2, Color32, Mesh, Response, Sense, Shape, Stroke, Ui,
     Vec2,
 };
+use eframe::epaint::StrokeKind;
 
 // Ten colors that are distinguishable and suitable for colorblind people
 pub const COLORS: [Color32; 10] = [
@@ -49,7 +50,8 @@ pub fn color_picker_widget(
         };
 
         // Draw the color square with possible hover outline
-        ui.painter().rect(rect, 2.0, color[index], stroke);
+        ui.painter()
+            .rect(rect, 2.0, color[index], stroke, StrokeKind::Middle);
         ui.label(label);
         response
     })
@@ -89,7 +91,8 @@ pub fn color_picker_window(ctx: &egui::Context, color: &mut Color32, value: &mut
                         };
 
                         // Draw the color square
-                        ui.painter().rect(rect, 2.0, *color_option, stroke);
+                        ui.painter()
+                            .rect(rect, 2.0, *color_option, stroke, StrokeKind::Middle);
                     }
                 });
 
@@ -114,7 +117,8 @@ pub fn color_picker_window(ctx: &egui::Context, color: &mut Color32, value: &mut
                         };
 
                         // Draw the color square
-                        ui.painter().rect(rect, 2.0, *color_option, stroke);
+                        ui.painter()
+                            .rect(rect, 2.0, *color_option, stroke, StrokeKind::Middle);
                     }
                 });
 
@@ -171,7 +175,8 @@ fn color_slider_1d(ui: &mut Ui, value: &mut f32, color_at: impl Fn(f32) -> Color
         }
         ui.painter().add(Shape::mesh(mesh));
 
-        ui.painter().rect_stroke(rect, 0.0, visuals.bg_stroke); // outline
+        ui.painter()
+            .rect_stroke(rect, 0.0, visuals.bg_stroke, StrokeKind::Middle); // outline
 
         // Show where the slider is at:
         let x = lerp(rect.left()..=rect.right(), *value);
