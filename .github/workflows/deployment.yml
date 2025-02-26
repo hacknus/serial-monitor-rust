@@ -57,34 +57,44 @@ jobs:
         if: contains(matrix.os, 'windows')
         run: cargo wix --features self_update
 
+      # Compress for Linux Binary
       - name: Compress Output (Linux Binary)
         if: contains(matrix.os, 'ubuntu')
         run: |
           cd target/release
           zip -r serial-monitor-${{ matrix.target }}.zip serial-monitor
+          mv serial-monitor-${{ matrix.target }}.zip $GITHUB_WORKSPACE/
 
+      # Compress for Linux .deb Package
       - name: Compress Output (Linux .deb)
         if: contains(matrix.os, 'ubuntu')
         run: |
           cd target/release/bundle/deb
           zip serial-monitor-${{ matrix.target }}.deb.zip *.deb
+          mv serial-monitor-${{ matrix.target }}.deb.zip $GITHUB_WORKSPACE/
 
-      - name: Compress Output (macOS .app Bundle)
+      # Compress for macOS (.app Bundle)
+      - name: Compress Output (macOS)
         if: contains(matrix.os, 'macos')
         run: |
           cd target/release/bundle/osx
           zip -r serial-monitor-${{ matrix.target }}.app.zip Serial\ Monitor.app
+          mv serial-monitor-${{ matrix.target }}.app.zip $GITHUB_WORKSPACE/
 
+      # Compress for Windows (.exe)
       - name: Compress Output (Windows .exe)
         if: contains(matrix.os, 'windows')
         run: |
           Compress-Archive -Path target/release/serial-monitor.exe -DestinationPath serial-monitor-${{ matrix.target }}.exe.zip
+          Move-Item -Path serial-monitor-${{ matrix.target }}.exe.zip -Destination $env:GITHUB_WORKSPACE
 
+      # Compress for Windows (.msi)
       - name: Compress Output (Windows .msi)
         if: contains(matrix.os, 'windows')
         run: |
           cd target/wix
           Compress-Archive -Path *.msi -DestinationPath serial-monitor-${{ matrix.target }}.msi.zip
+          Move-Item -Path serial-monitor-${{ matrix.target }}.msi.zip Destination $env:GITHUB_WORKSPACE
 
       - name: Upload Artifacts
         uses: actions/upload-release-asset@v1.0.1
@@ -92,6 +102,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./target/release/serial-monitor-${{ matrix.target }}.zip
+          asset_path: serial-monitor-${{ matrix.target }}.zip
           asset_name: serial-monitor-${{ matrix.target }}.zip
           asset_content_type: binary
+
