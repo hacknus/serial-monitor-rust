@@ -60,7 +60,7 @@ jobs:
 
       - name: Build .msi Package (Windows)
         if: contains(matrix.os, 'windows')
-        run: cargo wix --features self_update
+        run: cargo wix
 
       # Compress for Linux Binary
       - name: Compress Output (Linux Binary)
