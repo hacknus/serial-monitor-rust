@@ -42,6 +42,11 @@ jobs:
         if: contains(matrix.os, 'windows')
         run: cargo install --force cargo-wix
 
+      - name: Set CARGO_FEATURES environment variable (Windows)
+        if: contains(matrix.os, 'windows')
+        run: |
+          echo "CARGO_FEATURES=self_update" >> $env:GITHUB_ENV
+
       - name: Build
         run: cargo build --features self_update --release
 
