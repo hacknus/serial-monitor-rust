@@ -45,10 +45,16 @@ jobs:
       - name: Build
         run: cargo build --features self_update --release
 
-      - name: Compress Output
+      - name: Compress Output (Linux & macOS)
+        if: contains(matrix.os, 'ubuntu') || contains(matrix.os, 'macos')
         run: |
           cd target/release
           zip -r serial-monitor-${{ matrix.target }}.zip *
+
+      - name: Compress Output (Windows)
+        if: contains(matrix.os, 'windows')
+        run: |
+          Compress-Archive -Path target/release/* -DestinationPath serial-monitor-${{ matrix.target }}.zip
 
       - name: Upload Artifact
         uses: actions/upload-release-asset@v1.0.1
