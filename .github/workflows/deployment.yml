@@ -102,7 +102,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: serial-monitor-${{ matrix.target }}.zip
-          asset_name: serial-monitor-${{ matrix.target }}.zip
+          asset_path: $GITHUB_WORKSPACE/serial-monitor-${{ matrix.target }}.${{ contains(matrix.os, 'ubuntu') && 'deb.zip' || contains(matrix.os, 'macos') && 'app.zip' || contains(matrix.os, 'windows') && contains(matrix.target, 'msvc') && 'msi.zip' || 'zip' }}
+          asset_name: serial-monitor-${{ matrix.target }}.${{ contains(matrix.os, 'ubuntu') && 'deb.zip' || contains(matrix.os, 'macos') && 'app.zip' || contains(matrix.os, 'windows') && contains(matrix.target, 'msvc') && 'msi.zip' || 'zip' }}
           asset_content_type: binary
 
