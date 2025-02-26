@@ -9,138 +9,59 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build-linux-deb:
+  build:
     permissions: write-all
-    name: linux deb
-    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        os: [ ubuntu-20.04, macos-13, macos-14, windows-2019 ]
+        target: [
+          x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu,
+          x86_64-apple-darwin, aarch64-apple-darwin,
+          x86_64-pc-windows-msvc, aarch64-pc-windows-msvc
+        ]
+        include:
+          - os: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-20.04
+            target: aarch64-unknown-linux-gnu
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: windows-2019
+            target: x86_64-pc-windows-msvc
+          - os: windows-2019
+            target: aarch64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - name: Update Libs
-        run: sudo apt-get update  && sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev && sudo apt-get install libudev-dev && cargo install cargo-bundle
-      - name: Build
-        run: cargo bundle --features self_update --release
-      - name: Compress.
-        run: ls target/release/bundle/deb && cd target/release/bundle/deb && zip serial-monitor.deb.zip *.deb
-      #      - name: Rename
-      #        run: ls target/release/bundle/deb && cd target/release/bundle/deb && mv *.deb serial-monitor.deb
-      - name: Upload Deb
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./target/release/bundle/deb/serial-monitor.deb.zip
-          asset_name: serial-monitor-x86_64-unknown-linux-gnu.deb.zip
-          asset_content_type: binary
 
-  build-linux-bin:
-    permissions: write-all
-    name: linux bin
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v3
-      - name: Update Libs
-        run: sudo apt-get update  && sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev && sudo apt-get install libudev-dev && cargo install cargo-bundle
-      - name: Build
-        run: cargo build --features self_update --release
-      - name: Compress.
-        run: cd target/release && zip -r serial-monitor.zip serial-monitor-rust
-      - name: Upload Bin
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./target/release/serial-monitor.zip
-          asset_name: serial-monitor-x86_64-unknown-linux-gnu-bin.zip
-          asset_content_type: binary
+      - name: Install Dependencies (Linux)
+        if: contains(matrix.os, 'ubuntu')
+        run: sudo apt-get update && sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libudev-dev && cargo install cargo-bundle
 
-  build-macos-x86:
-    permissions: write-all
-    name: macos x86
-    runs-on: macos-13
-    steps:
-      - uses: actions/checkout@v3
-      - name: Update Libs
+      - name: Install Dependencies (macOS)
+        if: contains(matrix.os, 'macos')
         run: cargo install cargo-bundle
-      - name: Build
-        run: cargo bundle --features self_update --release
-      - name: Compress
-        run: cd target/release/bundle/osx && ls && zip -r serial-monitor.app.zip Serial\ Monitor.app/*
-      - name: Upload
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./target/release/bundle/osx/serial-monitor.app.zip
-          asset_name: serial-monitor-x86_64-apple-darwin.app.zip
-          asset_content_type: binary
 
-  build-macos-arm:
-    permissions: write-all
-    name: macos arm
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v3
-      - name: Update Libs
-        run: cargo install cargo-bundle
-      - name: Build
-        run: cargo bundle --features self_update --release
-      - name: Compress
-        run: cd target/release/bundle/osx && ls && zip -r serial-monitor.app.zip Serial\ Monitor.app/*
-      - name: Upload
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./target/release/bundle/osx/serial-monitor.app.zip
-          asset_name: serial-monitor-aarch64-apple-darwin.app.zip
-          asset_content_type: binary
-
-  build-windows-exe:
-    permissions: write-all
-    name: windows exe
-    runs-on: windows-2019
-    steps:
-      - uses: actions/checkout@v3
-      - name: Update Libs
+      - name: Install Dependencies (Windows)
+        if: contains(matrix.os, 'windows')
         run: cargo install --force cargo-wix
-      - name: Build
-        run: cargo build --features self_update --release
-      - name: Compress
-        run: |
-          cd target/release
-          Compress-Archive serial-monitor-rust.exe serial-monitor.exe.zip
-      - name: Upload
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: target/release/serial-monitor.exe.zip
-          asset_name: serial-monitor-x86_64-pc-windows-msvc.exe.zip
-          asset_content_type: binary
 
-  build-windows-msi:
-    permissions: write-all
-    name: windows msi
-    runs-on: windows-2019
-    steps:
-      - uses: actions/checkout@v3
-      - name: Update Libs
-        run: cargo install cargo-wix
       - name: Build
-        run: cargo wix --features self_update
-      - name: Compress
-        run: cd target/wix && ls && Compress-Archive *.msi serial-monitor.msi.zip
-      - name: Upload
+        run: cargo build --features self_update --release --target ${{ matrix.target }}
+
+      - name: Compress Output
+        run: |
+          cd target/${{ matrix.target }}/release
+          zip -r serial-monitor-${{ matrix.target }}.zip *
+
+      - name: Upload Artifact
         uses: actions/upload-release-asset@v1.0.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: target/wix/serial-monitor.msi.zip
-          asset_name: serial-monitor-x86_64-pc-windows-msvc.msi.zip
+          asset_path: ./target/${{ matrix.target }}/release/serial-monitor-${{ matrix.target }}.zip
+          asset_name: serial-monitor-${{ matrix.target }}.zip
           asset_content_type: binary
