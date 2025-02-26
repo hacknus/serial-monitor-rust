@@ -1,6 +1,6 @@
 [package]
 name = "serial-monitor-rust"
-version = "0.3.4"
+version = "0.3.5"
 edition = "2021"
 authors = ["Linus Leo Stöckli"]
 description = "Serial Monitor and Plotter written in rust."
