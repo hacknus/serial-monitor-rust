@@ -99,7 +99,7 @@ jobs:
         run: |
           cd target/wix
           Compress-Archive -Path *.msi -DestinationPath serial-monitor-${{ matrix.target }}.msi.zip
-          Move-Item -Path serial-monitor-${{ matrix.target }}.msi.zip Destination $env:GITHUB_WORKSPACE
+          Move-Item -Path serial-monitor-${{ matrix.target }}.msi.zip -Destination $env:GITHUB_WORKSPACE
 
       - name: Upload .deb and executable for Linux (Ubuntu)
         if: contains(matrix.os, 'ubuntu')
