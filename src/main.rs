@@ -65,14 +65,14 @@ fn main_thread(
     let mut file_opened = false;
 
     loop {
-        if let Ok(cl) = clear_rx.recv_timeout(Duration::from_millis(1)) {
+        if let Ok(cl) = clear_rx.try_recv() {
             if cl {
                 data = DataContainer::default();
                 failed_format_counter = 0;
             }
         }
         if !file_opened {
-            if let Ok(packet) = raw_data_rx.recv_timeout(Duration::from_millis(1)) {
+            if let Ok(packet) = raw_data_rx.try_recv() {
                 data.loaded_from_file = false;
                 if !packet.payload.is_empty() {
                     sync_tx.send(true).expect("unable to send sync tx");
@@ -104,7 +104,7 @@ fn main_thread(
                 }
             }
         }
-        if let Ok(fp) = load_rx.recv_timeout(Duration::from_millis(10)) {
+        if let Ok(fp) = load_rx.try_recv() {
             if let Some(file_ending) = fp.extension() {
                 match file_ending.to_str().unwrap() {
                     "csv" => {
@@ -145,7 +145,7 @@ fn main_thread(
             *write_guard = data.clone();
         }
 
-        if let Ok(csv_options) = save_rx.recv_timeout(Duration::from_millis(1)) {
+        if let Ok(csv_options) = save_rx.try_recv() {
             match save_to_csv(&data, &csv_options) {
                 Ok(_) => {
                     log::info!("saved data file to {:?} ", csv_options.file_path);
