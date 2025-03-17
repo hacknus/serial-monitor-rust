@@ -9,7 +9,6 @@ use std::cmp::max;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, RwLock};
-use std::time::Duration;
 use std::{env, thread};
 
 use crate::data::{DataContainer, Packet};

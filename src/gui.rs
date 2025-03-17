@@ -332,9 +332,7 @@ impl MyApp {
                     }
 
                     if self.data.loaded_from_file && self.file_opened {
-                        if let Ok(labels) =
-                            self.load_names_rx.recv_timeout(Duration::from_millis(10))
-                        {
+                        if let Ok(labels) = self.load_names_rx.try_recv() {
                             self.labels = labels;
                             self.colors = (0..max(self.labels.len(), 1))
                                 .map(|i| COLORS[i % COLORS.len()])
