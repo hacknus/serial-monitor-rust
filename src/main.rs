@@ -112,25 +112,24 @@ fn main_thread(
                         let index =
                             *identifier_map.entry(identifier.clone()).or_insert_with(|| {
                                 let new_index = data.dataset.len();
-                                data.dataset.push(vec![]); // Ensure space for new identifier
-                                data.time.push(vec![]); // Ensure time tracking for this identifier
+                                for _ in 0..values.len() {
+                                    data.dataset.push(vec![]); // Ensure space for new identifier
+                                    data.time.push(vec![]); // Ensure time tracking for this identifier
+                                }
                                 new_index
                             });
 
-                        // Ensure dataset and time vectors have enough columns
-                        while data.dataset.len() <= index {
-                            data.dataset.push(vec![]);
-                            data.time.push(vec![]);
-                        }
+                        // // Ensure dataset and time vectors have enough columns
+                        // while data.dataset.len() <= index {
+                        //     data.dataset.push(vec![]);
+                        //     data.time.push(vec![]);
+                        // }
 
                         // Append values to corresponding dataset entries
-                        for &value in values.iter() {
-                            data.dataset[index].push(value);
+                        for (i, &value) in values.iter().enumerate() {
+                            data.dataset[index + i].push(value);
+                            data.time[index + i].push(packet.relative_time);
                         }
-
-                        // Store time in corresponding location
-                        data.time[index].push(packet.relative_time);
-                        data.absolute_time.push(packet.absolute_time);
                     } else {
                         // Handle unnamed datasets (pure numerical data)
                         if values.len() == data.dataset.len() {
@@ -138,7 +137,6 @@ fn main_thread(
                                 data.dataset[i].push(value);
                                 data.time[i].push(packet.relative_time);
                             }
-                            data.absolute_time.push(packet.absolute_time);
                         } else {
                             failed_format_counter += 1;
                         }
