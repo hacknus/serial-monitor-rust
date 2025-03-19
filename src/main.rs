@@ -5,7 +5,7 @@ extern crate csv;
 extern crate preferences;
 extern crate serde;
 
-use crate::data::{DataContainer, Packet};
+use crate::data::{DataContainer, Packet, SerialDirection};
 use crate::gui::{load_gui_settings, MyApp, RIGHT_PANEL_WIDTH};
 use crate::io::{open_from_csv, save_to_csv, FileOptions};
 use crate::serial::{load_serial_settings, serial_thread, Device};
@@ -95,6 +95,10 @@ fn main_thread(
                     sync_tx.send(true).expect("unable to send sync tx");
                     data.raw_traffic.push(packet.clone());
                     data.absolute_time.push(packet.absolute_time);
+
+                    if packet.direction == SerialDirection::Send {
+                        continue;
+                    }
 
                     let (identifier_opt, values) = split(&packet.payload);
 
