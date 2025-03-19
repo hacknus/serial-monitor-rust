@@ -34,7 +34,7 @@ As a work-around we can use [cargo wix](https://github.com/volks73/cargo-wix) to
 On Linux first install the following:
 
 ```sh
-sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libudev-dev
 ```
 
 After downloading  
