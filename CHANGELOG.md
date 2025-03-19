@@ -5,6 +5,7 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 # Unreleased 0.3.x
 
 * Fixed sample rate issue
+* Implement smarter data parser that also can read and assign multi-line data-packets
 * ...
 
 # 0.3.4
