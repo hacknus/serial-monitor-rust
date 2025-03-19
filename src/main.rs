@@ -5,12 +5,6 @@ extern crate csv;
 extern crate preferences;
 extern crate serde;
 
-use std::cmp::max;
-use std::path::PathBuf;
-use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{mpsc, Arc, RwLock};
-use std::{env, thread};
-
 use crate::data::{DataContainer, Packet};
 use crate::gui::{load_gui_settings, MyApp, RIGHT_PANEL_WIDTH};
 use crate::io::{open_from_csv, save_to_csv, FileOptions};
@@ -18,6 +12,11 @@ use crate::serial::{load_serial_settings, serial_thread, Device};
 use eframe::egui::{vec2, ViewportBuilder, Visuals};
 use eframe::{egui, icon_data};
 use preferences::AppInfo;
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{mpsc, Arc, RwLock};
+use std::{env, thread};
 
 mod color_picker;
 mod custom_highlighter;
@@ -36,16 +35,33 @@ const APP_INFO: AppInfo = AppInfo {
 const PREFERENCES_KEY: &str = "config/gui";
 const PREFERENCES_KEY_SERIAL: &str = "config/serial_devices";
 
-fn split(payload: &str) -> Vec<f32> {
+fn split(payload: &str) -> (Option<String>, Vec<f32>) {
     let mut split_data: Vec<&str> = vec![];
     for s in payload.split(':') {
         split_data.extend(s.split(','));
     }
-    split_data
-        .iter()
-        .map(|x| x.trim())
-        .flat_map(|x| x.parse::<f32>())
-        .collect()
+    if split_data.is_empty() {
+        return (None, vec![]);
+    }
+    // Try to parse the first entry as a number
+    let first_entry = split_data[0];
+    if first_entry.parse::<f32>().is_ok() {
+        // First entry is a number → No identifier, process normally
+        let values: Vec<f32> = split_data
+            .iter()
+            .map(|x| x.trim())
+            .flat_map(|x| x.parse::<f32>())
+            .collect();
+        (None, values)
+    } else {
+        // First entry is a string identifier → Process with identifier
+        let identifier = first_entry.to_string();
+        let values: Vec<f32> = split_data[1..]
+            .iter()
+            .flat_map(|x| x.parse::<f32>())
+            .collect();
+        (Some(identifier), values)
+    }
 }
 
 fn main_thread(
@@ -59,6 +75,7 @@ fn main_thread(
 ) {
     // reads data from mutex, samples and saves if needed
     let mut data = DataContainer::default();
+    let mut identifier_map: HashMap<String, usize> = HashMap::new();
     let mut failed_format_counter = 0;
 
     let mut file_opened = false;
@@ -67,6 +84,7 @@ fn main_thread(
         if let Ok(cl) = clear_rx.try_recv() {
             if cl {
                 data = DataContainer::default();
+                identifier_map = HashMap::new();
                 failed_format_counter = 0;
             }
         }
@@ -76,29 +94,51 @@ fn main_thread(
                 if !packet.payload.is_empty() {
                     sync_tx.send(true).expect("unable to send sync tx");
                     data.raw_traffic.push(packet.clone());
-                    let split_data = split(&packet.payload);
+                    data.absolute_time.push(packet.absolute_time);
+
+                    let (identifier_opt, values) = split(&packet.payload);
+
                     if data.dataset.is_empty() || failed_format_counter > 10 {
-                        // resetting dataset
-                        data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                        // Reset dataset
+                        data.dataset = vec![vec![]; values.len()];
                         failed_format_counter = 0;
-                        // log::error!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
-                    } else if split_data.len() == data.dataset.len() {
-                        // appending data
-                        for (i, set) in data.dataset.iter_mut().enumerate() {
-                            set.push(split_data[i]);
-                            failed_format_counter = 0;
+                    }
+
+                    if let Some(identifier) = identifier_opt {
+                        // Get or create the correct index for this identifier
+                        let index =
+                            *identifier_map.entry(identifier.clone()).or_insert_with(|| {
+                                let new_index = data.dataset.len();
+                                data.dataset.push(vec![]); // Ensure space for new identifier
+                                new_index
+                            });
+
+                        // Ensure dataset has enough columns
+                        while data.dataset.len() <= index {
+                            data.dataset.push(vec![]);
                         }
-                        data.time.push(packet.relative_time);
-                        data.absolute_time.push(packet.absolute_time);
-                        if data.time.len() != data.dataset[0].len() {
-                            // resetting dataset
-                            data.time = vec![];
-                            data.dataset = vec![vec![]; max(split_data.len(), 1)];
+
+                        if values.len() == data.dataset.len() {
+                            // Insert values at the correct dataset index
+                            for &value in values.iter() {
+                                data.dataset[index].push(value);
+                            }
+                            data.time.push(packet.relative_time);
+                            data.absolute_time.push(packet.absolute_time);
+                        } else {
+                            failed_format_counter += 1;
                         }
                     } else {
-                        // not same length
-                        failed_format_counter += 1;
-                        // log::error!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
+                        // Handle unnamed datasets (pure numerical data, behaves as before)
+                        if values.len() == data.dataset.len() {
+                            for (i, &value) in values.iter().enumerate() {
+                                data.dataset[i].push(value);
+                            }
+                            data.time.push(packet.relative_time);
+                            data.absolute_time.push(packet.absolute_time);
+                        } else {
+                            failed_format_counter += 1;
+                        }
                     }
                 }
             }
