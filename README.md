@@ -13,7 +13,8 @@ simultaneously.
 
 [Binary bundles](https://github.com/hacknus/serial-monitor-rust/releases) are available for Linux, macOS and Windows.
 
-Running the apple silicon binary may result to the message "Serial Monitor is damaged and cannot be opened.", to get
+Running the apple silicon binary (serial-monitor-aarch64-apple-darwin.app) may result to the message "Serial Monitor is
+damaged and cannot be opened.", to get
 around this you first need to run:  
 `xattr -rd com.apple.quarantine Serial\ Monitor.app`
 

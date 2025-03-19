@@ -4,9 +4,10 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 # Unreleased 0.3.x
 
+* Fixed sample rate issue
 * ...
 
-# Unreleased 0.3.4
+# 0.3.4
 
 * implement option to self-update the application
 
