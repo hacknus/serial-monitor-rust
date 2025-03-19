@@ -357,14 +357,19 @@ impl MyApp {
                             .len()
                             .saturating_sub(self.plotting_range);
 
-                        for (i, time) in self.data.time[window..].iter().enumerate() {
-                            let x = *time / 1000.0;
-                            for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
-                                if self.data.time.len() == data.len() {
-                                    if let Some(y) = data.get(i + window) {
-                                        graph.push(PlotPoint { x, y: *y as f64 });
-                                    }
-                                }
+                        for (graph, (timepoints, datapoints)) in graphs
+                            .iter_mut()
+                            .zip(self.data.time.iter().zip(self.data.dataset.iter()))
+                        {
+                            for (time, data) in timepoints
+                                .iter()
+                                .skip(window)
+                                .zip(datapoints.iter().skip(window))
+                            {
+                                graph.push(PlotPoint {
+                                    x: *time / 1000.0,
+                                    y: *data as f64,
+                                });
                             }
                         }
 

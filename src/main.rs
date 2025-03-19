@@ -109,36 +109,35 @@ fn main_thread(
                     }
 
                     if let Some(identifier) = identifier_opt {
-                        // Get or create the correct index for this identifier
                         let index =
                             *identifier_map.entry(identifier.clone()).or_insert_with(|| {
                                 let new_index = data.dataset.len();
                                 data.dataset.push(vec![]); // Ensure space for new identifier
+                                data.time.push(vec![]); // Ensure time tracking for this identifier
                                 new_index
                             });
 
-                        // Ensure dataset has enough columns
+                        // Ensure dataset and time vectors have enough columns
                         while data.dataset.len() <= index {
                             data.dataset.push(vec![]);
+                            data.time.push(vec![]);
                         }
 
-                        if values.len() == data.dataset.len() {
-                            // Insert values at the correct dataset index
-                            for &value in values.iter() {
-                                data.dataset[index].push(value);
-                            }
-                            data.time.push(packet.relative_time);
-                            data.absolute_time.push(packet.absolute_time);
-                        } else {
-                            failed_format_counter += 1;
+                        // Append values to corresponding dataset entries
+                        for &value in values.iter() {
+                            data.dataset[index].push(value);
                         }
+
+                        // Store time in corresponding location
+                        data.time[index].push(packet.relative_time);
+                        data.absolute_time.push(packet.absolute_time);
                     } else {
-                        // Handle unnamed datasets (pure numerical data, behaves as before)
+                        // Handle unnamed datasets (pure numerical data)
                         if values.len() == data.dataset.len() {
                             for (i, &value) in values.iter().enumerate() {
                                 data.dataset[i].push(value);
+                                data.time[i].push(packet.relative_time);
                             }
-                            data.time.push(packet.relative_time);
                             data.absolute_time.push(packet.absolute_time);
                         } else {
                             failed_format_counter += 1;

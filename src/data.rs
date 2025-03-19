@@ -44,7 +44,7 @@ impl Default for Packet {
 
 #[derive(Clone, Debug)]
 pub struct DataContainer {
-    pub time: Vec<f64>,
+    pub time: Vec<Vec<f64>>,
     pub absolute_time: Vec<f64>,
     pub dataset: Vec<Vec<f32>>,
     pub raw_traffic: Vec<Packet>,
@@ -54,7 +54,7 @@ pub struct DataContainer {
 impl Default for DataContainer {
     fn default() -> DataContainer {
         DataContainer {
-            time: vec![],
+            time: vec![vec![]],
             absolute_time: vec![],
             dataset: vec![vec![]],
             raw_traffic: vec![],
