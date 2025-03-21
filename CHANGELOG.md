@@ -2,10 +2,10 @@
 
 All notable changes to the `Serial Monitor` crate will be documented in this file.
 
-# Unreleased 0.3.x
+# Unreleased 0.4.x
 
-* Fixed sample rate issue
-* ...
+* Fixed sample rate / disconnect issue
+* Releases are now linked to libssl 3.4.1 on linux (built on Ubuntu 22.04)
 
 # 0.3.4
 
