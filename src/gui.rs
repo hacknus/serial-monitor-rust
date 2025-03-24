@@ -1,8 +1,8 @@
 use core::f32;
+use crossbeam_channel::{Receiver, Sender};
 use std::cmp::max;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -62,6 +62,13 @@ pub enum WindowFeedback {
     Waiting,
     Clear,
     Cancel,
+}
+
+#[derive(Clone)]
+pub enum GuiCommand {
+    Clear,
+    ShowTimestamps(bool),
+    ShowSentTraffic(bool),
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
@@ -134,7 +141,7 @@ pub struct MyApp {
     load_tx: Sender<PathBuf>,
     load_names_rx: Receiver<Vec<String>>,
     send_tx: Sender<String>,
-    clear_tx: Sender<bool>,
+    gui_cmd_tx: Sender<GuiCommand>,
     history: Vec<String>,
     index: usize,
     eol: String,
@@ -166,7 +173,7 @@ impl MyApp {
         load_tx: Sender<PathBuf>,
         load_names_rx: Receiver<Vec<String>>,
         send_tx: Sender<String>,
-        clear_tx: Sender<bool>,
+        gui_cmd_tx: Sender<GuiCommand>,
     ) -> Self {
         let mut file_dialog = FileDialog::default()
             //.initial_directory(PathBuf::from("/path/to/app"))
@@ -227,7 +234,7 @@ impl MyApp {
             load_tx,
             load_names_rx,
             send_tx,
-            clear_tx,
+            gui_cmd_tx,
             plotting_range: usize::MAX,
             plot_serial_display_ratio: 0.45,
             command: "".to_string(),
@@ -616,8 +623,8 @@ impl MyApp {
                         self.device_idx = self.serial_devices.devices.len() - 1;
                         save_serial_settings(&self.serial_devices);
                     }
-                    self.clear_tx
-                        .send(true)
+                    self.gui_cmd_tx
+                        .send(GuiCommand::Clear)
                         .expect("failed to send clear after choosing new device");
                     // need to clear the data here such that we don't get errors in the gui (plot)
                     self.data = GuiOutputDataContainer::default();
@@ -913,7 +920,7 @@ impl MyApp {
             || ui.input_mut(|i| i.consume_shortcut(&CLEAR_PLOT_SHORTCUT))
         {
             log::info!("Cleared recorded Data");
-            if let Err(err) = self.clear_tx.send(true) {
+            if let Err(err) = self.gui_cmd_tx.send(GuiCommand::Clear) {
                 log::error!("clear_tx thread send failed: {:?}", err);
             }
             // need to clear the data here in order to prevent errors in the gui (plot)
@@ -934,14 +941,34 @@ impl MyApp {
         });
         ui.add_space(5.0);
         ui.horizontal(|ui| {
-            ui.add(toggle(&mut self.show_sent_cmds))
-                .on_hover_text("Show sent commands in console.");
+            if ui
+                .add(toggle(&mut self.show_sent_cmds))
+                .on_hover_text("Show sent commands in console.")
+                .changed()
+            {
+                if let Err(err) = self
+                    .gui_cmd_tx
+                    .send(GuiCommand::ShowSentTraffic(self.show_sent_cmds))
+                {
+                    log::error!("clear_tx thread send failed: {:?}", err);
+                }
+            }
             ui.label("Show Sent Commands");
         });
         ui.add_space(5.0);
         ui.horizontal(|ui| {
-            ui.add(toggle(&mut self.show_timestamps))
-                .on_hover_text("Show timestamp in console.");
+            if ui
+                .add(toggle(&mut self.show_timestamps))
+                .on_hover_text("Show timestamp in console.")
+                .changed()
+            {
+                if let Err(err) = self
+                    .gui_cmd_tx
+                    .send(GuiCommand::ShowTimestamps(self.show_sent_cmds))
+                {
+                    log::error!("clear_tx thread send failed: {:?}", err);
+                }
+            }
             ui.label("Show Timestamp");
         });
         ui.add_space(5.0);
