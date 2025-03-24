@@ -52,3 +52,6 @@ dbg-name = false
 name = "Serial Monitor"
 no-build = false
 output = "target/wix/SerialMonitorInstaller.msi"
+
+[profile.release]
+debug = true

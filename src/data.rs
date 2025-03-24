@@ -1,3 +1,4 @@
+use egui_plot::PlotPoint;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -61,4 +62,10 @@ impl Default for DataContainer {
             loaded_from_file: false,
         }
     }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct GuiOutputDataContainer {
+    pub prints: Vec<String>,
+    pub plots: Vec<(String, Vec<PlotPoint>)>,
 }

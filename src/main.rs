@@ -11,12 +11,13 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, RwLock};
 use std::{env, thread};
 
-use crate::data::{DataContainer, Packet};
+use crate::data::{DataContainer, GuiOutputDataContainer, Packet, SerialDirection};
 use crate::gui::{load_gui_settings, MyApp, RIGHT_PANEL_WIDTH};
 use crate::io::{open_from_csv, save_to_csv, FileOptions};
 use crate::serial::{load_serial_settings, serial_thread, Device};
 use eframe::egui::{vec2, ViewportBuilder, Visuals};
 use eframe::{egui, icon_data};
+use egui_plot::PlotPoint;
 use preferences::AppInfo;
 
 mod color_picker;
@@ -48,9 +49,28 @@ fn split(payload: &str) -> Vec<f32> {
         .collect()
 }
 
+fn console_text(show_timestamps: bool, show_sent_cmds: bool, packet: &Packet) -> Option<String> {
+    match (show_sent_cmds, show_timestamps, &packet.direction) {
+        (true, true, _) => Some(format!(
+            "[{}] t + {:.3}s: {}\n",
+            packet.direction,
+            packet.relative_time as f32 / 1000.0,
+            packet.payload
+        )),
+        (true, false, _) => Some(format!("[{}]: {}\n", packet.direction, packet.payload)),
+        (false, true, SerialDirection::Receive) => Some(format!(
+            "t + {:.3}s: {}\n",
+            packet.relative_time as f32 / 1000.0,
+            packet.payload
+        )),
+        (false, false, SerialDirection::Receive) => Some(packet.payload.clone() + "\n"),
+        (_, _, _) => None,
+    }
+}
+
 fn main_thread(
     sync_tx: Sender<bool>,
-    data_lock: Arc<RwLock<DataContainer>>,
+    data_lock: Arc<RwLock<GuiOutputDataContainer>>,
     raw_data_rx: Receiver<Packet>,
     save_rx: Receiver<FileOptions>,
     load_rx: Receiver<PathBuf>,
@@ -61,6 +81,10 @@ fn main_thread(
     let mut data = DataContainer::default();
     let mut failed_format_counter = 0;
 
+    // TODO: update this from GUI thread
+    let mut show_timestamps = true;
+    let mut show_sent_cmds = true;
+
     let mut file_opened = false;
 
     loop {
@@ -68,6 +92,9 @@ fn main_thread(
             if cl {
                 data = DataContainer::default();
                 failed_format_counter = 0;
+                if let Ok(mut gui_data) = data_lock.write() {
+                    *gui_data = GuiOutputDataContainer::default();
+                }
             }
         }
         if !file_opened {
@@ -76,10 +103,24 @@ fn main_thread(
                 if !packet.payload.is_empty() {
                     sync_tx.send(true).expect("unable to send sync tx");
                     data.raw_traffic.push(packet.clone());
+
+                    if let Ok(mut gui_data) = data_lock.write() {
+                        if let Some(text) = console_text(show_timestamps, show_sent_cmds, &packet) {
+                            // append prints
+                            gui_data.prints.push(text);
+                        }
+                    }
+
                     let split_data = split(&packet.payload);
                     if data.dataset.is_empty() || failed_format_counter > 10 {
                         // resetting dataset
+                        data.time = vec![];
                         data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                        if let Ok(mut gui_data) = data_lock.write() {
+                            gui_data.plots = (0..max(split_data.len(), 1))
+                                .map(|i| (format!("Column {i}"), vec![]))
+                                .collect();
+                        }
                         failed_format_counter = 0;
                         // log::error!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
                     } else if split_data.len() == data.dataset.len() {
@@ -88,12 +129,36 @@ fn main_thread(
                             set.push(split_data[i]);
                             failed_format_counter = 0;
                         }
+
                         data.time.push(packet.relative_time);
                         data.absolute_time.push(packet.absolute_time);
+
+                        // appending data for GUI thread
+                        if let Ok(mut gui_data) = data_lock.write() {
+                            // append plot-points
+                            for ((_label, graph), data_i) in
+                                gui_data.plots.iter_mut().zip(&data.dataset)
+                            {
+                                if data.time.len() == data_i.len() {
+                                    if let Some(y) = data_i.last() {
+                                        graph.push(PlotPoint {
+                                            x: packet.relative_time / 1000.0,
+                                            y: *y as f64,
+                                        });
+                                    }
+                                }
+                            }
+                        }
                         if data.time.len() != data.dataset[0].len() {
                             // resetting dataset
                             data.time = vec![];
                             data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                            if let Ok(mut gui_data) = data_lock.write() {
+                                gui_data.prints = vec!["".to_string(); max(split_data.len(), 1)];
+                                gui_data.plots = (0..max(split_data.len(), 1))
+                                    .map(|i| (format!("Column {i}"), vec![]))
+                                    .collect();
+                            }
                         }
                     } else {
                         // not same length
@@ -140,10 +205,6 @@ fn main_thread(
             file_opened = false;
         }
 
-        if let Ok(mut write_guard) = data_lock.write() {
-            *write_guard = data.clone();
-        }
-
         if let Ok(csv_options) = save_rx.try_recv() {
             match save_to_csv(&data, &csv_options) {
                 Ok(_) => {
@@ -169,7 +230,7 @@ fn main() {
 
     let device_lock = Arc::new(RwLock::new(Device::default()));
     let devices_lock = Arc::new(RwLock::new(vec![gui_settings.device.clone()]));
-    let data_lock = Arc::new(RwLock::new(DataContainer::default()));
+    let data_lock = Arc::new(RwLock::new(GuiOutputDataContainer::default()));
     let connected_lock = Arc::new(RwLock::new(false));
 
     let (save_tx, save_rx): (Sender<FileOptions>, Receiver<FileOptions>) = mpsc::channel();

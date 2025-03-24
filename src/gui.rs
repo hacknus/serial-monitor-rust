@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use crate::color_picker::{color_picker_widget, color_picker_window, COLORS};
 use crate::custom_highlighter::highlight_impl;
-use crate::data::{DataContainer, SerialDirection};
+use crate::data::GuiOutputDataContainer;
 use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialDevices};
 use crate::settings_window::settings_window;
 use crate::toggle::toggle;
@@ -24,7 +24,7 @@ use eframe::{egui, Storage};
 use egui::ThemePreference;
 use egui_file_dialog::information_panel::InformationPanel;
 use egui_file_dialog::FileDialog;
-use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoint, PlotPoints};
+use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoints};
 use preferences::Preferences;
 #[cfg(feature = "self_update")]
 use self_update::update::Release;
@@ -118,7 +118,7 @@ pub struct MyApp {
     plot_serial_display_ratio: f32,
     picked_path: PathBuf,
     plot_location: Option<egui::Rect>,
-    data: DataContainer,
+    data: GuiOutputDataContainer,
     file_dialog_state: FileDialogState,
     file_dialog: FileDialog,
     information_panel: InformationPanel,
@@ -129,7 +129,7 @@ pub struct MyApp {
     device_lock: Arc<RwLock<Device>>,
     devices_lock: Arc<RwLock<Vec<String>>>,
     connected_lock: Arc<RwLock<bool>>,
-    data_lock: Arc<RwLock<DataContainer>>,
+    data_lock: Arc<RwLock<GuiOutputDataContainer>>,
     save_tx: Sender<FileOptions>,
     load_tx: Sender<PathBuf>,
     load_names_rx: Receiver<Vec<String>>,
@@ -156,7 +156,7 @@ pub struct MyApp {
 impl MyApp {
     pub fn new(
         cc: &eframe::CreationContext,
-        data_lock: Arc<RwLock<DataContainer>>,
+        data_lock: Arc<RwLock<GuiOutputDataContainer>>,
         device_lock: Arc<RwLock<Device>>,
         devices_lock: Arc<RwLock<Vec<String>>>,
         devices: SerialDevices,
@@ -203,7 +203,7 @@ impl MyApp {
             picked_path: PathBuf::new(),
             device: "".to_string(),
             old_device: "".to_string(),
-            data: DataContainer::default(),
+            data: GuiOutputDataContainer::default(),
             file_dialog_state: FileDialogState::None,
             file_dialog,
             information_panel: InformationPanel::default().add_file_preview("csv", |ui, item| {
@@ -283,25 +283,6 @@ impl MyApp {
         window_feedback
     }
 
-    fn console_text(&self, packet: &crate::data::Packet) -> Option<String> {
-        match (self.show_sent_cmds, self.show_timestamps, &packet.direction) {
-            (true, true, _) => Some(format!(
-                "[{}] t + {:.3}s: {}\n",
-                packet.direction,
-                packet.relative_time as f32 / 1000.0,
-                packet.payload
-            )),
-            (true, false, _) => Some(format!("[{}]: {}\n", packet.direction, packet.payload)),
-            (false, true, SerialDirection::Receive) => Some(format!(
-                "t + {:.3}s: {}\n",
-                packet.relative_time as f32 / 1000.0,
-                packet.payload
-            )),
-            (false, false, SerialDirection::Receive) => Some(packet.payload.clone() + "\n"),
-            (_, _, _) => None,
-        }
-    }
-
     fn draw_central_panel(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             let left_border = 10.0;
@@ -327,11 +308,17 @@ impl MyApp {
             ui.horizontal(|ui| {
                 ui.add_space(left_border);
                 ui.vertical(|ui| {
-                    if let Ok(read_guard) = self.data_lock.read() {
-                        self.data = read_guard.clone();
+                    if let Ok(gui_data) = self.data_lock.read() {
+                        self.data = gui_data.clone();
+                        self.labels = gui_data.plots.iter().map(|d| d.0.clone()).collect();
+                        self.colors = (0..max(self.labels.len(), 1))
+                            .map(|i| COLORS[i % COLORS.len()])
+                            .collect();
+                        self.color_vals = (0..max(self.data.plots.len(), 1)).map(|_| 0.0).collect();
                     }
 
-                    if self.data.loaded_from_file && self.file_opened {
+                    // TODO what about self.data.loaded_from_file
+                    if self.file_opened {
                         if let Ok(labels) = self.load_names_rx.try_recv() {
                             self.labels = labels;
                             self.colors = (0..max(self.labels.len(), 1))
@@ -341,32 +328,40 @@ impl MyApp {
                         }
                     }
                     if self.serial_devices.number_of_plots[self.device_idx] > 0 {
-                        if self.data.dataset.len() != self.labels.len() && !self.file_opened {
-                            self.labels = (0..max(self.data.dataset.len(), 1))
-                                .map(|i| format!("Column {i}"))
-                                .collect();
-                            self.colors = (0..max(self.data.dataset.len(), 1))
+                        if self.data.plots.len() != self.labels.len() && !self.file_opened {
+                            // self.labels = (0..max(self.data.dataset.len(), 1))
+                            //     .map(|i| format!("Column {i}"))
+                            //     .collect();
+                            self.colors = (0..max(self.data.plots.len(), 1))
                                 .map(|i| COLORS[i % COLORS.len()])
                                 .collect();
                             self.color_vals =
-                                (0..max(self.data.dataset.len(), 1)).map(|_| 0.0).collect();
+                                (0..max(self.data.plots.len(), 1)).map(|_| 0.0).collect();
                         }
 
-                        let mut graphs: Vec<Vec<PlotPoint>> = vec![vec![]; self.data.dataset.len()];
-                        let window = self.data.dataset[0]
-                            .len()
-                            .saturating_sub(self.plotting_range);
+                        // offloaded to main thread
 
-                        for (i, time) in self.data.time[window..].iter().enumerate() {
-                            let x = *time / 1000.0;
-                            for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
-                                if self.data.time.len() == data.len() {
-                                    if let Some(y) = data.get(i + window) {
-                                        graph.push(PlotPoint { x, y: *y as f64 });
-                                    }
-                                }
-                            }
-                        }
+                        // let mut graphs: Vec<Vec<PlotPoint>> = vec![vec![]; self.data.dataset.len()];
+                        // let window = self.data.dataset[0]
+                        //     .len()
+                        //     .saturating_sub(self.plotting_range);
+                        //
+                        // for (i, time) in self.data.time[window..].iter().enumerate() {
+                        //     let x = *time / 1000.0;
+                        //     for (graph, data) in graphs.iter_mut().zip(&self.data.dataset) {
+                        //         if self.data.time.len() == data.len() {
+                        //             if let Some(y) = data.get(i + window) {
+                        //                 graph.push(PlotPoint { x, y: *y as f64 });
+                        //             }
+                        //         }
+                        //     }
+                        // }
+
+                        let window = if let Some(first_entry) = self.data.plots.first() {
+                            first_entry.1.len().saturating_sub(self.plotting_range)
+                        } else {
+                            0
+                        };
 
                         let t_fmt = |x: GridMark, _range: &RangeInclusive<f64>| {
                             format!("{:4.2} s", x.value)
@@ -388,13 +383,15 @@ impl MyApp {
                                     .x_axis_formatter(t_fmt);
 
                                 let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
-                                    for (i, graph) in graphs.iter().enumerate() {
+                                    for (i, (_label, graph)) in self.data.plots.iter().enumerate() {
                                         // this check needs to be here for when we change devices (not very elegant)
                                         if i < self.labels.len() {
                                             signal_plot_ui.line(
-                                                Line::new(PlotPoints::Owned(graph.to_vec()))
-                                                    .name(&self.labels[i])
-                                                    .color(self.colors[i]),
+                                                Line::new(PlotPoints::Owned(
+                                                    graph[window..].to_vec(),
+                                                ))
+                                                .name(&self.labels[i])
+                                                .color(self.colors[i]),
                                             );
                                         }
                                     }
@@ -430,7 +427,7 @@ impl MyApp {
                     let serial_height =
                         panel_height - plot_ui_heigh - left_border * 2.0 - top_spacing;
 
-                    let num_rows = self.data.raw_traffic.len();
+                    let num_rows = self.data.prints.len();
                     let row_height = ui.text_style_height(&egui::TextStyle::Body);
 
                     let color = if self.gui_conf.dark_mode {
@@ -453,10 +450,10 @@ impl MyApp {
                             let content: String = row_range
                                 .into_iter()
                                 .flat_map(|i| {
-                                    if self.data.raw_traffic.is_empty() {
+                                    if self.data.prints.is_empty() {
                                         None
                                     } else {
-                                        self.console_text(&self.data.raw_traffic[i])
+                                        Some(self.data.prints[i].clone())
                                     }
                                 })
                                 .collect();
@@ -578,7 +575,7 @@ impl MyApp {
                 // let selected_new_device = response.changed();  //somehow this does not work
                 // if selected_new_device {
                 if old_name != self.device {
-                    if !self.data.time.is_empty() {
+                    if !self.data.prints.is_empty() {
                         self.show_warning_window = WindowFeedback::Waiting;
                         self.old_device = old_name;
                     } else {
@@ -623,7 +620,7 @@ impl MyApp {
                         .send(true)
                         .expect("failed to send clear after choosing new device");
                     // need to clear the data here such that we don't get errors in the gui (plot)
-                    self.data = DataContainer::default();
+                    self.data = GuiOutputDataContainer::default();
                     self.show_warning_window = WindowFeedback::None;
                 }
                 WindowFeedback::Cancel => {
@@ -920,7 +917,7 @@ impl MyApp {
                 log::error!("clear_tx thread send failed: {:?}", err);
             }
             // need to clear the data here in order to prevent errors in the gui (plot)
-            self.data = DataContainer::default();
+            self.data = GuiOutputDataContainer::default();
             // self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
         }
         ui.add_space(5.0);
