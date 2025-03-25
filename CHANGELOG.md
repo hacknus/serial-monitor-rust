@@ -2,12 +2,14 @@
 
 All notable changes to the `Serial Monitor` crate will be documented in this file.
 
-# Unreleased 0.4.x
+## Unreleased 0.4.x
 
+* Switched to `crossbeam-channel` for more efficient channel routing
+* removed many `.clone()` calls to reduce CPU load
 * Fixed sample rate / disconnect issue
 * Releases are now linked to libssl 3.4.1 on linux (built on Ubuntu 22.04)
 
-# 0.3.4
+## 0.3.4
 
 * implement option to self-update the application
 

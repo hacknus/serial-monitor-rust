@@ -5,19 +5,20 @@ extern crate csv;
 extern crate preferences;
 extern crate serde;
 
-use std::cmp::max;
-use std::path::PathBuf;
-use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{mpsc, Arc, RwLock};
-use std::{env, thread};
-
-use crate::data::{DataContainer, Packet};
-use crate::gui::{load_gui_settings, MyApp, RIGHT_PANEL_WIDTH};
+use crate::data::{DataContainer, GuiOutputDataContainer, Packet, SerialDirection};
+use crate::gui::{load_gui_settings, GuiCommand, MyApp, RIGHT_PANEL_WIDTH};
 use crate::io::{open_from_csv, save_to_csv, FileOptions};
 use crate::serial::{load_serial_settings, serial_thread, Device};
+use crossbeam_channel::{select, Receiver, Sender};
 use eframe::egui::{vec2, ViewportBuilder, Visuals};
 use eframe::{egui, icon_data};
+use egui_plot::PlotPoint;
 use preferences::AppInfo;
+use std::cmp::max;
+use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
+use std::time::Duration;
+use std::{env, thread};
 
 mod color_picker;
 mod custom_highlighter;
@@ -48,114 +49,216 @@ fn split(payload: &str) -> Vec<f32> {
         .collect()
 }
 
+fn console_text(show_timestamps: bool, show_sent_cmds: bool, packet: &Packet) -> Option<String> {
+    match (show_sent_cmds, show_timestamps, &packet.direction) {
+        (true, true, _) => Some(format!(
+            "[{}] t + {:.3}s: {}\n",
+            packet.direction,
+            packet.relative_time as f32 / 1000.0,
+            packet.payload
+        )),
+        (true, false, _) => Some(format!("[{}]: {}\n", packet.direction, packet.payload)),
+        (false, true, SerialDirection::Receive) => Some(format!(
+            "t + {:.3}s: {}\n",
+            packet.relative_time as f32 / 1000.0,
+            packet.payload
+        )),
+        (false, false, SerialDirection::Receive) => Some(packet.payload.clone() + "\n"),
+        (_, _, _) => None,
+    }
+}
+
 fn main_thread(
     sync_tx: Sender<bool>,
-    data_lock: Arc<RwLock<DataContainer>>,
+    data_lock: Arc<RwLock<GuiOutputDataContainer>>,
     raw_data_rx: Receiver<Packet>,
     save_rx: Receiver<FileOptions>,
     load_rx: Receiver<PathBuf>,
     load_names_tx: Sender<Vec<String>>,
-    clear_rx: Receiver<bool>,
+    gui_cmd_rx: Receiver<GuiCommand>,
 ) {
     // reads data from mutex, samples and saves if needed
     let mut data = DataContainer::default();
     let mut failed_format_counter = 0;
 
+    let mut show_timestamps = true;
+    let mut show_sent_cmds = true;
+
     let mut file_opened = false;
 
     loop {
-        if let Ok(cl) = clear_rx.try_recv() {
-            if cl {
-                data = DataContainer::default();
-                failed_format_counter = 0;
-            }
-        }
-        if !file_opened {
-            if let Ok(packet) = raw_data_rx.try_recv() {
-                data.loaded_from_file = false;
-                if !packet.payload.is_empty() {
-                    sync_tx.send(true).expect("unable to send sync tx");
-                    data.raw_traffic.push(packet.clone());
-                    let split_data = split(&packet.payload);
-                    if data.dataset.is_empty() || failed_format_counter > 10 {
-                        // resetting dataset
-                        data.dataset = vec![vec![]; max(split_data.len(), 1)];
-                        failed_format_counter = 0;
-                        // log::error!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
-                    } else if split_data.len() == data.dataset.len() {
-                        // appending data
-                        for (i, set) in data.dataset.iter_mut().enumerate() {
-                            set.push(split_data[i]);
-                            failed_format_counter = 0;
+        select! {
+            recv(raw_data_rx) -> packet => {
+                if let Ok(packet) = packet {
+                    if !file_opened {
+                        data.loaded_from_file = false;
+                        if !packet.payload.is_empty() {
+                            sync_tx.send(true).expect("unable to send sync tx");
+                            data.raw_traffic.push(packet.clone());
+
+                            if let Ok(mut gui_data) = data_lock.write() {
+                                if let Some(text) = console_text(show_timestamps, show_sent_cmds, &packet) {
+                                    // append prints
+                                    gui_data.prints.push(text);
+                                }
+                            }
+
+                            let split_data = split(&packet.payload);
+                            if data.dataset.is_empty() || failed_format_counter > 10 {
+                                // resetting dataset
+                                data.time = vec![];
+                                data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                                if let Ok(mut gui_data) = data_lock.write() {
+                                    gui_data.plots = (0..max(split_data.len(), 1))
+                                        .map(|i| (format!("Column {i}"), vec![]))
+                                        .collect();
+                                }
+                                failed_format_counter = 0;
+                                // log::error!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
+                            } else if split_data.len() == data.dataset.len() {
+                                // appending data
+                                for (i, set) in data.dataset.iter_mut().enumerate() {
+                                    set.push(split_data[i]);
+                                    failed_format_counter = 0;
+                                }
+
+                                data.time.push(packet.relative_time);
+                                data.absolute_time.push(packet.absolute_time);
+
+                                // appending data for GUI thread
+                                if let Ok(mut gui_data) = data_lock.write() {
+                                    // append plot-points
+                                    for ((_label, graph), data_i) in
+                                        gui_data.plots.iter_mut().zip(&data.dataset)
+                                    {
+                                        if data.time.len() == data_i.len() {
+                                            if let Some(y) = data_i.last() {
+                                                graph.push(PlotPoint {
+                                                    x: packet.relative_time / 1000.0,
+                                                    y: *y as f64,
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+                                if data.time.len() != data.dataset[0].len() {
+                                    // resetting dataset
+                                    data.time = vec![];
+                                    data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                                    if let Ok(mut gui_data) = data_lock.write() {
+                                        gui_data.prints = vec!["".to_string(); max(split_data.len(), 1)];
+                                        gui_data.plots = (0..max(split_data.len(), 1))
+                                            .map(|i| (format!("Column {i}"), vec![]))
+                                            .collect();
+                                    }
+                                }
+                            } else {
+                                // not same length
+                                failed_format_counter += 1;
+                                // log::error!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
+                            }
                         }
-                        data.time.push(packet.relative_time);
-                        data.absolute_time.push(packet.absolute_time);
-                        if data.time.len() != data.dataset[0].len() {
-                            // resetting dataset
-                            data.time = vec![];
-                            data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                    }
+                }
+            }
+            recv(gui_cmd_rx) -> msg => {
+                if let Ok(cmd) = msg {
+                    match cmd {
+                        GuiCommand::Clear => {
+                            data = DataContainer::default();
+                            failed_format_counter = 0;
+                            if let Ok(mut gui_data) = data_lock.write() {
+                                *gui_data = GuiOutputDataContainer::default();
+                            }
+                        }
+                        GuiCommand::ShowTimestamps(val) => {
+                            show_timestamps = val;
+                        }
+                        GuiCommand::ShowSentTraffic(val) => {
+                            show_sent_cmds = val;
+                        }
+                    }
+                }
+            }
+            recv(load_rx) -> msg => {
+                if let Ok(fp) = msg {
+                    // load logic
+                    if let Some(file_ending) = fp.extension() {
+                        match file_ending.to_str().unwrap() {
+                            "csv" => {
+                                file_opened = true;
+                                let mut file_options = FileOptions {
+                                    file_path: fp.clone(),
+                                    save_absolute_time: false,
+                                    save_raw_traffic: false,
+                                    names: vec![],
+                                };
+                                match open_from_csv(&mut data, &mut file_options) {
+                                    Ok(raw_data) => {
+                                        log::info!("opened {:?}", fp);
+                                        if let Ok(mut gui_data) = data_lock.write() {
+
+                                            gui_data.prints = raw_data;
+
+                                            dbg!(&gui_data.prints);
+
+                                            gui_data.plots = (0..data.dataset.len())
+                                                .map(|i| (file_options.names[i].to_string(), vec![]))
+                                                .collect();
+                                            // append plot-points
+                                            for ((_label, graph), data_i) in
+                                                gui_data.plots.iter_mut().zip(&data.dataset)
+                                            {
+                                                for (y,t) in data_i.iter().zip(data.time.iter()) {
+                                                        graph.push(PlotPoint {
+                                                            x: *t / 1000.0,
+                                                            y: *y as f64 ,
+                                                        });
+                                                }
+                                            }
+
+                                        }
+                                        load_names_tx
+                                            .send(file_options.names)
+                                            .expect("unable to send names on channel after loading");
+                                    }
+                                    Err(err) => {
+                                        file_opened = false;
+                                        log::error!("failed opening {:?}: {:?}", fp, err);
+                                    }
+                                };
+                            }
+                            _ => {
+                                file_opened = false;
+                                log::error!("file not supported: {:?} \n Close the file to connect to a spectrometer or open another file.", fp);
+                                continue;
+                            }
                         }
                     } else {
-                        // not same length
-                        failed_format_counter += 1;
-                        // log::error!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
-                    }
-                }
-            }
-        }
-        if let Ok(fp) = load_rx.try_recv() {
-            if let Some(file_ending) = fp.extension() {
-                match file_ending.to_str().unwrap() {
-                    "csv" => {
-                        file_opened = true;
-                        let mut file_options = FileOptions {
-                            file_path: fp.clone(),
-                            save_absolute_time: false,
-                            save_raw_traffic: false,
-                            names: vec![],
-                        };
-                        match open_from_csv(&mut data, &mut file_options) {
-                            Ok(_) => {
-                                log::info!("opened {:?}", fp);
-                                load_names_tx
-                                    .send(file_options.names)
-                                    .expect("unable to send names on channel after loading");
-                            }
-                            Err(err) => {
-                                file_opened = false;
-                                log::error!("failed opening {:?}: {:?}", fp, err);
-                            }
-                        };
-                    }
-                    _ => {
                         file_opened = false;
-                        log::error!("file not supported: {:?} \n Close the file to connect to a spectrometer or open another file.", fp);
-                        continue;
+                    }
+                } else {
+                    file_opened = false;
+                }
+            }
+            recv(save_rx) -> msg => {
+                if let Ok(csv_options) = msg {
+                    match save_to_csv(&data, &csv_options) {
+                        Ok(_) => {
+                            log::info!("saved data file to {:?} ", csv_options.file_path);
+                        }
+                        Err(e) => {
+                            log::error!(
+                                "failed to save file to {:?}: {:?}",
+                                csv_options.file_path,
+                                e
+                            );
+                        }
                     }
                 }
-            } else {
-                file_opened = false;
             }
-        } else {
-            file_opened = false;
-        }
-
-        if let Ok(mut write_guard) = data_lock.write() {
-            *write_guard = data.clone();
-        }
-
-        if let Ok(csv_options) = save_rx.try_recv() {
-            match save_to_csv(&data, &csv_options) {
-                Ok(_) => {
-                    log::info!("saved data file to {:?} ", csv_options.file_path);
-                }
-                Err(e) => {
-                    log::error!(
-                        "failed to save file to {:?}: {:?}",
-                        csv_options.file_path,
-                        e
-                    );
-                }
+            default(Duration::from_millis(10)) => {
+                // occasionally push data to GUI
             }
         }
     }
@@ -169,17 +272,20 @@ fn main() {
 
     let device_lock = Arc::new(RwLock::new(Device::default()));
     let devices_lock = Arc::new(RwLock::new(vec![gui_settings.device.clone()]));
-    let data_lock = Arc::new(RwLock::new(DataContainer::default()));
+    let data_lock = Arc::new(RwLock::new(GuiOutputDataContainer::default()));
     let connected_lock = Arc::new(RwLock::new(false));
 
-    let (save_tx, save_rx): (Sender<FileOptions>, Receiver<FileOptions>) = mpsc::channel();
-    let (load_tx, load_rx): (Sender<PathBuf>, Receiver<PathBuf>) = mpsc::channel();
+    let (save_tx, save_rx): (Sender<FileOptions>, Receiver<FileOptions>) =
+        crossbeam_channel::unbounded();
+    let (load_tx, load_rx): (Sender<PathBuf>, Receiver<PathBuf>) = crossbeam_channel::unbounded();
     let (loaded_names_tx, loaded_names_rx): (Sender<Vec<String>>, Receiver<Vec<String>>) =
-        mpsc::channel();
-    let (send_tx, send_rx): (Sender<String>, Receiver<String>) = mpsc::channel();
-    let (clear_tx, clear_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
-    let (raw_data_tx, raw_data_rx): (Sender<Packet>, Receiver<Packet>) = mpsc::channel();
-    let (sync_tx, sync_rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
+        crossbeam_channel::unbounded();
+    let (send_tx, send_rx): (Sender<String>, Receiver<String>) = crossbeam_channel::unbounded();
+    let (gui_cmd_tx, gui_cmd_rx): (Sender<GuiCommand>, Receiver<GuiCommand>) =
+        crossbeam_channel::unbounded();
+    let (raw_data_tx, raw_data_rx): (Sender<Packet>, Receiver<Packet>) =
+        crossbeam_channel::unbounded();
+    let (sync_tx, sync_rx): (Sender<bool>, Receiver<bool>) = crossbeam_channel::unbounded();
 
     let serial_device_lock = device_lock.clone();
     let serial_devices_lock = devices_lock.clone();
@@ -205,7 +311,7 @@ fn main() {
             save_rx,
             load_rx,
             loaded_names_tx,
-            clear_rx,
+            gui_cmd_rx,
         );
     });
 
@@ -261,7 +367,7 @@ fn main() {
                 load_tx,
                 loaded_names_rx,
                 send_tx,
-                clear_tx,
+                gui_cmd_tx,
             )))
         }),
     ) {
