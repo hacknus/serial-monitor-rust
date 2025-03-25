@@ -27,6 +27,7 @@ self_update = { git = "https://github.com/hacknus/self_update", features = ["arc
 tempfile = { version = "3.15", optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "http2"], optional = true }
 semver = { version = "1.0.24", optional = true }
+crossbeam-channel = "0.5.14"
 
 [features]
 self_update = ["dep:self_update", "tempfile", "reqwest", "semver"]
@@ -52,3 +53,6 @@ dbg-name = false
 name = "Serial Monitor"
 no-build = false
 output = "target/wix/SerialMonitorInstaller.msi"
+
+[profile.release]
+debug = true

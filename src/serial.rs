@@ -1,9 +1,9 @@
+use crossbeam_channel::{Receiver, Sender};
 use eframe::egui::Color32;
 use preferences::Preferences;
 use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use std::io::{BufRead, BufReader};
-use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 

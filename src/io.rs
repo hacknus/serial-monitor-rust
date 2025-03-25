@@ -17,7 +17,7 @@ pub struct FileOptions {
 pub fn open_from_csv(
     data: &mut DataContainer,
     csv_options: &mut FileOptions,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<Vec<String>, Box<dyn Error>> {
     let mut rdr = ReaderBuilder::new()
         .has_headers(true)
         .from_path(&csv_options.file_path)?;
@@ -34,6 +34,8 @@ pub fn open_from_csv(
     data.absolute_time.clear();
     data.time.clear();
     data.dataset = vec![vec![]; csv_options.names.len()];
+
+    let mut raw_data = vec![];
 
     // Read and parse each record in the CSV
     for result in rdr.records() {
@@ -65,11 +67,14 @@ pub fn open_from_csv(
                 return Err("Unexpected number of data columns in the CSV".into());
             }
         }
+        // Join the row into a single string with ", " as delimiter and push to raw_data
+        let row = record.iter().collect::<Vec<_>>().join(", ");
+        raw_data.push(row + "\n");
     }
 
     data.loaded_from_file = true;
 
-    Ok(())
+    Ok(raw_data)
 }
 
 pub fn save_to_csv(data: &DataContainer, csv_options: &FileOptions) -> Result<(), Box<dyn Error>> {
