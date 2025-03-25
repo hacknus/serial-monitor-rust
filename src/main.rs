@@ -15,7 +15,6 @@ use eframe::{egui, icon_data};
 use egui_plot::PlotPoint;
 use preferences::AppInfo;
 use std::collections::HashMap;
-use std::cmp::max;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -61,7 +60,10 @@ fn split(payload: &str) -> (Option<String>, Vec<f32>) {
         let identifier = first_entry.to_string();
         let values: Vec<f32> = split_data[1..]
             .iter()
-            .flat_map(|x| x.parse::<f32>())
+            .filter_map(|x| match x.trim().parse::<f32>() {
+                Ok(val) => Some(val),
+                Err(_) => None,
+            })
             .collect();
         (Some(identifier), values)
     }
@@ -99,6 +101,7 @@ fn main_thread(
     let mut data = DataContainer::default();
     let mut identifier_map: HashMap<String, usize> = HashMap::new();
     let mut failed_format_counter = 0;
+    let mut failed_key_counter = 0;
 
     let mut show_timestamps = true;
     let mut show_sent_cmds = true;
@@ -123,97 +126,141 @@ fn main_thread(
                                 }
                             }
 
-                            if packet.direction == SerialDirection::Send {
-                                continue;
-                            }
+                            if packet.direction == SerialDirection::Receive {
 
-                            let (identifier_opt, values) = split(&packet.payload);
-                            if data.dataset.is_empty() || failed_format_counter > 10 {
-                                // resetting dataset
-                                data.time = vec![];
-                                data.dataset = vec![vec![]; values.len()];
-                                if let Ok(mut gui_data) = data_lock.write() {
-                                    gui_data.plots = (0..values.len())
-                                        .map(|i| (format!("Column {i}"), vec![]))
-                                        .collect();
-                                }
-                                failed_format_counter = 0;
-                                // log::error!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
-                            } else if split_data.len() == data.dataset.len() {
-                                // appending data
-                                for (i, set) in data.dataset.iter_mut().enumerate() {
-                                    set.push(split_data[i]);
-                                    failed_format_counter = 0;
-                                    identifier_map = HashMap::new();
-                                }
+                                let (identifier_opt, values) = split(&packet.payload);
 
-                                data.time.push(packet.relative_time);
-                                data.absolute_time.push(packet.absolute_time);
-
-                                // appending data for GUI thread
-                                if let Ok(mut gui_data) = data_lock.write() {
-                                    // append plot-points
-                                    for ((_label, graph), data_i) in
-                                        gui_data.plots.iter_mut().zip(&data.dataset)
-                                    {
-                                        if data.time.len() == data_i.len() {
-                                            if let Some(y) = data_i.last() {
-                                                graph.push(PlotPoint {
-                                                    x: packet.relative_time / 1000.0,
-                                                    y: *y as f64,
-                                                });
-                                            }
-                                        }
-                                    }
-                                }
-                                if data.time.len() != data.dataset[0].len() {
+                                if data.dataset.is_empty() || failed_format_counter > 10 {
                                     // resetting dataset
-                                    data.time = vec![];
-                                    data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                                    data.time = vec![vec![]; values.len()];
+                                    data.dataset = vec![vec![]; values.len()];
                                     if let Ok(mut gui_data) = data_lock.write() {
-                                        gui_data.prints = vec!["".to_string(); max(split_data.len(), 1)];
-                                        gui_data.plots = (0..max(split_data.len(), 1))
+                                        gui_data.plots = (0..values.len())
                                             .map(|i| (format!("Column {i}"), vec![]))
                                             .collect();
                                     }
+                                    failed_format_counter = 0;
+                                    // log::error!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
                                 }
-                            } else {
-                                // not same length
-                                failed_format_counter += 1;
-                                // log::error!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
-                            }
-
-                            if let Some(identifier) = identifier_opt {
-                                let index =
-                                    *identifier_map.entry(identifier.clone()).or_insert_with(|| {
-                                        let new_index = data.dataset.len();
-                                        for _ in 0..values.len() {
-                                            data.dataset.push(vec![]); // Ensure space for new identifier
-                                            data.time.push(vec![]); // Ensure time tracking for this identifier
-                                        }
-                                        new_index
-                                    });
-
-                                // // Ensure dataset and time vectors have enough columns
-                                // while data.dataset.len() <= index {
-                                //     data.dataset.push(vec![]);
-                                //     data.time.push(vec![]);
+                                // else if split_data.len() == data.dataset.len() {
+                                //     // appending data
+                                //     for (i, set) in data.dataset.iter_mut().enumerate() {
+                                //         set.push(split_data[i]);
+                                //         failed_format_counter = 0;
+                                //         identifier_map = HashMap::new();
+                                //     }
+                                //
+                                //     data.time.push(packet.relative_time);
+                                //     data.absolute_time.push(packet.absolute_time);
+                                //
+                                //     // appending data for GUI thread
+                                //     if let Ok(mut gui_data) = data_lock.write() {
+                                //         // append plot-points
+                                //         for ((_label, graph), data_i) in
+                                //             gui_data.plots.iter_mut().zip(&data.dataset)
+                                //         {
+                                //             if data.time.len() == data_i.len() {
+                                //                 if let Some(y) = data_i.last() {
+                                //                     graph.push(PlotPoint {
+                                //                         x: packet.relative_time / 1000.0,
+                                //                         y: *y as f64,
+                                //                     });
+                                //                 }
+                                //             }
+                                //         }
+                                //     }
+                                //     if data.time.len() != data.dataset[0].len() {
+                                //         // resetting dataset
+                                //         data.time = vec![];
+                                //         data.dataset = vec![vec![]; max(split_data.len(), 1)];
+                                //         if let Ok(mut gui_data) = data_lock.write() {
+                                //             gui_data.prints = vec!["".to_string(); max(split_data.len(), 1)];
+                                //             gui_data.plots = (0..max(split_data.len(), 1))
+                                //                 .map(|i| (format!("Column {i}"), vec![]))
+                                //                 .collect();
+                                //         }
+                                //     }
+                                // } else {
+                                //     // not same length
+                                //     failed_format_counter += 1;
+                                //     // log::error!("not same length in main! length split_data = {}, length data.dataset = {}", split_data.len(), data.dataset.len())
                                 // }
 
-                                // Append values to corresponding dataset entries
-                                for (i, &value) in values.iter().enumerate() {
-                                    data.dataset[index + i].push(value);
-                                    data.time[index + i].push(packet.relative_time);
-                                }
-                            } else {
-                                // Handle unnamed datasets (pure numerical data)
-                                if values.len() == data.dataset.len() {
+                                if let Some(identifier) = identifier_opt {
+                                    if !identifier_map.contains_key(&identifier) {
+                                        failed_key_counter += 1;
+                                        if failed_key_counter < 10 && !identifier_map.is_empty() {
+                                            continue; // skip outer loop iteration
+                                        }
+
+                                        let new_index = data.dataset.len();
+                                        for _ in 0..values.len() {
+                                            data.dataset.push(vec![]);
+                                            data.time.push(vec![]);
+                                        }
+
+                                        if let Ok(mut gui_data) = data_lock.write() {
+                                            gui_data.plots = (0..data.dataset.len())
+                                                .map(|i| (format!("Column {i}"), vec![]))
+                                                .collect();
+                                        }
+
+                                        identifier_map.insert(identifier.clone(), new_index);
+                                    } else {
+                                        failed_key_counter = 0;
+                                    }
+
+                                    let index = identifier_map[&identifier];
+
+                                    // // Ensure dataset and time vectors have enough columns
+                                    // while data.dataset.len() <= index {
+                                    //     data.dataset.push(vec![]);
+                                    //     data.time.push(vec![]);
+                                    // }
+
+                                    // Append values to corresponding dataset entries
                                     for (i, &value) in values.iter().enumerate() {
-                                        data.dataset[i].push(value);
-                                        data.time[i].push(packet.relative_time);
+                                        data.dataset[index + i].push(value);
+                                        data.time[index + i].push(packet.relative_time);
+                                    }
+
+                                    if let Ok(mut gui_data) = data_lock.write() {
+                                        for( ((_label, graph), data_i), time_i) in
+                                            gui_data.plots.iter_mut().zip(&data.dataset).zip(&data.time)
+                                        {
+                                            if let (Some(y), Some(t)) = (data_i.last(), time_i.last() ){
+                                                graph.push(PlotPoint {
+                                                    x: *t / 1000.0,
+                                                    y: *y as f64,
+                                                });
+                                            }
+
+                                        }
                                     }
                                 } else {
-                                    failed_format_counter += 1;
+                                    // Handle unnamed datasets (pure numerical data)
+                                    if values.len() == data.dataset.len() {
+                                        for (i, &value) in values.iter().enumerate() {
+                                            data.dataset[i].push(value);
+                                            data.time[i].push(packet.relative_time);
+                                        }
+                                        if let Ok(mut gui_data) = data_lock.write() {
+                                            for ((_label, graph), data_i) in
+                                                gui_data.plots.iter_mut().zip(&data.dataset)
+                                            {
+                                                if data.time.len() == data_i.len() {
+                                                    if let Some(y) = data_i.last() {
+                                                        graph.push(PlotPoint {
+                                                            x: packet.relative_time / 1000.0,
+                                                            y: *y as f64,
+                                                        });
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        failed_format_counter += 1;
+                                    }
                                 }
                             }
                         }
@@ -271,7 +318,8 @@ fn main_thread(
                                             {
                                                 for (y,t) in data_i.iter().zip(data.time.iter()) {
                                                         graph.push(PlotPoint {
-                                                            x: *t / 1000.0,
+                                                            // TODO: this always takes the first time value
+                                                            x: t[0] / 1000.0,
                                                             y: *y as f64 ,
                                                         });
                                                 }

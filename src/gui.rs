@@ -454,15 +454,13 @@ impl MyApp {
                         .min_scrolled_height(serial_height - top_spacing)
                         .max_width(width)
                         .show_rows(ui, row_height, num_rows, |ui, row_range| {
-                            let content: String = row_range
+                            let content: String = self
+                                .data
+                                .prints
+                                .clone()
                                 .into_iter()
-                                .flat_map(|i| {
-                                    if self.data.prints.is_empty() {
-                                        None
-                                    } else {
-                                        Some(self.data.prints[i].clone())
-                                    }
-                                })
+                                .skip(row_range.start)
+                                .take(row_range.count())
                                 .collect();
 
                             let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
