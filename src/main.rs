@@ -17,7 +17,7 @@ use preferences::AppInfo;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::{env, thread};
 
 mod color_picker;
@@ -108,6 +108,10 @@ fn main_thread(
 
     let mut file_opened = false;
 
+    const MAX_FPS: u32 = 24;
+    let frame_duration = Duration::from_secs_f64(1.0 / MAX_FPS as f64);
+    let mut last_sent = Instant::now();
+
     loop {
         select! {
             recv(raw_data_rx) -> packet => {
@@ -115,7 +119,10 @@ fn main_thread(
                     if !file_opened {
                         data.loaded_from_file = false;
                         if !packet.payload.is_empty() {
-                            sync_tx.send(true).expect("unable to send sync tx");
+                             if last_sent.elapsed() >= frame_duration {
+                                sync_tx.send(true).expect("unable to send sync tx");
+                                last_sent = Instant::now();
+                            }
                             data.raw_traffic.push(packet.clone());
                             data.absolute_time.push(packet.absolute_time);
 
@@ -132,6 +139,7 @@ fn main_thread(
 
                                 if data.dataset.is_empty() || failed_format_counter > 10 {
                                     // resetting dataset
+                                    println!("resetting dataset with values: {}", values.len());
                                     data.time = vec![vec![]; values.len()];
                                     data.dataset = vec![vec![]; values.len()];
                                     if let Ok(mut gui_data) = data_lock.write() {
@@ -139,6 +147,11 @@ fn main_thread(
                                             .map(|i| (format!("Column {i}"), vec![]))
                                             .collect();
                                     }
+                                    if let Some(ref identifier) = identifier_opt {
+                                        identifier_map.insert(identifier.clone(), 0);
+                                        failed_key_counter = 0;
+                                    }
+
                                     failed_format_counter = 0;
                                     // log::error!("resetting dataset. split length = {}, length data.dataset = {}", split_data.len(), data.dataset.len());
                                 }
@@ -200,10 +213,10 @@ fn main_thread(
                                         }
 
                                         if let Ok(mut gui_data) = data_lock.write() {
-                                            gui_data.plots = (0..data.dataset.len())
-                                                .map(|i| (format!("Column {i}"), vec![]))
-                                                .collect();
+                                            gui_data.plots.push((format!("Column {new_index}"), vec![]));
                                         }
+
+                                        println!("pushing new index: {}", new_index);
 
                                         identifier_map.insert(identifier.clone(), new_index);
                                     } else {

@@ -43,25 +43,13 @@ impl Default for Packet {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct DataContainer {
     pub time: Vec<Vec<f64>>,
     pub absolute_time: Vec<f64>,
     pub dataset: Vec<Vec<f32>>,
     pub raw_traffic: Vec<Packet>,
     pub loaded_from_file: bool,
-}
-
-impl Default for DataContainer {
-    fn default() -> DataContainer {
-        DataContainer {
-            time: vec![vec![]],
-            absolute_time: vec![],
-            dataset: vec![vec![]],
-            raw_traffic: vec![],
-            loaded_from_file: false,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Default)]

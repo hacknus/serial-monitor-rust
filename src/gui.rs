@@ -4,7 +4,7 @@ use std::cmp::max;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::color_picker::{color_picker_widget, color_picker_window, COLORS};
 use crate::custom_highlighter::highlight_impl;
@@ -125,7 +125,6 @@ pub struct MyApp {
     plot_serial_display_ratio: f32,
     picked_path: PathBuf,
     plot_location: Option<egui::Rect>,
-    data: GuiOutputDataContainer,
     file_dialog_state: FileDialogState,
     file_dialog: FileDialog,
     information_panel: InformationPanel,
@@ -210,7 +209,6 @@ impl MyApp {
             picked_path: PathBuf::new(),
             device: "".to_string(),
             old_device: "".to_string(),
-            data: GuiOutputDataContainer::default(),
             file_dialog_state: FileDialogState::None,
             file_dialog,
             information_panel: InformationPanel::default().add_file_preview("csv", |ui, item| {
@@ -316,206 +314,210 @@ impl MyApp {
                 ui.add_space(left_border);
                 ui.vertical(|ui| {
                     if let Ok(gui_data) = self.data_lock.read() {
-                        self.data = gui_data.clone();
                         self.labels = gui_data.plots.iter().map(|d| d.0.clone()).collect();
                         self.colors = (0..max(self.labels.len(), 1))
                             .map(|i| COLORS[i % COLORS.len()])
                             .collect();
-                        self.color_vals = (0..max(self.data.plots.len(), 1)).map(|_| 0.0).collect();
-                    }
+                        self.color_vals = (0..max(gui_data.plots.len(), 1)).map(|_| 0.0).collect();
 
-                    // TODO what about self.data.loaded_from_file
-                    if self.file_opened {
-                        if let Ok(labels) = self.load_names_rx.try_recv() {
-                            self.labels = labels;
-                            self.colors = (0..max(self.labels.len(), 1))
-                                .map(|i| COLORS[i % COLORS.len()])
-                                .collect();
-                            self.color_vals = (0..max(self.labels.len(), 1)).map(|_| 0.0).collect();
-                        }
-                    }
-                    if self.serial_devices.number_of_plots[self.device_idx] > 0 {
-                        if self.data.plots.len() != self.labels.len() && !self.file_opened {
-                            // self.labels = (0..max(self.data.dataset.len(), 1))
-                            //     .map(|i| format!("Column {i}"))
-                            //     .collect();
-                            self.colors = (0..max(self.data.plots.len(), 1))
-                                .map(|i| COLORS[i % COLORS.len()])
-                                .collect();
-                            self.color_vals =
-                                (0..max(self.data.plots.len(), 1)).map(|_| 0.0).collect();
-                        }
-
-                        // offloaded to main thread
-
-                        // for (graph, (timepoints, datapoints)) in graphs
-                        //     .iter_mut()
-                        //     .zip(self.data.time.iter().zip(self.data.dataset.iter()))
-                        // {
-                        //     for (time, data) in timepoints
-                        //         .iter()
-                        //         .skip(window)
-                        //         .zip(datapoints.iter().skip(window))
-                        //     {
-                        //         graph.push(PlotPoint {
-                        //             x: *time / 1000.0,
-                        //             y: *data as f64,
-                        //         });
-                        //     }
-                        // }
-
-                        let window = if let Some(first_entry) = self.data.plots.first() {
-                            first_entry.1.len().saturating_sub(self.plotting_range)
-                        } else {
-                            0
-                        };
-
-                        let t_fmt = |x: GridMark, _range: &RangeInclusive<f64>| {
-                            format!("{:4.2} s", x.value)
-                        };
-
-                        let plots_ui = ui.vertical(|ui| {
-                            for graph_idx in 0..self.serial_devices.number_of_plots[self.device_idx]
-                            {
-                                if graph_idx != 0 {
-                                    ui.separator();
-                                }
-
-                                let signal_plot = Plot::new(format!("data-{graph_idx}"))
-                                    .height(plot_height)
-                                    .width(width)
-                                    .legend(Legend::default())
-                                    .x_grid_spacer(log_grid_spacer(10))
-                                    .y_grid_spacer(log_grid_spacer(10))
-                                    .x_axis_formatter(t_fmt);
-
-                                let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
-                                    for (i, (_label, graph)) in self.data.plots.iter().enumerate() {
-                                        // this check needs to be here for when we change devices (not very elegant)
-                                        if i < self.labels.len() {
-                                            signal_plot_ui.line(
-                                                Line::new(PlotPoints::Owned(
-                                                    graph[window..].to_vec(),
-                                                ))
-                                                .name(&self.labels[i])
-                                                .color(self.colors[i]),
-                                            );
-                                        }
-                                    }
-                                });
-
-                                self.plot_location = Some(plot_inner.response.rect);
+                        // TODO what about self.data.loaded_from_file
+                        if self.file_opened {
+                            if let Ok(labels) = self.load_names_rx.try_recv() {
+                                self.labels = labels;
+                                self.colors = (0..max(self.labels.len(), 1))
+                                    .map(|i| COLORS[i % COLORS.len()])
+                                    .collect();
+                                self.color_vals =
+                                    (0..max(self.labels.len(), 1)).map(|_| 0.0).collect();
                             }
-                            let separator_response = ui.separator();
-                            let separator = ui
-                                .interact(
-                                    separator_response.rect,
-                                    separator_response.id,
-                                    Sense::click_and_drag(),
-                                )
-                                .on_hover_cursor(egui::CursorIcon::ResizeVertical);
-
-                            let resize_y = separator.drag_delta().y;
-
-                            if separator.double_clicked() {
-                                self.plot_serial_display_ratio = 0.45;
+                        }
+                        if self.serial_devices.number_of_plots[self.device_idx] > 0 {
+                            if gui_data.plots.len() != self.labels.len() && !self.file_opened {
+                                // self.labels = (0..max(self.data.dataset.len(), 1))
+                                //     .map(|i| format!("Column {i}"))
+                                //     .collect();
+                                self.colors = (0..max(gui_data.plots.len(), 1))
+                                    .map(|i| COLORS[i % COLORS.len()])
+                                    .collect();
+                                self.color_vals =
+                                    (0..max(gui_data.plots.len(), 1)).map(|_| 0.0).collect();
                             }
-                            self.plot_serial_display_ratio = (self.plot_serial_display_ratio
-                                + resize_y / panel_height)
-                                .clamp(0.1, 0.9);
 
-                            ui.add_space(top_spacing);
-                        });
-                        plot_ui_heigh = plots_ui.response.rect.height();
-                    } else {
-                        plot_ui_heigh = 0.0;
-                    }
+                            // offloaded to main thread
 
-                    let serial_height =
-                        panel_height - plot_ui_heigh - left_border * 2.0 - top_spacing;
+                            // for (graph, (timepoints, datapoints)) in graphs
+                            //     .iter_mut()
+                            //     .zip(self.data.time.iter().zip(self.data.dataset.iter()))
+                            // {
+                            //     for (time, data) in timepoints
+                            //         .iter()
+                            //         .skip(window)
+                            //         .zip(datapoints.iter().skip(window))
+                            //     {
+                            //         graph.push(PlotPoint {
+                            //             x: *time / 1000.0,
+                            //             y: *data as f64,
+                            //         });
+                            //     }
+                            // }
 
-                    let num_rows = self.data.prints.len();
-                    let row_height = ui.text_style_height(&egui::TextStyle::Body);
-
-                    let color = if self.gui_conf.dark_mode {
-                        Color32::WHITE
-                    } else {
-                        Color32::BLACK
-                    };
-
-                    let mut text_edit_size = ui.available_size();
-                    text_edit_size.x = width;
-                    egui::ScrollArea::vertical()
-                        .id_salt("serial_output")
-                        .auto_shrink([false; 2])
-                        .stick_to_bottom(true)
-                        .enable_scrolling(true)
-                        .max_height(serial_height - top_spacing)
-                        .min_scrolled_height(serial_height - top_spacing)
-                        .max_width(width)
-                        .show_rows(ui, row_height, num_rows, |ui, row_range| {
-                            let content: String = self
-                                .data
-                                .prints
-                                .clone()
-                                .into_iter()
-                                .skip(row_range.start)
-                                .take(row_range.count())
-                                .collect();
-
-                            let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
-                                let mut layout_job = highlight_impl(
-                                    ui.ctx(),
-                                    string,
-                                    self.serial_devices.highlight_labels[self.device_idx].clone(),
-                                    Color32::from_rgb(155, 164, 167),
-                                )
-                                .unwrap();
-                                layout_job.wrap.max_width = wrap_width;
-                                ui.fonts(|f| f.layout_job(layout_job))
+                            let window = if let Some(first_entry) = gui_data.plots.first() {
+                                first_entry.1.len().saturating_sub(self.plotting_range)
+                            } else {
+                                0
                             };
 
-                            ui.add(
-                                egui::TextEdit::multiline(&mut content.as_str())
-                                    .font(DEFAULT_FONT_ID) // for cursor height
-                                    .lock_focus(true)
-                                    .text_color(color)
-                                    .desired_width(width)
-                                    .layouter(&mut layouter),
-                            );
-                        });
-                    ui.horizontal(|ui| {
-                        let cmd_line = ui.add(
-                            egui::TextEdit::singleline(&mut self.command)
-                                .desired_width(width - 50.0)
-                                .lock_focus(true)
-                                .code_editor(),
-                        );
-                        let cmd_has_lost_focus = cmd_line.lost_focus();
-                        let key_pressed = ui.input(|i| i.key_pressed(egui::Key::Enter));
-                        if (key_pressed && cmd_has_lost_focus) || ui.button("Send").clicked() {
-                            // send command
-                            self.history.push(self.command.clone());
-                            self.index = self.history.len() - 1;
-                            let eol = self.eol.replace("\\r", "\r").replace("\\n", "\n");
-                            if let Err(err) = self.send_tx.send(self.command.clone() + &eol) {
-                                log::error!("send_tx thread send failed: {:?}", err);
-                            }
-                            // stay in focus!
-                            cmd_line.request_focus();
-                        }
-                    });
+                            let t_fmt = |x: GridMark, _range: &RangeInclusive<f64>| {
+                                format!("{:4.2} s", x.value)
+                            };
 
-                    if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
-                        self.index = self.index.saturating_sub(1);
-                        if !self.history.is_empty() {
-                            self.command = self.history[self.index].clone();
+                            let plots_ui = ui.vertical(|ui| {
+                                for graph_idx in
+                                    0..self.serial_devices.number_of_plots[self.device_idx]
+                                {
+                                    if graph_idx != 0 {
+                                        ui.separator();
+                                    }
+
+                                    let signal_plot = Plot::new(format!("data-{graph_idx}"))
+                                        .height(plot_height)
+                                        .width(width)
+                                        .legend(Legend::default())
+                                        .x_grid_spacer(log_grid_spacer(10))
+                                        .y_grid_spacer(log_grid_spacer(10))
+                                        .x_axis_formatter(t_fmt);
+
+                                    let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
+                                        for (i, (_label, graph)) in
+                                            gui_data.plots.iter().enumerate()
+                                        {
+                                            // this check needs to be here for when we change devices (not very elegant)
+                                            if i < self.labels.len() {
+                                                signal_plot_ui.line(
+                                                    Line::new(PlotPoints::Owned(
+                                                        graph[window..].to_vec(),
+                                                    ))
+                                                    .name(&self.labels[i])
+                                                    .color(self.colors[i]),
+                                                );
+                                            }
+                                        }
+                                    });
+
+                                    self.plot_location = Some(plot_inner.response.rect);
+                                }
+                                let separator_response = ui.separator();
+                                let separator = ui
+                                    .interact(
+                                        separator_response.rect,
+                                        separator_response.id,
+                                        Sense::click_and_drag(),
+                                    )
+                                    .on_hover_cursor(egui::CursorIcon::ResizeVertical);
+
+                                let resize_y = separator.drag_delta().y;
+
+                                if separator.double_clicked() {
+                                    self.plot_serial_display_ratio = 0.45;
+                                }
+                                self.plot_serial_display_ratio = (self.plot_serial_display_ratio
+                                    + resize_y / panel_height)
+                                    .clamp(0.1, 0.9);
+
+                                ui.add_space(top_spacing);
+                            });
+                            plot_ui_heigh = plots_ui.response.rect.height();
+                        } else {
+                            plot_ui_heigh = 0.0;
                         }
-                    }
-                    if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
-                        self.index = std::cmp::min(self.index + 1, self.history.len() - 1);
-                        if !self.history.is_empty() {
-                            self.command = self.history[self.index].clone();
+
+                        let serial_height =
+                            panel_height - plot_ui_heigh - left_border * 2.0 - top_spacing;
+
+                        let num_rows = gui_data.prints.len();
+                        let row_height = ui.text_style_height(&egui::TextStyle::Body);
+
+                        let color = if self.gui_conf.dark_mode {
+                            Color32::WHITE
+                        } else {
+                            Color32::BLACK
+                        };
+
+                        let mut text_edit_size = ui.available_size();
+                        text_edit_size.x = width;
+                        egui::ScrollArea::vertical()
+                            .id_salt("serial_output")
+                            .auto_shrink([false; 2])
+                            .stick_to_bottom(true)
+                            .enable_scrolling(true)
+                            .max_height(serial_height - top_spacing)
+                            .min_scrolled_height(serial_height - top_spacing)
+                            .max_width(width)
+                            .show_rows(ui, row_height, num_rows, |ui, row_range| {
+                                let content: String = gui_data
+                                    .prints
+                                    .clone()
+                                    .into_iter()
+                                    .skip(row_range.start)
+                                    .take(row_range.count())
+                                    .collect();
+
+                                let mut layouter =
+                                    |ui: &egui::Ui, string: &str, wrap_width: f32| {
+                                        let mut layout_job = highlight_impl(
+                                            ui.ctx(),
+                                            string,
+                                            self.serial_devices.highlight_labels[self.device_idx]
+                                                .clone(),
+                                            Color32::from_rgb(155, 164, 167),
+                                        )
+                                        .unwrap();
+                                        layout_job.wrap.max_width = wrap_width;
+                                        ui.fonts(|f| f.layout_job(layout_job))
+                                    };
+
+                                ui.add(
+                                    egui::TextEdit::multiline(&mut content.as_str())
+                                        .font(DEFAULT_FONT_ID) // for cursor height
+                                        .lock_focus(true)
+                                        .text_color(color)
+                                        .desired_width(width)
+                                        .layouter(&mut layouter),
+                                );
+                            });
+                        ui.horizontal(|ui| {
+                            let cmd_line = ui.add(
+                                egui::TextEdit::singleline(&mut self.command)
+                                    .desired_width(width - 50.0)
+                                    .lock_focus(true)
+                                    .code_editor(),
+                            );
+                            let cmd_has_lost_focus = cmd_line.lost_focus();
+                            let key_pressed = ui.input(|i| i.key_pressed(egui::Key::Enter));
+                            if (key_pressed && cmd_has_lost_focus) || ui.button("Send").clicked() {
+                                // send command
+                                self.history.push(self.command.clone());
+                                self.index = self.history.len() - 1;
+                                let eol = self.eol.replace("\\r", "\r").replace("\\n", "\n");
+                                if let Err(err) = self.send_tx.send(self.command.clone() + &eol) {
+                                    log::error!("send_tx thread send failed: {:?}", err);
+                                }
+                                // stay in focus!
+                                cmd_line.request_focus();
+                            }
+                        });
+
+                        if ui.input(|i| i.key_pressed(egui::Key::ArrowUp)) {
+                            self.index = self.index.saturating_sub(1);
+                            if !self.history.is_empty() {
+                                self.command = self.history[self.index].clone();
+                            }
+                        }
+                        if ui.input(|i| i.key_pressed(egui::Key::ArrowDown)) {
+                            self.index = std::cmp::min(self.index + 1, self.history.len() - 1);
+                            if !self.history.is_empty() {
+                                self.command = self.history[self.index].clone();
+                            }
                         }
                     }
                 });
@@ -580,12 +582,16 @@ impl MyApp {
                 // let selected_new_device = response.changed();  //somehow this does not work
                 // if selected_new_device {
                 if old_name != self.device {
-                    if !self.data.prints.is_empty() {
-                        self.show_warning_window = WindowFeedback::Waiting;
-                        self.old_device = old_name;
-                    } else {
-                        self.show_warning_window = WindowFeedback::Clear;
-                    }
+                    // TODO: check this here
+
+                    // if !gui_data.prints.is_empty() {
+                    //     self.show_warning_window = WindowFeedback::Waiting;
+                    //     self.old_device = old_name;
+                    // } else {
+                    //     self.show_warning_window = WindowFeedback::Clear;
+                    // }
+
+                    self.show_warning_window = WindowFeedback::Clear;
                 }
             });
             match self.show_warning_window {
@@ -625,7 +631,6 @@ impl MyApp {
                         .send(GuiCommand::Clear)
                         .expect("failed to send clear after choosing new device");
                     // need to clear the data here such that we don't get errors in the gui (plot)
-                    self.data = GuiOutputDataContainer::default();
                     self.show_warning_window = WindowFeedback::None;
                 }
                 WindowFeedback::Cancel => {
@@ -922,7 +927,6 @@ impl MyApp {
                 log::error!("clear_tx thread send failed: {:?}", err);
             }
             // need to clear the data here in order to prevent errors in the gui (plot)
-            self.data = GuiOutputDataContainer::default();
             // self.names_tx.send(self.serial_devices.labels[self.device_idx].clone()).expect("Failed to send names");
         }
         ui.add_space(5.0);
