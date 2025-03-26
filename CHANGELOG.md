@@ -8,6 +8,8 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 * removed many `.clone()` calls to reduce CPU load
 * Fixed sample rate / disconnect issue
 * Releases are now linked to libssl 3.4.1 on linux (built on Ubuntu 22.04)
+* Implement smarter data parser that also can read and assign multi-line data-packets
+* ...
 
 ## 0.3.4
 
