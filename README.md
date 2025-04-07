@@ -31,19 +31,17 @@ Currently [cargo bundle](https://github.com/burtonageo/cargo-bundle) only suppor
 bundles [see github issue](https://github.com/burtonageo/cargo-bundle/issues/77).
 As a work-around we can use [cargo wix](https://github.com/volks73/cargo-wix) to create a windows installer.
 
-#### Ubuntu
-
-```sh
-sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
-cargo install cargo-bundle
-cargo bundle
-```
-#### Debian
+#### Debian & Ubuntu
 
 ```sh
 sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev libudev-dev
 cargo install cargo-bundle
 cargo bundle
+```
+
+### Fedora Rawhide
+```sh
+dnf install clang clang-devel clang-tools-extra libxkbcommon-devel pkg-config openssl-devel libxcb-devel gtk3-devel atk fontconfig-devel libusbx-devel
 ```
 
 #### macOS
