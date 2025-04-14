@@ -5,6 +5,7 @@ extern crate csv;
 extern crate preferences;
 extern crate serde;
 
+use crate::crc::calculate_crc;
 use crate::data::{DataContainer, GuiOutputDataContainer, Packet, SerialDirection};
 use crate::gui::{load_gui_settings, GuiCommand, MyApp, RIGHT_PANEL_WIDTH};
 use crate::io::{open_from_csv, save_to_csv, FileOptions};
@@ -21,6 +22,7 @@ use std::time::Duration;
 use std::{env, thread};
 
 mod color_picker;
+mod crc;
 mod custom_highlighter;
 mod data;
 mod gui;
@@ -49,22 +51,51 @@ fn split(payload: &str) -> Vec<f32> {
         .collect()
 }
 
-fn console_text(show_timestamps: bool, show_sent_cmds: bool, packet: &Packet) -> Option<String> {
-    match (show_sent_cmds, show_timestamps, &packet.direction) {
-        (true, true, _) => Some(format!(
+fn console_text(
+    show_timestamps: bool,
+    show_sent_cmds: bool,
+    show_crc: bool,
+    packet: &Packet,
+) -> Option<String> {
+    match (show_sent_cmds, show_timestamps, show_crc, &packet.direction) {
+        (true, true, true, _) => Some(format!(
+            "[{}] t + {:.3}s: {}, [CRC: {:02X}]\n",
+            packet.direction,
+            packet.relative_time as f32 / 1000.0,
+            packet.payload,
+            calculate_crc(&packet.payload)
+        )),
+        (true, true, false, _) => Some(format!(
             "[{}] t + {:.3}s: {}\n",
             packet.direction,
             packet.relative_time as f32 / 1000.0,
             packet.payload
         )),
-        (true, false, _) => Some(format!("[{}]: {}\n", packet.direction, packet.payload)),
-        (false, true, SerialDirection::Receive) => Some(format!(
+        (true, false, true, _) => Some(format!("[{}]: {}\n", packet.direction, packet.payload)),
+        (true, false, false, _) => Some(format!(
+            "[{}]: {}, [CRC: {:02X}]\n",
+            packet.direction,
+            packet.payload,
+            calculate_crc(&packet.payload)
+        )),
+        (false, true, false, SerialDirection::Receive) => Some(format!(
             "t + {:.3}s: {}\n",
             packet.relative_time as f32 / 1000.0,
             packet.payload
         )),
-        (false, false, SerialDirection::Receive) => Some(packet.payload.clone() + "\n"),
-        (_, _, _) => None,
+        (false, true, true, SerialDirection::Receive) => Some(format!(
+            "t + {:.3}s: {}, [CRC: {:02X}\n",
+            packet.relative_time as f32 / 1000.0,
+            packet.payload,
+            calculate_crc(&packet.payload)
+        )),
+        (false, false, false, SerialDirection::Receive) => Some(packet.payload.clone() + "\n"),
+        (false, false, true, SerialDirection::Receive) => Some(format!(
+            "{}, [CRC: {:02X}\n",
+            packet.payload,
+            calculate_crc(&packet.payload)
+        )),
+        (_, _, _, _) => None,
     }
 }
 
@@ -83,6 +114,7 @@ fn main_thread(
 
     let mut show_timestamps = true;
     let mut show_sent_cmds = true;
+    let mut show_crc = true;
 
     let mut file_opened = false;
 
@@ -95,9 +127,8 @@ fn main_thread(
                         if !packet.payload.is_empty() {
                             sync_tx.send(true).expect("unable to send sync tx");
                             data.raw_traffic.push(packet.clone());
-
                             if let Ok(mut gui_data) = data_lock.write() {
-                                if let Some(text) = console_text(show_timestamps, show_sent_cmds, &packet) {
+                                if let Some(text) = console_text(show_timestamps, show_sent_cmds, show_crc, &packet) {
                                     // append prints
                                     gui_data.prints.push(text);
                                 }
@@ -175,6 +206,9 @@ fn main_thread(
                             show_timestamps = val;
                         }
                         GuiCommand::ShowSentTraffic(val) => {
+                            show_sent_cmds = val;
+                        }
+                        GuiCommand::ShowCrc(val) => {
                             show_sent_cmds = val;
                         }
                     }

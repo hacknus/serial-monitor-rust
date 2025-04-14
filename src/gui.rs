@@ -69,6 +69,7 @@ pub enum GuiCommand {
     Clear,
     ShowTimestamps(bool),
     ShowSentTraffic(bool),
+    ShowCrc(bool),
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
@@ -151,6 +152,7 @@ pub struct MyApp {
     show_color_window: ColorWindow,
     show_sent_cmds: bool,
     show_timestamps: bool,
+    show_crc: bool,
     save_raw: bool,
     show_warning_window: WindowFeedback,
     do_not_show_clear_warning: bool,
@@ -240,6 +242,7 @@ impl MyApp {
             command: "".to_string(),
             show_sent_cmds: true,
             show_timestamps: true,
+            show_crc: false,
             save_raw: false,
             eol: "\\r\\n".to_string(),
             colors: vec![COLORS[0]],
@@ -954,6 +957,19 @@ impl MyApp {
                 }
             }
             ui.label("Show Sent Commands");
+        });
+        ui.add_space(5.0);
+        ui.horizontal(|ui| {
+            if ui
+                .add(toggle(&mut self.show_crc))
+                .on_hover_text("Show CRC8 in console.")
+                .changed()
+            {
+                if let Err(err) = self.gui_cmd_tx.send(GuiCommand::ShowCrc(self.show_crc)) {
+                    log::error!("clear_tx thread send failed: {:?}", err);
+                }
+            }
+            ui.label("Show CRC8");
         });
         ui.add_space(5.0);
         ui.horizontal(|ui| {
