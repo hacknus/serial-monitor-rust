@@ -40,6 +40,7 @@ cargo bundle
 ```
 
 ### Fedora Rawhide
+
 ```sh
 dnf install clang clang-devel clang-tools-extra libxkbcommon-devel pkg-config openssl-devel libxcb-devel gtk3-devel atk fontconfig-devel libusbx-devel
 ```
@@ -49,6 +50,17 @@ dnf install clang clang-devel clang-tools-extra libxkbcommon-devel pkg-config op
 ```sh
 cargo install cargo-bundle
 cargo bundle
+```
+
+#### iOS
+
+But this is probably not useful since iOS devices do not let you access serial devices because of sandboxing.
+
+```sh
+sudo xcodebuild -license
+rustup target add aarch64-apple-ios
+cargo install cargo-bundle
+./ios-cargo ipa --ipad --release
 ```
 
 #### Windows
