@@ -114,6 +114,7 @@ pub fn serial_thread(
     let mut last_connected_device = Device::default();
 
     loop {
+        #[cfg(not(target_os = "ios"))]
         let _not_awake = keepawake::Builder::default()
             .display(false)
             .reason("Serial Connection")
@@ -155,6 +156,7 @@ pub fn serial_thread(
 
         let t_zero = Instant::now();
 
+        #[cfg(not(target_os = "ios"))]
         let _awake = keepawake::Builder::default()
             .display(true)
             .reason("Serial Connection")
