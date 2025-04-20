@@ -50,12 +50,17 @@ pub fn open_from_csv(
         let time_value = record.get(0).unwrap();
         if csv_options.save_absolute_time {
             data.absolute_time.push(time_value.parse()?);
-        } else {
-            data.time.push(time_value.parse()?);
         }
 
         // Parse the remaining columns and populate the dataset
         for (i, value) in record.iter().skip(1).enumerate() {
+            if !csv_options.save_absolute_time {
+                if let Some(time_column) = data.time.get_mut(i) {
+                    time_column.push(time_value.parse()?);
+                } else {
+                    return Err("Unexpected number of time data columns in the CSV".into());
+                }
+            }
             if let Some(dataset_column) = data.dataset.get_mut(i) {
                 dataset_column.push(value.parse()?);
             } else {
@@ -84,7 +89,8 @@ pub fn save_to_csv(data: &DataContainer, csv_options: &FileOptions) -> Result<()
         let time = if csv_options.save_absolute_time {
             data.absolute_time[j].to_string()
         } else {
-            data.time[j].to_string()
+            // TODO: this currently just takes the time value of the first entry
+            data.time[0][j].to_string()
         };
         let mut data_to_write = vec![time];
         for value in data.dataset.iter() {
@@ -119,7 +125,11 @@ pub fn save_raw(data: &DataContainer, path: &PathBuf) -> Result<(), Box<dyn Erro
     wtr.write_record(header)?;
 
     for j in 0..data.dataset[0].len() {
-        let mut data_to_write = vec![data.time[j].to_string(), data.absolute_time[j].to_string()];
+        // TODO: this currently just takes the time value of the first entry
+        let mut data_to_write = vec![
+            data.time[0][j].to_string(),
+            data.absolute_time[j].to_string(),
+        ];
         data_to_write.push(data.raw_traffic[j].payload.clone());
         wtr.write_record(&data_to_write)?;
     }

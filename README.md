@@ -89,8 +89,14 @@ cargo wix
 - [X] Automatic reconnect after device has been unplugged
 - [X] Color-picker for curves
 - [X] Open a CSV file and display data in plot
+- [X] Smart data parser, multiline packets will be correctly assigned:  
+
+    ```DATA1: 0, 1, 2, 3```  
+    ```DATA2: 1, 2, 4, 9```  
+  
+  However, when one saves the data as a CSV, only the timestamp of the fist data-packet will be saved.
+- [ ] Allow timestamp selection for CSV saving (in case of multiline data-packets) 
 - [ ] Allow to select (and copy) more than just the displayed raw traffic (also implement ctrl + A)
-- [ ] Smarter data parser
 - [ ] make serial print selectable and show corresponding datapoint in plot
 - [ ] COM-Port names on Windows (display manufacturer, name, pid or vid of device?)
 - [ ] current command entered is lost when navigating through the history
