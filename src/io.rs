@@ -57,7 +57,7 @@ pub fn open_from_csv(
         // Parse the remaining columns and populate the dataset
         for (i, value) in record.iter().skip(1).enumerate() {
             if let Some(dataset_column) = data.dataset.get_mut(i) {
-                dataset_column.push(value.parse()?);
+                dataset_column.push(value.trim().parse().unwrap_or(0.0));
             } else {
                 return Err("Unexpected number of data columns in the CSV".into());
             }
