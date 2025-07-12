@@ -203,8 +203,6 @@ fn main_thread(
 
                                             gui_data.prints = raw_data;
 
-                                            dbg!(&gui_data.prints);
-
                                             gui_data.plots = (0..data.dataset.len())
                                                 .map(|i| (file_options.names[i].to_string(), vec![]))
                                                 .collect();
