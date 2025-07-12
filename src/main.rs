@@ -8,7 +8,7 @@ extern crate serde;
 use crate::data::{DataContainer, GuiOutputDataContainer, Packet, SerialDirection};
 use crate::gui::{load_gui_settings, GuiCommand, MyApp, RIGHT_PANEL_WIDTH};
 use crate::io::{open_from_csv, save_to_csv, FileOptions};
-use crate::serial::{load_serial_settings, serial_thread, Device};
+use crate::serial::{load_serial_settings, serial_devices_thread, serial_thread, Device};
 use crossbeam_channel::{select, Receiver, Sender};
 use eframe::egui::{vec2, ViewportBuilder, Visuals};
 use eframe::{egui, icon_data};
@@ -96,9 +96,9 @@ fn main_thread(
                             sync_tx.send(true).expect("unable to send sync tx");
                             data.raw_traffic.push(packet.clone());
 
-                            if let Ok(mut gui_data) = data_lock.write() {
-                                if let Some(text) = console_text(show_timestamps, show_sent_cmds, &packet) {
-                                    // append prints
+                            if let Some(text) = console_text(show_timestamps, show_sent_cmds, &packet) {
+                                // append prints
+                                if let Ok(mut gui_data) = data_lock.write() {
                                     gui_data.prints.push(text);
                                 }
                             }
@@ -286,6 +286,12 @@ fn main() {
     let (raw_data_tx, raw_data_rx): (Sender<Packet>, Receiver<Packet>) =
         crossbeam_channel::unbounded();
     let (sync_tx, sync_rx): (Sender<bool>, Receiver<bool>) = crossbeam_channel::unbounded();
+
+    let serial_2_devices_lock = devices_lock.clone();
+
+    let _serial_devices_thread_handler = thread::spawn(|| {
+        serial_devices_thread(serial_2_devices_lock);
+    });
 
     let serial_device_lock = device_lock.clone();
     let serial_devices_lock = devices_lock.clone();

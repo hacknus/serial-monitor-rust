@@ -89,6 +89,15 @@ impl Default for Device {
     }
 }
 
+pub fn serial_devices_thread(devices_lock: Arc<RwLock<Vec<String>>>) {
+    loop {
+        if let Ok(mut write_guard) = devices_lock.write() {
+            *write_guard = available_devices();
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
+}
+
 fn serial_write(
     port: &mut BufReader<Box<dyn SerialPort>>,
     cmd: &[u8],
@@ -165,19 +174,17 @@ pub fn serial_thread(
             .create();
 
         'connected_loop: loop {
-            let devices = available_devices();
-            if let Ok(mut write_guard) = devices_lock.write() {
-                *write_guard = devices.clone();
-            }
-
-            if disconnected(&device, &devices, &device_lock, &mut last_connected_device) {
+            if disconnected(
+                &device,
+                &device_lock,
+                &devices_lock,
+                &mut last_connected_device,
+            ) {
                 break 'connected_loop;
             }
 
             perform_writes(&mut port, &send_rx, &raw_data_tx, t_zero);
             perform_reads(&mut port, &raw_data_tx, t_zero);
-
-            //std::thread::sleep(Duration::from_millis(10));
         }
         std::mem::drop(port);
     }
@@ -222,12 +229,12 @@ fn get_device(
 
 fn disconnected(
     device: &Device,
-    devices: &[String],
     device_lock: &Arc<RwLock<Device>>,
+    devices_lock: &Arc<RwLock<Vec<String>>>,
     last_connected_device: &mut Device,
 ) -> bool {
     // disconnection by button press
-    if let Ok(read_guard) = device_lock.read() {
+    if let Ok(read_guard) = device_lock.try_read() {
         if device.name != read_guard.name {
             *last_connected_device = Device::default();
             log::info!("Disconnected from serial port: {}", device.name);
@@ -235,15 +242,17 @@ fn disconnected(
         }
     }
 
-    // other types of disconnection (e.g. unplugging, power down)
-    if !devices.contains(&device.name) {
-        if let Ok(mut write_guard) = device_lock.write() {
-            write_guard.name.clear();
-        }
-        *last_connected_device = device.clone();
-        log::error!("Device has disconnected from serial port: {}", device.name);
-        return true;
-    };
+    if let Ok(devices) = devices_lock.try_read() {
+        // other types of disconnection (e.g. unplugging, power down)
+        if !devices.contains(&device.name) {
+            if let Ok(mut write_guard) = device_lock.try_write() {
+                write_guard.name.clear();
+            }
+            *last_connected_device = device.clone();
+            log::error!("Device has disconnected from serial port: {}", device.name);
+            return true;
+        };
+    }
     false
 }
 
@@ -279,7 +288,15 @@ fn perform_reads(
     let mut buf = "".to_string();
     match serial_read(port, &mut buf) {
         Ok(_) => {
-            let delimiter = if buf.contains("\r\n") { "\r\n" } else { "\0\0" };
+            let delimiter = if buf.contains("\r\n") {
+                "\r\n"
+            } else if buf.contains("\r") {
+                "\r"
+            } else if buf.contains("\n") {
+                "\n"
+            } else {
+                "\0\0"
+            };
             buf.split_terminator(delimiter).for_each(|s| {
                 let packet = Packet {
                     relative_time: Instant::now().duration_since(t_zero).as_millis() as f64,
