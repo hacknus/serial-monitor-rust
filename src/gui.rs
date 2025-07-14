@@ -1220,6 +1220,18 @@ impl MyApp {
                         egui_logger::logger_ui().show(ui);
                     });
 
+                    ctx.input(|i| {
+                        // Check if files were dropped
+                        if let Some(dropped_file) = i.raw.dropped_files.last() {
+                            let path = dropped_file.clone().path.unwrap();
+                            self.picked_path = path.to_path_buf();
+                            self.file_opened = true;
+                            if let Err(e) = self.load_tx.send(self.picked_path.clone()) {
+                                log::error!("load_tx thread send failed: {:?}", e);
+                            }
+                        }
+                    });
+
                     match self.file_dialog_state {
                         FileDialogState::Open => {
                             if let Some(path) = self
