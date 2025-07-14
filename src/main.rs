@@ -96,7 +96,12 @@ fn main_thread(
                             sync_tx.send(true).expect("unable to send sync tx");
                             data.raw_traffic.push(packet.clone());
 
-                            let text = console_text(show_timestamps, show_sent_cmds, &packet);
+                            if let Some(text) = console_text(show_timestamps, show_sent_cmds, &packet) {
+                                // append prints
+                                if let Ok(mut gui_data) = data_lock.write() {
+                                    gui_data.prints.push(text);
+                                }
+                            }
 
                             let split_data = split(&packet.payload);
                             if data.dataset.is_empty() || failed_format_counter > 10 {
@@ -104,10 +109,6 @@ fn main_thread(
                                 data.time = vec![];
                                 data.dataset = vec![vec![]; max(split_data.len(), 1)];
                                 if let Ok(mut gui_data) = data_lock.write() {
-                                    // append prints
-                                    if let Some(text) = text {
-                                        gui_data.prints.push(text);
-                                    }
                                     gui_data.plots = (0..max(split_data.len(), 1))
                                         .map(|i| (format!("Column {i}"), vec![]))
                                         .collect();
@@ -126,10 +127,6 @@ fn main_thread(
 
                                 // appending data for GUI thread
                                 if let Ok(mut gui_data) = data_lock.write() {
-                                    // append prints
-                                    if let Some(text) = text {
-                                        gui_data.prints.push(text);
-                                    }
                                     // append plot-points
                                     for ((_label, graph), data_i) in
                                         gui_data.plots.iter_mut().zip(&data.dataset)
@@ -258,7 +255,7 @@ fn main_thread(
                     }
                 }
             }
-            default(Duration::from_millis(1)) => {
+            default(Duration::from_millis(10)) => {
                 // occasionally push data to GUI
             }
         }
