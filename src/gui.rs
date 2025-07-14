@@ -17,6 +17,7 @@ use crate::update::check_update;
 use crate::FileOptions;
 use crate::{APP_INFO, PREFERENCES_KEY};
 use eframe::egui::panel::Side;
+use eframe::egui::scroll_area::ScrollSource;
 use eframe::egui::{
     Align2, CollapsingHeader, Color32, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Ui, Vec2,
 };
@@ -394,10 +395,10 @@ impl MyApp {
                                         // this check needs to be here for when we change devices (not very elegant)
                                         if i < self.labels.len() {
                                             signal_plot_ui.line(
-                                                Line::new(PlotPoints::Owned(
-                                                    graph[window..].to_vec(),
-                                                ))
-                                                .name(&self.labels[i])
+                                                Line::new(
+                                                    self.labels[i].to_string(),
+                                                    PlotPoints::Owned(graph[window..].to_vec()),
+                                                )
                                                 .color(self.colors[i]),
                                             );
                                         }
@@ -449,7 +450,7 @@ impl MyApp {
                         .id_salt("serial_output")
                         .auto_shrink([false; 2])
                         .stick_to_bottom(true)
-                        .enable_scrolling(true)
+                        .scroll_source(ScrollSource::ALL)
                         .max_height(serial_height - top_spacing)
                         .min_scrolled_height(serial_height - top_spacing)
                         .max_width(width)
@@ -465,17 +466,20 @@ impl MyApp {
                                 })
                                 .collect();
 
-                            let mut layouter = |ui: &egui::Ui, string: &str, wrap_width: f32| {
-                                let mut layout_job = highlight_impl(
-                                    ui.ctx(),
-                                    string,
-                                    self.serial_devices.highlight_labels[self.device_idx].clone(),
-                                    Color32::from_rgb(155, 164, 167),
-                                )
-                                .unwrap();
-                                layout_job.wrap.max_width = wrap_width;
-                                ui.fonts(|f| f.layout_job(layout_job))
-                            };
+                            let mut layouter =
+                                |ui: &egui::Ui, text: &dyn egui::TextBuffer, wrap_width: f32| {
+                                    let string = text.as_str();
+                                    let mut layout_job = highlight_impl(
+                                        ui.ctx(),
+                                        string,
+                                        self.serial_devices.highlight_labels[self.device_idx]
+                                            .clone(),
+                                        Color32::from_rgb(155, 164, 167),
+                                    )
+                                    .unwrap();
+                                    layout_job.wrap.max_width = wrap_width;
+                                    ui.fonts(|f| f.layout_job(layout_job))
+                                };
 
                             ui.add(
                                 egui::TextEdit::multiline(&mut content.as_str())

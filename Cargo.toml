@@ -9,11 +9,11 @@ homepage = "https://github.com/hacknus/serial-monitor-rust"
 
 [dependencies]
 csv = "1.3"
-egui_plot = "0.31"
-egui_extras = { version = "0.31", features = ["all_loaders"] }
-egui-phosphor = { version = "0.9" }
-egui-theme-switch = { git = "https://github.com/hacknus/egui-theme-switch" }
-egui_logger = { git = "https://github.com/hacknus/egui_logger" }
+egui_plot = "0.33"
+egui_extras = { version = "0.32", features = ["all_loaders"] }
+egui-phosphor = { version = "0.10" }
+egui-theme-switch = { git = "https://github.com/hacknus/egui-theme-switch", branch = "egui_0.32" }
+egui_logger = { git = "https://github.com/hacknus/egui_logger", branch = "egui_0.32" }
 egui-file-dialog = { git = "https://github.com/hacknus/egui-file-dialog", branch = "sort_by_metadata", features = ["information_view"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 preferences = { version = "2.0.0" }
@@ -28,11 +28,11 @@ semver = { version = "1.0.24", optional = true }
 crossbeam-channel = "0.5.14"
 
 [target.'cfg(not(target_os = "ios"))'.dependencies]
-eframe = { version = "0.31", features = ["persistence", "wayland", "x11"] }
+eframe = { version = "0.32", features = ["persistence", "wayland", "x11"] }
 keepawake = { version = "0.5.1" }
 # ios:
 [target.'cfg(target_os = "ios")'.dependencies]
-eframe = { version = "0.31", default-features = false, features = [
+eframe = { version = "0.32", default-features = false, features = [
     "accesskit",
     "default_fonts",
     "wgpu", # Use the wgpu rendering backend on iOS.
