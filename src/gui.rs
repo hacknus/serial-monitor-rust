@@ -123,6 +123,7 @@ pub struct MyApp {
     device_idx: usize,
     serial_devices: SerialDevices,
     plotting_range: usize,
+    max_points: usize,
     plot_serial_display_ratio: f32,
     picked_path: PathBuf,
     plot_location: Option<egui::Rect>,
@@ -237,6 +238,7 @@ impl MyApp {
             send_tx,
             gui_cmd_tx,
             plotting_range: usize::MAX,
+            max_points: 5000,
             plot_serial_display_ratio: 0.45,
             command: "".to_string(),
             show_sent_cmds: true,
@@ -390,6 +392,8 @@ impl MyApp {
                                     .y_grid_spacer(log_grid_spacer(10))
                                     .x_axis_formatter(t_fmt);
 
+                                let n = (self.data.prints.len() / self.max_points).max(1);
+
                                 let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
                                     for (i, (_label, graph)) in self.data.plots.iter().enumerate() {
                                         // this check needs to be here for when we change devices (not very elegant)
@@ -397,7 +401,14 @@ impl MyApp {
                                             signal_plot_ui.line(
                                                 Line::new(
                                                     self.labels[i].to_string(),
-                                                    PlotPoints::Owned(graph[window..].to_vec()),
+                                                    PlotPoints::Owned(
+                                                        graph
+                                                            .iter()
+                                                            .skip(window)
+                                                            .step_by(n)
+                                                            .cloned()
+                                                            .collect(),
+                                                    ),
                                                 )
                                                 .color(self.colors[i]),
                                             );
@@ -1017,6 +1028,27 @@ impl MyApp {
                     }
                 });
                 ui.end_row();
+
+
+                ui.label("Max Points [#]: ");
+
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::DragValue::new(&mut self.max_points).custom_formatter(window_fmt),
+                    )
+                        .on_hover_text(
+                            "Select the maximum number of points to be displayed in the plot. The actual displayed points will be less than this value (only every 2nd, 3rd, etc. point will be displayed).",
+                        );
+                    if ui
+                        .button("Full Dataset")
+                        .on_hover_text("Show the full dataset.")
+                        .clicked()
+                    {
+                        self.max_points = usize::MAX;
+                    }
+                });
+                ui.end_row();
+
                 ui.label("Number of plots [#]: ");
 
                 ui.horizontal(|ui| {
