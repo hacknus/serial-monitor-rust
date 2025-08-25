@@ -320,11 +320,15 @@ impl MyApp {
                 ui.vertical(|ui| {
                     if let Ok(gui_data) = self.data_lock.read() {
                         self.data = gui_data.clone();
-                        self.labels = gui_data.plots.iter().map(|d| d.0.clone()).collect();
-                        self.colors = (0..max(self.labels.len(), 1))
-                            .map(|i| COLORS[i % COLORS.len()])
-                            .collect();
-                        self.color_vals = (0..max(self.data.plots.len(), 1)).map(|_| 0.0).collect();
+                        if self.data.plots.len() != self.labels.len() {
+                            self.labels = gui_data.plots.iter().map(|d| d.0.clone()).collect();
+                        }
+                        if self.colors.len() != self.labels.len() {
+                            self.colors = (0..max(self.labels.len(), 1))
+                                .map(|i| COLORS[i % COLORS.len()])
+                                .collect();
+                            self.color_vals = (0..max(self.data.plots.len(), 1)).map(|_| 0.0).collect();
+                        }
                     }
 
                     // TODO what about self.data.loaded_from_file
