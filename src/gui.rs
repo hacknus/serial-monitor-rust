@@ -157,6 +157,7 @@ pub struct MyApp {
     show_warning_window: WindowFeedback,
     do_not_show_clear_warning: bool,
     init: bool,
+    cli_column_colors: Vec<egui::Color32>,
     #[cfg(feature = "self_update")]
     new_release: Option<Release>,
 }
@@ -176,6 +177,7 @@ impl MyApp {
         load_names_rx: Receiver<Vec<String>>,
         send_tx: Sender<String>,
         gui_cmd_tx: Sender<GuiCommand>,
+        cli_column_colors: Vec<egui::Color32>,
     ) -> Self {
         let mut file_dialog = FileDialog::default()
             //.initial_directory(PathBuf::from("/path/to/app"))
@@ -256,6 +258,7 @@ impl MyApp {
             init: false,
             show_color_window: ColorWindow::NoShow,
             file_opened: false,
+            cli_column_colors,
             #[cfg(feature = "self_update")]
             new_release: None,
             settings_window_open: false,
@@ -325,9 +328,15 @@ impl MyApp {
                         }
                         if self.colors.len() != self.labels.len() {
                             self.colors = (0..max(self.labels.len(), 1))
-                                .map(|i| COLORS[i % COLORS.len()])
+                                .map(|i| {
+                                    self.cli_column_colors
+                                        .get(i)
+                                        .copied()
+                                        .unwrap_or(COLORS[i % COLORS.len()])
+                                })
                                 .collect();
-                            self.color_vals = (0..max(self.data.plots.len(), 1)).map(|_| 0.0).collect();
+                            self.color_vals =
+                                (0..max(self.data.plots.len(), 1)).map(|_| 0.0).collect();
                         }
                     }
 

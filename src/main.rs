@@ -77,6 +77,7 @@ fn main_thread(
     load_rx: Receiver<PathBuf>,
     load_names_tx: Sender<Vec<String>>,
     gui_cmd_rx: Receiver<GuiCommand>,
+    cli_column_labels: Vec<String>,
 ) {
     // reads data from mutex, samples and saves if needed
     let mut data = DataContainer::default();
@@ -111,7 +112,7 @@ fn main_thread(
                                 data.dataset = vec![vec![]; max(split_data.len(), 1)];
                                 if let Ok(mut gui_data) = data_lock.write() {
                                     gui_data.plots = (0..max(split_data.len(), 1))
-                                        .map(|i| (format!("Column {i}"), vec![]))
+                                        .map(|i| (cli_column_labels.get(i).cloned().unwrap_or_else(|| format!("Column {i}")), vec![]))
                                         .collect();
                                 }
                                 failed_format_counter = 0;
@@ -295,6 +296,12 @@ fn parse_parity(s: &str) -> Result<serialport::Parity, String> {
     }
 }
 
+fn parse_color(s: &str) -> Result<egui::Color32, String> {
+    Ok(egui::ecolor::HexColor::from_str_without_hash(s)
+        .map_err(|e| format!("invalid color {s:?}: {e:?}"))?
+        .color())
+}
+
 #[derive(Debug, Options)]
 struct CliOptions {
     /// Serial port device to open on startup
@@ -324,6 +331,14 @@ struct CliOptions {
     /// Load data from a file instead of a serial port
     #[options(short = "F")]
     file: Option<std::path::PathBuf>,
+
+    /// Column labels, can be specified multiple times for more columns
+    #[options(no_short, long = "column")]
+    column_labels: Vec<String>,
+
+    /// Column colors (hex color without #), can be specified multiple times for more columns
+    #[options(no_short, long = "color", parse(try_from_str = "parse_color"))]
+    column_colors: Vec<egui::Color32>,
 
     help: bool,
 }
@@ -404,6 +419,7 @@ fn main() {
             load_rx,
             loaded_names_tx,
             gui_cmd_rx,
+            args.column_labels,
         );
     });
 
@@ -457,6 +473,7 @@ fn main() {
                 loaded_names_rx,
                 send_tx,
                 gui_cmd_tx,
+                args.column_colors,
             )))
         }),
     ) {
