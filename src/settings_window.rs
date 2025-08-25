@@ -2,7 +2,7 @@ use crate::gui::GuiSettingsContainer;
 #[cfg(feature = "self_update")]
 use crate::update::{check_update, update};
 use eframe::egui;
-use eframe::egui::{Align2, InnerResponse, Vec2, Visuals};
+use eframe::egui::{Align2, InnerResponse, Vec2};
 use egui_theme_switch::ThemeSwitch;
 #[cfg(feature = "self_update")]
 use self_update::restart::restart;
@@ -32,7 +32,7 @@ pub fn settings_window(
                     {
                         ui.ctx().set_theme(gui_conf.theme_preference);
                     };
-                    gui_conf.dark_mode = ui.visuals() == &Visuals::dark();
+                    gui_conf.dark_mode = ui.ctx().theme() == egui::Theme::Dark;
 
                     ui.end_row();
                     ui.end_row();

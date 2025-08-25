@@ -10,7 +10,7 @@ use crate::gui::{load_gui_settings, GuiCommand, MyApp, RIGHT_PANEL_WIDTH};
 use crate::io::{open_from_csv, save_to_csv, FileOptions};
 use crate::serial::{load_serial_settings, serial_devices_thread, serial_thread, Device};
 use crossbeam_channel::{select, Receiver, Sender};
-use eframe::egui::{vec2, ViewportBuilder, Visuals};
+use eframe::egui::{vec2, ViewportBuilder};
 use eframe::{egui, icon_data};
 use egui_plot::PlotPoint;
 use preferences::AppInfo;
@@ -349,7 +349,7 @@ fn main() {
             let mut fonts = egui::FontDefinitions::default();
             egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
             ctx.egui_ctx.set_fonts(fonts);
-            ctx.egui_ctx.set_visuals(Visuals::dark());
+            ctx.egui_ctx.set_theme(gui_settings.theme_preference);
             egui_extras::install_image_loaders(&ctx.egui_ctx);
 
             let repaint_signal = ctx.egui_ctx.clone();
