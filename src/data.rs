@@ -57,7 +57,7 @@ impl Default for DataContainer {
         DataContainer {
             time: vec![],
             absolute_time: vec![],
-            dataset: vec![vec![]],
+            dataset: vec![],
             raw_traffic: vec![],
             loaded_from_file: false,
         }
