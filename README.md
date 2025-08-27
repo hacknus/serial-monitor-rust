@@ -26,7 +26,7 @@ sudo apt-get install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev lib
 
 ### Compile from source
 
-The source code can be run using ```cargo run``` or bundled to a platform-executable using cargo bundle.  
+The source code can be run using `cargo run` or bundled to a platform-executable using cargo bundle.  
 Currently [cargo bundle](https://github.com/burtonageo/cargo-bundle) only supports linux and macOS
 bundles [see github issue](https://github.com/burtonageo/cargo-bundle/issues/77).
 As a work-around we can use [cargo wix](https://github.com/volks73/cargo-wix) to create a windows installer.
@@ -110,4 +110,4 @@ Tested on:
 - Windows 10 x86
 - ...
 
-One might have to delete the ```Cargo.lock``` file before compiling.  
+One might have to delete the `Cargo.lock` file before compiling.
