@@ -70,6 +70,39 @@ cargo install cargo-wix
 cargo wix
 ```
 
+## Commandline Arguments
+You can start the app with commandline arguments to automatically select a serial port and its settings:
+
+```text
+Usage: serial-monitor-rust [OPTIONS]
+
+Positional arguments:
+  device                   Serial port device to open on startup
+
+Optional arguments:
+  -b, --baudrate BAUDRATE  Baudrate (default=9600)
+  -d, --databits DATABITS  Data bits (5, 6, 7, default=8)
+  -f, --flow FLOW          Flow conrol (hard, soft, default=none)
+  -s, --stopbits STOPBITS  Stop bits (default=1, 2)
+  -p, --parity PARITY      Parity (odd, even, default=none)
+  -F, --file FILE          Load data from a file instead of a serial port
+  --column COLUMN-LABELS   Column labels, can be specified multiple times for more columns
+  --color COLUMN-COLORS    Column colors (hex color without #), can be specified multiple times for more columns
+  -h, --help
+```
+
+Example usage:
+
+```sh
+serial-monitor-rust /dev/ttyACM0 --baudrate 115200
+```
+
+You can also preconfigure the column settings.  The following example configures the name and color for two columns in the incoming data:
+
+```sh
+serial-monitor-rust --column Raw --color '808080' --column Temperature --color 'ff8000' /dev/ttyACM0
+```
+
 ## Features:
 
 - [X] Plotting and printing of data simultaneously
