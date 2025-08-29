@@ -26,6 +26,7 @@ tempfile = { version = "3.15", optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls", "http2"], optional = true }
 semver = { version = "1.0.24", optional = true }
 crossbeam-channel = "0.5.14"
+gumdrop = "0.8.1"
 
 [target.'cfg(not(target_os = "ios"))'.dependencies]
 eframe = { version = "0.32", features = ["persistence", "wayland", "x11"] }

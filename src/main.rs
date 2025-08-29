@@ -13,12 +13,13 @@ use crossbeam_channel::{select, Receiver, Sender};
 use eframe::egui::{vec2, ViewportBuilder};
 use eframe::{egui, icon_data};
 use egui_plot::PlotPoint;
+pub use gumdrop::Options;
 use preferences::AppInfo;
 use std::cmp::max;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
+use std::thread;
 use std::time::Duration;
-use std::{env, thread};
 
 mod color_picker;
 mod custom_highlighter;
@@ -76,6 +77,7 @@ fn main_thread(
     load_rx: Receiver<PathBuf>,
     load_names_tx: Sender<Vec<String>>,
     gui_cmd_rx: Receiver<GuiCommand>,
+    cli_column_labels: Vec<String>,
 ) {
     // reads data from mutex, samples and saves if needed
     let mut data = DataContainer::default();
@@ -110,7 +112,7 @@ fn main_thread(
                                 data.dataset = vec![vec![]; max(split_data.len(), 1)];
                                 if let Ok(mut gui_data) = data_lock.write() {
                                     gui_data.plots = (0..max(split_data.len(), 1))
-                                        .map(|i| (format!("Column {i}"), vec![]))
+                                        .map(|i| (cli_column_labels.get(i).cloned().unwrap_or_else(|| format!("Column {i}")), vec![]))
                                         .collect();
                                 }
                                 failed_format_counter = 0;
@@ -262,13 +264,114 @@ fn main_thread(
     }
 }
 
+fn parse_databits(s: &str) -> Result<serialport::DataBits, String> {
+    let d: u8 = s
+        .parse()
+        .map_err(|_e| format!("databits not a number: {s}"))?;
+    Ok(serialport::DataBits::try_from(d).map_err(|_e| format!("invalid databits: {s}"))?)
+}
+
+fn parse_flow(s: &str) -> Result<serialport::FlowControl, String> {
+    match s {
+        "none" => Ok(serialport::FlowControl::None),
+        "soft" => Ok(serialport::FlowControl::Software),
+        "hard" => Ok(serialport::FlowControl::Hardware),
+        _ => Err(format!("invalid flow-control: {s}")),
+    }
+}
+
+fn parse_stopbits(s: &str) -> Result<serialport::StopBits, String> {
+    let d: u8 = s
+        .parse()
+        .map_err(|_e| format!("stopbits not a number: {s}"))?;
+    Ok(serialport::StopBits::try_from(d).map_err(|_e| format!("invalid stopbits: {s}"))?)
+}
+
+fn parse_parity(s: &str) -> Result<serialport::Parity, String> {
+    match s {
+        "none" => Ok(serialport::Parity::None),
+        "odd" => Ok(serialport::Parity::Odd),
+        "even" => Ok(serialport::Parity::Even),
+        _ => Err(format!("invalid parity setting: {s}")),
+    }
+}
+
+fn parse_color(s: &str) -> Result<egui::Color32, String> {
+    Ok(egui::ecolor::HexColor::from_str_without_hash(s)
+        .map_err(|e| format!("invalid color {s:?}: {e:?}"))?
+        .color())
+}
+
+#[derive(Debug, Options)]
+struct CliOptions {
+    /// Serial port device to open on startup
+    #[options(free)]
+    device: Option<String>,
+
+    /// Baudrate (default=9600)
+    #[options(short = "b")]
+    baudrate: Option<u32>,
+
+    /// Data bits (5, 6, 7, default=8)
+    #[options(short = "d", parse(try_from_str = "parse_databits"))]
+    databits: Option<serialport::DataBits>,
+
+    /// Flow conrol (hard, soft, default=none)
+    #[options(short = "f", parse(try_from_str = "parse_flow"))]
+    flow: Option<serialport::FlowControl>,
+
+    /// Stop bits (default=1, 2)
+    #[options(short = "s", parse(try_from_str = "parse_stopbits"))]
+    stopbits: Option<serialport::StopBits>,
+
+    /// Parity (odd, even, default=none)
+    #[options(short = "p", parse(try_from_str = "parse_parity"))]
+    parity: Option<serialport::Parity>,
+
+    /// Load data from a file instead of a serial port
+    #[options(short = "F")]
+    file: Option<std::path::PathBuf>,
+
+    /// Column labels, can be specified multiple times for more columns
+    #[options(no_short, long = "column")]
+    column_labels: Vec<String>,
+
+    /// Column colors (hex color without #), can be specified multiple times for more columns
+    #[options(no_short, long = "color", parse(try_from_str = "parse_color"))]
+    column_colors: Vec<egui::Color32>,
+
+    help: bool,
+}
+
 fn main() {
     egui_logger::builder().init().unwrap();
+
+    let args = CliOptions::parse_args_default_or_exit();
 
     let gui_settings = load_gui_settings();
     let saved_serial_device_configs = load_serial_settings();
 
-    let device_lock = Arc::new(RwLock::new(Device::default()));
+    let mut device = Device::default();
+    if let Some(name) = args.device {
+        device.name = name;
+    }
+    if let Some(baudrate) = args.baudrate {
+        device.baud_rate = baudrate;
+    }
+    if let Some(databits) = args.databits {
+        device.data_bits = databits;
+    }
+    if let Some(flow) = args.flow {
+        device.flow_control = flow;
+    }
+    if let Some(stopbits) = args.stopbits {
+        device.stop_bits = stopbits;
+    }
+    if let Some(parity) = args.parity {
+        device.parity = parity;
+    }
+
+    let device_lock = Arc::new(RwLock::new(device));
     let devices_lock = Arc::new(RwLock::new(vec![gui_settings.device.clone()]));
     let data_lock = Arc::new(RwLock::new(GuiOutputDataContainer::default()));
     let connected_lock = Arc::new(RwLock::new(false));
@@ -316,14 +419,12 @@ fn main() {
             load_rx,
             loaded_names_tx,
             gui_cmd_rx,
+            args.column_labels,
         );
     });
 
-    let args: Vec<String> = env::args().collect();
-    if args.len() > 1 {
-        load_tx
-            .send(PathBuf::from(&args[1]))
-            .expect("failed to send file");
+    if let Some(file) = args.file {
+        load_tx.send(file).expect("failed to send file");
     }
 
     let options = eframe::NativeOptions {
@@ -372,6 +473,7 @@ fn main() {
                 loaded_names_rx,
                 send_tx,
                 gui_cmd_tx,
+                args.column_colors,
             )))
         }),
     ) {

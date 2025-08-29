@@ -11,9 +11,10 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 * allow to plot only every n-th point (max points is 5000, if dataset is larger, it will reduce it by showing only every
   2nd point. if it is larger than 10000 only every 3rd point etc...)
 * Fixed the theme preference setting not being properly restored after restarting the application (
-  thanks [@Rahinx](https://github.com/Rahix))
-* Fixed bug where you couldn't change the color and label of columns (thanks [@Rahinx](https://github.com/Rahix))
-* Fixed bug where for a single column of data the graph would never show (thanks [@Rahinx](https://github.com/Rahix))
+  thanks [@Rahix](https://github.com/Rahix))
+* Fixed bug where you couldn't change the color and label of columns (thanks [@Rahix](https://github.com/Rahix))
+* Fixed bug where for a single column of data the graph would never show (thanks [@Rahix](https://github.com/Rahix))
+* Added a commandline interface for selecting the serial port and its settings.
 
 ## 0.3.4
 
