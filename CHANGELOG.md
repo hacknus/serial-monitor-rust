@@ -14,7 +14,8 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
   thanks [@Rahix](https://github.com/Rahix))
 * Fixed bug where you couldn't change the color and label of columns (thanks [@Rahix](https://github.com/Rahix))
 * Fixed bug where for a single column of data the graph would never show (thanks [@Rahix](https://github.com/Rahix))
-* Added a commandline interface for selecting the serial port and its settings.
+* Added a commandline interface for selecting the serial port and its settings. (
+  thanks [@Rahix](https://github.com/Rahix))
 
 ## 0.3.4
 
