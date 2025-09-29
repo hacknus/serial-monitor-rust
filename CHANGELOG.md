@@ -4,6 +4,10 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 ## Unreleased 0.4.x
 
+* ...
+
+## 0.3.6 - 29.9.2025
+
 * Switched to `crossbeam-channel` for more efficient channel routing
 * removed many `.clone()` calls to reduce CPU load
 * Fixed sample rate / disconnect issue
