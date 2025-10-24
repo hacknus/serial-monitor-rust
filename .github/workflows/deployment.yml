@@ -104,14 +104,7 @@ jobs:
         if: contains(matrix.os, 'windows')
         shell: pwsh
         run: |
-          $exePath1 = "target/${{ matrix.target }}/release/serial-monitor-rust.exe"
-          $exePath2 = "target/release/serial-monitor-rust.exe"
-          $exePath = if (Test-Path $exePath1) { $exePath1 } elseif (Test-Path $exePath2) { $exePath2 } else { "" }
-          if ($exePath -eq "") {
-            Write-Error "Executable not found"
-            exit 1
-          }
-          Compress-Archive -Path $exePath -DestinationPath "serial-monitor-${{ matrix.target }}.exe.zip"
+          Compress-Archive -Path "target/${{ matrix.target }}/release/serial-monitor-rust.exe" -DestinationPath "serial-monitor-${{ matrix.target }}.exe.zip"
           Move-Item -Path "serial-monitor-${{ matrix.target }}.exe.zip" -Destination $env:GITHUB_WORKSPACE
 
       - name: Compress Output (Windows .msi)
