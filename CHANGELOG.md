@@ -6,6 +6,10 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 * ...
 
+## 0.3.7 - 28.11.2025
+
+* update to `egui 0.33`
+
 ## 0.3.6 - 29.9.2025
 
 * Switched to `crossbeam-channel` for more efficient channel routing
