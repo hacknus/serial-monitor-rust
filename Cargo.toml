@@ -30,7 +30,7 @@ gumdrop = "0.8.1"
 
 [target.'cfg(not(target_os = "ios"))'.dependencies]
 eframe = { version = "0.33", features = ["persistence", "wayland", "x11"] }
-keepawake = { version = "0.5" }
+keepawake = { version = "0.6" }
 # ios:
 [target.'cfg(target_os = "ios")'.dependencies]
 eframe = { version = "0.33", default-features = false, features = [
