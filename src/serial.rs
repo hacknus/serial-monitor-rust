@@ -7,7 +7,7 @@ use std::io::{BufRead, BufReader};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
-use crate::color_picker::COLORS;
+use crate::color_picker::get_colors;
 use crate::data::{get_epoch_ms, SerialDirection};
 use crate::{Packet, APP_INFO, PREFERENCES_KEY_SERIAL};
 
@@ -28,7 +28,7 @@ impl Default for SerialDevices {
             devices: vec![Device::default()],
             labels: vec![vec!["Column 0".to_string()]],
             highlight_labels: vec![vec!["".to_string()]],
-            colors: vec![vec![COLORS[0]]],
+            colors: vec![vec![get_colors(true)[0]]],
             color_vals: vec![vec![0.0]],
             number_of_plots: vec![1],
             number_of_highlights: vec![1],

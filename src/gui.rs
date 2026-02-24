@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
-use crate::color_picker::{color_picker_widget, color_picker_window, COLORS};
+use crate::color_picker::{color_picker_widget, color_picker_window, get_colors};
 use crate::custom_highlighter::highlight_impl;
 use crate::data::GuiOutputDataContainer;
 use crate::serial::{clear_serial_settings, save_serial_settings, Device, SerialDevices};
@@ -82,6 +82,9 @@ pub struct GuiSettingsContainer {
     pub save_absolute_time: bool,
     pub dark_mode: bool,
     pub theme_preference: ThemePreference,
+    /// Named label presets: each entry is (preset_name, labels)
+    #[serde(default)]
+    pub label_presets: Vec<(String, Vec<String>)>,
 }
 
 impl Default for GuiSettingsContainer {
@@ -95,6 +98,7 @@ impl Default for GuiSettingsContainer {
             save_absolute_time: false,
             dark_mode: true,
             theme_preference: ThemePreference::System,
+            label_presets: vec![],
         }
     }
 }
@@ -157,6 +161,7 @@ pub struct MyApp {
     show_warning_window: WindowFeedback,
     do_not_show_clear_warning: bool,
     init: bool,
+    prev_dark_mode: bool,
     cli_column_colors: Vec<egui::Color32>,
     #[cfg(feature = "self_update")]
     new_release: Option<Release>,
@@ -209,6 +214,8 @@ impl MyApp {
                 eframe::get_value(storage, "file_dialog_storage").unwrap_or_default()
         }
 
+        let initial_dark_mode = gui_conf.dark_mode;
+
         Self {
             connected_to_device: false,
             picked_path: PathBuf::new(),
@@ -247,7 +254,7 @@ impl MyApp {
             show_timestamps: true,
             save_raw: false,
             eol: "\\r\\n".to_string(),
-            colors: vec![COLORS[0]],
+            colors: vec![get_colors(initial_dark_mode)[0]],
             color_vals: vec![0.0],
             labels: vec!["Column 0".to_string()],
             history: vec![],
@@ -258,6 +265,7 @@ impl MyApp {
             init: false,
             show_color_window: ColorWindow::NoShow,
             file_opened: false,
+            prev_dark_mode: initial_dark_mode,
             cli_column_colors,
             #[cfg(feature = "self_update")]
             new_release: None,
@@ -323,20 +331,27 @@ impl MyApp {
                 ui.vertical(|ui| {
                     if let Ok(gui_data) = self.data_lock.read() {
                         self.data = gui_data.clone();
-                        if self.data.plots.len() != self.labels.len() {
+                        if self.data.plots.len() != self.labels.len() && !self.data.plots.is_empty() {
                             self.labels = gui_data.plots.iter().map(|d| d.0.clone()).collect();
                         }
                         if self.colors.len() != self.labels.len() {
+                            let palette = get_colors(self.gui_conf.dark_mode);
                             self.colors = (0..max(self.labels.len(), 1))
                                 .map(|i| {
                                     self.cli_column_colors
                                         .get(i)
                                         .copied()
-                                        .unwrap_or(COLORS[i % COLORS.len()])
+                                        .unwrap_or(palette[i % palette.len()])
                                 })
                                 .collect();
                             self.color_vals =
-                                (0..max(self.data.plots.len(), 1)).map(|_| 0.0).collect();
+                                (0..max(self.labels.len(), 1)).map(|_| 0.0).collect();
+                            // Close color picker if its index is now out of range
+                            if let ColorWindow::ColorIndex(idx) = self.show_color_window {
+                                if idx >= self.colors.len() {
+                                    self.show_color_window = ColorWindow::NoShow;
+                                }
+                            }
                         }
                     }
 
@@ -344,24 +359,14 @@ impl MyApp {
                     if self.file_opened {
                         if let Ok(labels) = self.load_names_rx.try_recv() {
                             self.labels = labels;
+                            let palette = get_colors(self.gui_conf.dark_mode);
                             self.colors = (0..max(self.labels.len(), 1))
-                                .map(|i| COLORS[i % COLORS.len()])
+                                .map(|i| palette[i % palette.len()])
                                 .collect();
                             self.color_vals = (0..max(self.labels.len(), 1)).map(|_| 0.0).collect();
                         }
                     }
                     if self.serial_devices.number_of_plots[self.device_idx] > 0 {
-                        if self.data.plots.len() != self.labels.len() && !self.file_opened {
-                            // self.labels = (0..max(self.data.dataset.len(), 1))
-                            //     .map(|i| format!("Column {i}"))
-                            //     .collect();
-                            self.colors = (0..max(self.data.plots.len(), 1))
-                                .map(|i| COLORS[i % COLORS.len()])
-                                .collect();
-                            self.color_vals =
-                                (0..max(self.data.plots.len(), 1)).map(|_| 0.0).collect();
-                        }
-
                         // offloaded to main thread
 
                         // let mut graphs: Vec<Vec<PlotPoint>> = vec![vec![]; self.data.dataset.len()];
@@ -410,7 +415,7 @@ impl MyApp {
                                 let plot_inner = signal_plot.show(ui, |signal_plot_ui| {
                                     for (i, (_label, graph)) in self.data.plots.iter().enumerate() {
                                         // this check needs to be here for when we change devices (not very elegant)
-                                        if i < self.labels.len() {
+                                        if i < self.labels.len() && i < self.colors.len() {
                                             signal_plot_ui.line(
                                                 Line::new(
                                                     self.labels[i].to_string(),
@@ -468,8 +473,6 @@ impl MyApp {
                         Color32::BLACK
                     };
 
-                    let mut text_edit_size = ui.available_size();
-                    text_edit_size.x = width;
                     egui::ScrollArea::vertical()
                         .id_salt("serial_output")
                         .auto_shrink([false; 2])
@@ -1140,11 +1143,16 @@ impl MyApp {
         match self.show_color_window {
             ColorWindow::NoShow => {}
             ColorWindow::ColorIndex(index) => {
-                if color_picker_window(
-                    ui.ctx(),
-                    &mut self.colors[index],
-                    &mut self.color_vals[index],
-                ) {
+                if index < self.colors.len() && index < self.color_vals.len() {
+                    if color_picker_window(
+                        ui.ctx(),
+                        &mut self.colors[index],
+                        &mut self.color_vals[index],
+                        self.gui_conf.dark_mode,
+                    ) {
+                        self.show_color_window = ColorWindow::NoShow;
+                    }
+                } else {
                     self.show_color_window = ColorWindow::NoShow;
                 }
             }
@@ -1351,6 +1359,19 @@ impl MyApp {
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        // Keep dark_mode in sync with the actual egui theme every frame
+        // (handles system theme changes as well as manual settings)
+        self.gui_conf.dark_mode = ctx.theme() == egui::Theme::Dark;
+
+        // When the theme changes, reset plot colors to the new palette
+        if self.gui_conf.dark_mode != self.prev_dark_mode {
+            let palette = get_colors(self.gui_conf.dark_mode);
+            for (i, c) in self.colors.iter_mut().enumerate() {
+                *c = palette[i % palette.len()];
+            }
+            self.prev_dark_mode = self.gui_conf.dark_mode;
+        }
+
         if let Ok(read_guard) = self.connected_lock.read() {
             self.connected_to_device = *read_guard;
         }

@@ -4,19 +4,46 @@ use eframe::egui::{
 };
 use eframe::epaint::StrokeKind;
 
-// Ten colors that are distinguishable and suitable for colorblind people
-pub const COLORS: [Color32; 10] = [
-    Color32::WHITE,                   // White
-    Color32::from_rgb(230, 159, 0),   // Orange
-    Color32::from_rgb(86, 180, 233),  // Sky Blue
-    Color32::from_rgb(0, 158, 115),   // Bluish Green
-    Color32::from_rgb(240, 228, 66),  // Yellow
-    Color32::from_rgb(0, 114, 178),   // Blue
-    Color32::from_rgb(213, 94, 0),    // Vermilion (Red-Orange)
-    Color32::from_rgb(204, 121, 167), // Reddish Purple
-    Color32::from_rgb(121, 94, 56),   // Brown
-    Color32::from_rgb(0, 204, 204),   // Cyan
+// Apple system colors – Default (light) variant
+pub const COLORS_LIGHT: [Color32; 12] = [
+    Color32::from_rgb(58, 58, 60),    // Primary
+    Color32::from_rgb(255, 56, 60),   // Red
+    Color32::from_rgb(52, 199, 89),   // Green
+    Color32::from_rgb(0, 136, 255),   // Blue
+    Color32::from_rgb(255, 141, 40),  // Orange
+    Color32::from_rgb(0, 192, 232),   // Cyan
+    Color32::from_rgb(255, 204, 0),   // Yellow
+    Color32::from_rgb(203, 48, 224),  // Purple
+    Color32::from_rgb(172, 127, 94),  // Brown
+    Color32::from_rgb(255, 45, 85),   // Pink
+    Color32::from_rgb(97, 85, 245),   // Indigo
+    Color32::from_rgb(0, 200, 179),   // Mint
 ];
+
+// Apple system colors – Default (dark) variant
+pub const COLORS_DARK: [Color32; 12] = [
+    Color32::from_rgb(242, 243, 247), // Primary
+    Color32::from_rgb(255, 66, 69),   // Red
+    Color32::from_rgb(48, 209, 88),   // Green
+    Color32::from_rgb(0, 145, 255),   // Blue
+    Color32::from_rgb(255, 146, 48),  // Orange
+    Color32::from_rgb(60, 211, 254),  // Cyan
+    Color32::from_rgb(255, 214, 0),   // Yellow
+    Color32::from_rgb(219, 52, 242),  // Purple
+    Color32::from_rgb(183, 138, 102), // Brown
+    Color32::from_rgb(255, 55, 95),   // Pink
+    Color32::from_rgb(109, 124, 255), // Indigo
+    Color32::from_rgb(0, 218, 195),   // Mint
+];
+
+/// Returns the Apple system color palette for the current theme.
+pub fn get_colors(dark_mode: bool) -> &'static [Color32; 12] {
+    if dark_mode {
+        &COLORS_DARK
+    } else {
+        &COLORS_LIGHT
+    }
+}
 
 fn contrast_color(color: Color32) -> Color32 {
     let intensity = (color.r() as f32 + color.g() as f32 + color.b() as f32) / 3.0 / 255.0;
@@ -57,8 +84,14 @@ pub fn color_picker_widget(
     })
     .inner
 }
-pub fn color_picker_window(ctx: &egui::Context, color: &mut Color32, value: &mut f32) -> bool {
+pub fn color_picker_window(
+    ctx: &egui::Context,
+    color: &mut Color32,
+    value: &mut f32,
+    dark_mode: bool,
+) -> bool {
     let mut save_button = false;
+    let palette = get_colors(dark_mode);
 
     let _window_response = egui::Window::new("Color Menu")
         // .fixed_pos(Pos2 { x: 800.0, y: 450.0 })
@@ -66,13 +99,13 @@ pub fn color_picker_window(ctx: &egui::Context, color: &mut Color32, value: &mut
         .anchor(Align2::CENTER_CENTER, Vec2 { x: 0.0, y: 0.0 })
         .collapsible(false)
         .show(ctx, |ui| {
-            // We will create two horizontal rows with five squares each
+            // We will create two horizontal rows with six squares each
             let square_size = ui.spacing().interact_size.y * 0.8;
 
             ui.vertical(|ui| {
-                // First row (5 squares)
+                // First row (6 squares)
                 ui.horizontal(|ui| {
-                    for color_option in &COLORS[0..5] {
+                    for color_option in &palette[0..6] {
                         let (rect, response) = ui.allocate_exact_size(
                             egui::vec2(square_size, square_size),
                             Sense::click(),
@@ -96,9 +129,9 @@ pub fn color_picker_window(ctx: &egui::Context, color: &mut Color32, value: &mut
                     }
                 });
 
-                // Second row (5 squares)
+                // Second row (6 squares)
                 ui.horizontal(|ui| {
-                    for color_option in &COLORS[5..10] {
+                    for color_option in &palette[6..12] {
                         let (rect, response) = ui.allocate_exact_size(
                             egui::vec2(square_size, square_size),
                             Sense::click(),
