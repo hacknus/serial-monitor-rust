@@ -6,6 +6,10 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 * ...
 
+## 0.4.0 - 3.4.2026
+
+* update to `egui 0.34`
+
 ## 0.3.7 - 28.11.2025
 
 * update to `egui 0.33`

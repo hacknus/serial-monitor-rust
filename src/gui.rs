@@ -2,7 +2,7 @@ use core::f32;
 use crossbeam_channel::{Receiver, Sender};
 use std::cmp::max;
 use std::ops::RangeInclusive;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -16,7 +16,6 @@ use crate::toggle::toggle;
 use crate::update::check_update;
 use crate::FileOptions;
 use crate::{APP_INFO, PREFERENCES_KEY};
-use eframe::egui::panel::Side;
 use eframe::egui::scroll_area::ScrollSource;
 use eframe::egui::{
     Align2, CollapsingHeader, Color32, FontFamily, FontId, KeyboardShortcut, Pos2, Sense, Ui, Vec2,
@@ -24,7 +23,7 @@ use eframe::egui::{
 use eframe::{egui, Storage};
 use egui::ThemePreference;
 use egui_file_dialog::information_panel::InformationPanel;
-use egui_file_dialog::FileDialog;
+use egui_file_dialog::{FileDialog, Filter};
 use egui_plot::{log_grid_spacer, GridMark, Legend, Line, Plot, PlotPoints};
 use preferences::Preferences;
 #[cfg(feature = "self_update")]
@@ -190,17 +189,27 @@ impl MyApp {
             // })
             .set_file_icon(
                 "🖹",
-                Arc::new(|path| path.extension().unwrap_or_default().to_ascii_lowercase() == "md"),
+                Filter::new(|path: &Path| {
+                    path.extension()
+                        .unwrap_or_default()
+                        .eq_ignore_ascii_case("md")
+                }),
             )
             .set_file_icon(
                 "",
-                Arc::new(|path| {
-                    path.file_name().unwrap_or_default().to_ascii_lowercase() == ".gitignore"
+                Filter::new(|path: &Path| {
+                    path.file_name()
+                        .unwrap_or_default()
+                        .eq_ignore_ascii_case(".gitignore")
                 }),
             )
             .add_file_filter(
                 "CSV files",
-                Arc::new(|p| p.extension().unwrap_or_default().to_ascii_lowercase() == "csv"),
+                Filter::new(|p: &Path| {
+                    p.extension()
+                        .unwrap_or_default()
+                        .eq_ignore_ascii_case("csv")
+                }),
             );
         // Load the persistent data of the file dialog.
         // Alternatively, you can also use the `FileDialog::storage` builder method.
@@ -266,14 +275,14 @@ impl MyApp {
         }
     }
 
-    pub fn clear_warning_window(&mut self, ctx: &egui::Context) -> WindowFeedback {
+    pub fn clear_warning_window(&mut self, ui: &mut egui::Ui) -> WindowFeedback {
         let mut window_feedback = WindowFeedback::Waiting;
         egui::Window::new("Attention!")
             .fixed_pos(Pos2 { x: 800.0, y: 450.0 })
             .fixed_size(Vec2 { x: 400.0, y: 200.0 })
             .anchor(Align2::CENTER_CENTER, Vec2 { x: 0.0, y: 0.0 })
             .collapsible(false)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(20.0);
                     ui.label("Changing devices will clear all data.");
@@ -296,11 +305,11 @@ impl MyApp {
         window_feedback
     }
 
-    fn draw_central_panel(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn draw_central_panel(&mut self, ui: &mut egui::Ui) {
+        egui::CentralPanel::default().show_inside(ui, |ui| {
             let left_border = 10.0;
             // Width
-            let width = ui.available_size().x - 2.0 * left_border - RIGHT_PANEL_WIDTH;
+            let width = ui.available_size().x - 2.0 * left_border;
             // Height
             let top_spacing = 5.0;
             let panel_height = ui.available_size().y;
@@ -468,8 +477,6 @@ impl MyApp {
                         Color32::BLACK
                     };
 
-                    let mut text_edit_size = ui.available_size();
-                    text_edit_size.x = width;
                     egui::ScrollArea::vertical()
                         .id_salt("serial_output")
                         .auto_shrink([false; 2])
@@ -554,7 +561,7 @@ impl MyApp {
         });
     }
 
-    fn draw_serial_settings(&mut self, ctx: &egui::Context, ui: &mut Ui) {
+    fn draw_serial_settings(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             ui.heading("Serial Monitor");
             self.paint_connection_indicator(ui);
@@ -621,7 +628,7 @@ impl MyApp {
             match self.show_warning_window {
                 WindowFeedback::None => {}
                 WindowFeedback::Waiting => {
-                    self.show_warning_window = self.clear_warning_window(ctx);
+                    self.show_warning_window = self.clear_warning_window(ui);
                 }
                 WindowFeedback::Clear => {
                     // new device selected, check in previously used devices
@@ -868,7 +875,7 @@ impl MyApp {
             }
         });
     }
-    fn draw_export_settings(&mut self, _ctx: &egui::Context, ui: &mut Ui) {
+    fn draw_export_settings(&mut self, ui: &mut Ui) {
         egui::Grid::new("export_settings")
             .num_columns(2)
             .spacing(Vec2 { x: 10.0, y: 10.0 })
@@ -1155,7 +1162,7 @@ impl MyApp {
         }
     }
 
-    fn draw_highlight_settings(&mut self, _ctx: &egui::Context, ui: &mut Ui) {
+    fn draw_highlight_settings(&mut self, ui: &mut Ui) {
         egui::Grid::new("highlight_settings")
             .num_columns(2)
             .spacing(Vec2 { x: 10.0, y: 10.0 })
@@ -1232,16 +1239,16 @@ impl MyApp {
         }
     }
 
-    fn draw_side_panel(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::SidePanel::new(Side::Right, "settings panel")
-            .min_width(RIGHT_PANEL_WIDTH)
-            .max_width(RIGHT_PANEL_WIDTH)
+    fn draw_side_panel(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::Panel::right("settings panel")
+            .min_size(RIGHT_PANEL_WIDTH)
+            .max_size(RIGHT_PANEL_WIDTH)
             .resizable(false)
             //.default_width(right_panel_width)
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     ui.add_enabled_ui(true, |ui| {
-                        self.draw_serial_settings(ctx, ui);
+                        self.draw_serial_settings(ui);
 
                         self.draw_global_settings(ui);
                         ui.add_space(10.0);
@@ -1254,13 +1261,13 @@ impl MyApp {
                         CollapsingHeader::new("Text Highlight Settings")
                             .default_open(true)
                             .show(ui, |ui| {
-                                self.draw_highlight_settings(ctx, ui);
+                                self.draw_highlight_settings(ui);
                             });
 
                         CollapsingHeader::new("Export Settings")
                             .default_open(true)
                             .show(ui, |ui| {
-                                self.draw_export_settings(ctx, ui);
+                                self.draw_export_settings(ui);
                             });
                     });
                     ui.add_space(20.0);
@@ -1269,7 +1276,7 @@ impl MyApp {
                         egui_logger::logger_ui().show(ui);
                     });
 
-                    ctx.input(|i| {
+                    ui.ctx().input(|i| {
                         // Check if files were dropped
                         if let Some(dropped_file) = i.raw.dropped_files.last() {
                             let path = dropped_file.clone().path.unwrap();
@@ -1285,7 +1292,7 @@ impl MyApp {
                         FileDialogState::Open => {
                             if let Some(path) = self
                                 .file_dialog
-                                .update_with_right_panel_ui(ctx, &mut |ui, dia| {
+                                .update_with_right_panel_ui(ui.ctx(), &mut |ui, dia| {
                                     self.information_panel.ui(ui, dia);
                                 })
                                 .picked()
@@ -1299,18 +1306,19 @@ impl MyApp {
                             }
                         }
                         FileDialogState::SavePlot => {
-                            if let Some(path) = self.file_dialog.update(ctx).picked() {
+                            if let Some(path) = self.file_dialog.update(ui.ctx()).picked() {
                                 self.picked_path = path.to_path_buf();
                                 self.file_dialog_state = FileDialogState::None;
                                 self.picked_path.set_extension("png");
 
-                                ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(
-                                    Default::default(),
-                                ));
+                                ui.ctx()
+                                    .send_viewport_cmd(egui::ViewportCommand::Screenshot(
+                                        Default::default(),
+                                    ));
                             }
                         }
                         FileDialogState::Save => {
-                            if let Some(path) = self.file_dialog.update(ctx).picked() {
+                            if let Some(path) = self.file_dialog.update(ui.ctx()).picked() {
                                 self.picked_path = path.to_path_buf();
                                 self.file_dialog_state = FileDialogState::None;
                                 self.picked_path.set_extension("csv");
@@ -1350,18 +1358,19 @@ impl MyApp {
 }
 
 impl eframe::App for MyApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         if let Ok(read_guard) = self.connected_lock.read() {
             self.connected_to_device = *read_guard;
         }
-        self.draw_central_panel(ctx);
-        self.draw_side_panel(ctx, frame);
 
-        self.gui_conf.x = ctx.used_size().x;
-        self.gui_conf.y = ctx.used_size().y;
+        self.draw_side_panel(ui, frame);
+        self.draw_central_panel(ui);
+
+        self.gui_conf.x = ui.globally_used_rect().width();
+        self.gui_conf.y = ui.globally_used_rect().height();
 
         // Check for returned screenshot:
-        let screenshot = ctx.input(|i| {
+        let screenshot = ui.ctx().input(|i| {
             for event in &i.raw.events {
                 if let egui::Event::Screenshot { image, .. } = event {
                     return Some(image.clone());
@@ -1374,7 +1383,7 @@ impl eframe::App for MyApp {
             // for a full size application, we should put this in a different thread,
             // so that the GUI doesn't lag during saving
 
-            let pixels_per_point = ctx.pixels_per_point();
+            let pixels_per_point = ui.ctx().pixels_per_point();
             let plot = screenshot.region(&plot_location, Some(pixels_per_point));
             // save the plot to png
             image::save_buffer(
