@@ -934,7 +934,7 @@ impl MyApp {
         }
         if self.settings_window_open {
             settings_window(
-                ui.ctx(),
+                ui,
                 &mut self.gui_conf,
                 #[cfg(feature = "self_update")]
                 &mut self.new_release,

@@ -12,7 +12,7 @@ use self_update::update::Release;
 use semver::Version;
 
 pub fn settings_window(
-    ctx: &egui::Context,
+    ui: &mut egui::Ui,
     gui_conf: &mut GuiSettingsContainer,
     #[cfg(feature = "self_update")] new_release: &mut Option<Release>,
     settings_window_open: &mut bool,
@@ -22,7 +22,7 @@ pub fn settings_window(
         .fixed_size(Vec2 { x: 600.0, y: 200.0 })
         .anchor(Align2::CENTER_CENTER, Vec2 { x: 0.0, y: 0.0 })
         .collapsible(false)
-        .show(ctx, |ui| {
+        .show(ui, |ui| {
             egui::Grid::new("theme settings")
                 .striped(true)
                 .show(ui, |ui| {
@@ -92,7 +92,7 @@ pub fn settings_window(
                 #[cfg(feature = "self_update")]
                 if !update_text.is_empty() && ui.button("Restart").clicked() {
                     restart();
-                    ctx.request_repaint(); // Optional: Request repaint for immediate feedback
+                    ui.ctx().request_repaint(); // Optional: Request repaint for immediate feedback
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
                 }
             });
