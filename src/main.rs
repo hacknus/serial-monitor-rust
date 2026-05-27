@@ -19,7 +19,6 @@ use std::cmp::max;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::thread;
-use std::time::Duration;
 
 mod color_picker;
 mod custom_highlighter;
@@ -256,9 +255,6 @@ fn main_thread(
                         }
                     }
                 }
-            }
-            default(Duration::from_millis(10)) => {
-                // occasionally push data to GUI
             }
         }
     }

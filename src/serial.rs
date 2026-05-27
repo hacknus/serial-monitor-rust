@@ -121,6 +121,7 @@ pub fn serial_thread(
     connected_lock: Arc<RwLock<bool>>,
 ) {
     let mut last_connected_device = Device::default();
+    let mut connect_retry_backoff = Duration::from_millis(100);
 
     loop {
         #[cfg(not(target_os = "ios"))]
@@ -159,9 +160,12 @@ pub fn serial_thread(
                     write_guard.name.clear();
                 }
                 log::error!("Error connecting: {}", err);
+                std::thread::sleep(connect_retry_backoff);
+                connect_retry_backoff = (connect_retry_backoff * 2).min(Duration::from_secs(2));
                 continue;
             }
         };
+        connect_retry_backoff = Duration::from_millis(100);
 
         let t_zero = Instant::now();
 
@@ -184,7 +188,16 @@ pub fn serial_thread(
             }
 
             perform_writes(&mut port, &send_rx, &raw_data_tx, t_zero);
-            perform_reads(&mut port, &raw_data_tx, t_zero);
+            if perform_reads(&mut port, &raw_data_tx, t_zero) {
+                // A non-timeout read error typically means the device/driver went away.
+                // Break out and let reconnect logic take over instead of spinning on errors.
+                if let Ok(mut write_guard) = device_lock.write() {
+                    write_guard.name.clear();
+                }
+                last_connected_device = device.clone();
+                std::thread::sleep(Duration::from_millis(50));
+                break 'connected_loop;
+            }
         }
         std::mem::drop(port);
     }
@@ -204,10 +217,11 @@ fn get_device(
     last_connected_device: &Device,
 ) -> Device {
     loop {
-        let devices = available_devices();
-        if let Ok(mut write_guard) = devices_lock.write() {
-            *write_guard = devices.clone();
-        }
+        let devices = if let Ok(read_guard) = devices_lock.read() {
+            read_guard.clone()
+        } else {
+            Vec::new()
+        };
 
         // do reconnect
         if devices.contains(&last_connected_device.name) {
@@ -223,7 +237,7 @@ fn get_device(
                 return device.clone();
             }
         }
-        std::thread::sleep(Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(150));
     }
 }
 
@@ -284,7 +298,7 @@ fn perform_reads(
     port: &mut BufReader<Box<dyn SerialPort>>,
     raw_data_tx: &Sender<Packet>,
     t_zero: Instant,
-) {
+) -> bool {
     let mut buf = "".to_string();
     match serial_read(port, &mut buf) {
         Ok(_) => {
@@ -306,11 +320,13 @@ fn perform_reads(
                 };
                 raw_data_tx.send(packet).expect("failed to send raw data");
             });
+            false
         }
         // Timeout is ok, just means there is no data to read
-        Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => {}
+        Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => false,
         Err(e) => {
             log::error!("Error reading: {:?}", e);
+            true
         }
     }
 }
