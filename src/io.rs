@@ -80,7 +80,16 @@ pub fn save_to_csv(data: &DataContainer, csv_options: &FileOptions) -> Result<()
     let mut header = vec!["Time [ms]".to_string()];
     header.extend_from_slice(&csv_options.names);
     wtr.write_record(header)?;
-    for j in 0..data.dataset[0].len() {
+    let data_rows = data
+        .dataset
+        .iter()
+        .map(Vec::len)
+        .min()
+        .unwrap_or(0)
+        .min(data.time.len())
+        .min(data.absolute_time.len());
+
+    for j in 0..data_rows {
         let time = if csv_options.save_absolute_time {
             data.absolute_time[j].to_string()
         } else {
@@ -118,9 +127,12 @@ pub fn save_raw(data: &DataContainer, path: &PathBuf) -> Result<(), Box<dyn Erro
     ];
     wtr.write_record(header)?;
 
-    for j in 0..data.dataset[0].len() {
-        let mut data_to_write = vec![data.time[j].to_string(), data.absolute_time[j].to_string()];
-        data_to_write.push(data.raw_traffic[j].payload.clone());
+    for packet in &data.raw_traffic {
+        let mut data_to_write = vec![
+            packet.relative_time.to_string(),
+            packet.absolute_time.to_string(),
+        ];
+        data_to_write.push(packet.payload.clone());
         wtr.write_record(&data_to_write)?;
     }
     wtr.flush()?;
