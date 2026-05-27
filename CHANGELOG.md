@@ -4,7 +4,8 @@ All notable changes to the `Serial Monitor` crate will be documented in this fil
 
 ## Unreleased 0.4.x
 
-* ...
+* fixed CSV raw data expost bug (empty files)
+* fixed high CPU usage after disconnecting the serial device
 
 ## 0.4.0 - 3.4.2026
 
