@@ -9,6 +9,7 @@ use crate::data::{DataContainer, GuiOutputDataContainer, Packet, SerialDirection
 use crate::gui::{load_gui_settings, GuiCommand, MyApp, RIGHT_PANEL_WIDTH};
 use crate::io::{open_from_csv, save_to_csv, FileOptions};
 use crate::serial::{load_serial_settings, serial_devices_thread, serial_thread, Device};
+use crate::zmodem::{ProgressLock, TransferCommand};
 use crossbeam_channel::{select, Receiver, Sender};
 use eframe::egui::{vec2, ViewportBuilder};
 use eframe::{egui, icon_data};
@@ -17,6 +18,7 @@ pub use gumdrop::Options;
 use preferences::AppInfo;
 use std::cmp::max;
 use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -30,6 +32,7 @@ mod serial;
 mod settings_window;
 mod toggle;
 mod update;
+mod zmodem;
 
 const APP_INFO: AppInfo = AppInfo {
     name: "Serial Monitor",
@@ -387,6 +390,10 @@ fn main() {
     let (raw_data_tx, raw_data_rx): (Sender<Packet>, Receiver<Packet>) =
         crossbeam_channel::unbounded();
     let (sync_tx, sync_rx): (Sender<bool>, Receiver<bool>) = crossbeam_channel::unbounded();
+    let (transfer_tx, transfer_rx): (Sender<TransferCommand>, Receiver<TransferCommand>) =
+        crossbeam_channel::unbounded();
+    let transfer_progress: ProgressLock = Arc::new(RwLock::new(None));
+    let transfer_cancel = Arc::new(AtomicBool::new(false));
 
     let serial_2_devices_lock = devices_lock.clone();
 
@@ -397,6 +404,8 @@ fn main() {
     let serial_device_lock = device_lock.clone();
     let serial_devices_lock = devices_lock.clone();
     let serial_connected_lock = connected_lock.clone();
+    let serial_transfer_progress = transfer_progress.clone();
+    let serial_transfer_cancel = transfer_cancel.clone();
 
     let _serial_thread_handler = thread::spawn(|| {
         serial_thread(
@@ -405,6 +414,9 @@ fn main() {
             serial_device_lock,
             serial_devices_lock,
             serial_connected_lock,
+            transfer_rx,
+            serial_transfer_progress,
+            serial_transfer_cancel,
         );
     });
 
@@ -474,6 +486,9 @@ fn main() {
                 send_tx,
                 gui_cmd_tx,
                 args.column_colors,
+                transfer_tx,
+                transfer_progress,
+                transfer_cancel,
             )))
         }),
     ) {

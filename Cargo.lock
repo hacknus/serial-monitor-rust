@@ -4135,6 +4135,7 @@ dependencies = [
  "serde",
  "serialport",
  "tempfile",
+ "zmodem2",
 ]
 
 [[package]]
@@ -6271,6 +6272,17 @@ checksum = "dba6063ff82cdbd9a765add16d369abe81e520f836054e997c2db217ceca40c0"
 dependencies = [
  "ed25519-dalek",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "zmodem2"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "556607c8519a6d2de55be7f242923888f3830f80e2268486e3b016c22aede057"
+dependencies = [
+ "bitflags 2.10.0",
+ "hex",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

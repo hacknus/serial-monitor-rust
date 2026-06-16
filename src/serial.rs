@@ -4,11 +4,13 @@ use preferences::Preferences;
 use serde::{Deserialize, Serialize};
 use serialport::{DataBits, FlowControl, Parity, SerialPort, StopBits};
 use std::io::{BufRead, BufReader};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 
 use crate::color_picker::COLORS;
 use crate::data::{get_epoch_ms, SerialDirection};
+use crate::zmodem::{download, upload, ProgressLock, TransferCommand};
 use crate::{Packet, APP_INFO, PREFERENCES_KEY_SERIAL};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,12 +115,16 @@ fn serial_read(
     port.read_line(serial_buf)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn serial_thread(
     send_rx: Receiver<String>,
     raw_data_tx: Sender<Packet>,
     device_lock: Arc<RwLock<Device>>,
     devices_lock: Arc<RwLock<Vec<String>>>,
     connected_lock: Arc<RwLock<bool>>,
+    transfer_rx: Receiver<TransferCommand>,
+    transfer_progress: ProgressLock,
+    transfer_cancel: Arc<AtomicBool>,
 ) {
     let mut last_connected_device = Device::default();
 
@@ -185,6 +191,28 @@ pub fn serial_thread(
 
             perform_writes(&mut port, &send_rx, &raw_data_tx, t_zero);
             perform_reads(&mut port, &raw_data_tx, t_zero);
+
+            if let Ok(cmd) = transfer_rx.try_recv() {
+                transfer_cancel.store(false, Ordering::SeqCst);
+                match cmd {
+                    TransferCommand::Upload(path) => upload(
+                        &mut port,
+                        path,
+                        &transfer_cancel,
+                        &transfer_progress,
+                        &raw_data_tx,
+                        t_zero,
+                    ),
+                    TransferCommand::Download(dir) => download(
+                        &mut port,
+                        dir,
+                        &transfer_cancel,
+                        &transfer_progress,
+                        &raw_data_tx,
+                        t_zero,
+                    ),
+                }
+            }
         }
         std::mem::drop(port);
     }

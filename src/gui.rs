@@ -3,6 +3,7 @@ use crossbeam_channel::{Receiver, Sender};
 use std::cmp::max;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
@@ -14,6 +15,7 @@ use crate::settings_window::settings_window;
 use crate::toggle::toggle;
 #[cfg(feature = "self_update")]
 use crate::update::check_update;
+use crate::zmodem::{ProgressLock, TransferCommand, TransferStatus};
 use crate::FileOptions;
 use crate::{APP_INFO, PREFERENCES_KEY};
 use eframe::egui::panel::Side;
@@ -55,6 +57,8 @@ pub enum FileDialogState {
     Open,
     Save,
     SavePlot,
+    ZmodemSend,
+    ZmodemReceive,
     None,
 }
 #[derive(PartialEq)]
@@ -144,6 +148,9 @@ pub struct MyApp {
     load_names_rx: Receiver<Vec<String>>,
     send_tx: Sender<String>,
     gui_cmd_tx: Sender<GuiCommand>,
+    transfer_tx: Sender<TransferCommand>,
+    transfer_progress: ProgressLock,
+    transfer_cancel: Arc<AtomicBool>,
     history: Vec<String>,
     index: usize,
     eol: String,
@@ -178,6 +185,9 @@ impl MyApp {
         send_tx: Sender<String>,
         gui_cmd_tx: Sender<GuiCommand>,
         cli_column_colors: Vec<egui::Color32>,
+        transfer_tx: Sender<TransferCommand>,
+        transfer_progress: ProgressLock,
+        transfer_cancel: Arc<AtomicBool>,
     ) -> Self {
         let mut file_dialog = FileDialog::default()
             //.initial_directory(PathBuf::from("/path/to/app"))
@@ -239,6 +249,9 @@ impl MyApp {
             load_names_rx,
             send_tx,
             gui_cmd_tx,
+            transfer_tx,
+            transfer_progress,
+            transfer_cancel,
             plotting_range: usize::MAX,
             max_points: 5000,
             plot_serial_display_ratio: 0.45,
@@ -912,6 +925,95 @@ impl MyApp {
             });
     }
 
+    fn draw_zmodem(&mut self, _ctx: &egui::Context, ui: &mut Ui) {
+        let progress = self.transfer_progress.read().ok().and_then(|g| g.clone());
+        let active = matches!(
+            progress.as_ref().map(|p| &p.status),
+            Some(TransferStatus::Active)
+        );
+
+        egui::Grid::new("zmodem_settings")
+            .num_columns(2)
+            .spacing(Vec2 { x: 10.0, y: 10.0 })
+            .striped(true)
+            .show(ui, |ui| {
+                ui.add_enabled_ui(self.connected_to_device && !active, |ui| {
+                    if ui
+                        .button(egui::RichText::new(format!(
+                            "{} Upload",
+                            egui_phosphor::regular::UPLOAD_SIMPLE
+                        )))
+                        .on_hover_text("Upload using the ZMODEM protocol.")
+                        .clicked()
+                    {
+                        self.file_dialog_state = FileDialogState::ZmodemSend;
+                        self.file_dialog.pick_file();
+                    }
+                    if ui
+                        .button(egui::RichText::new(format!(
+                            "{} Download",
+                            egui_phosphor::regular::DOWNLOAD_SIMPLE
+                        )))
+                        .on_hover_text("Download using the ZMODEM protocol.")
+                        .clicked()
+                    {
+                        self.file_dialog_state = FileDialogState::ZmodemReceive;
+                        self.file_dialog.pick_directory();
+                    }
+                });
+
+                if !self.connected_to_device {
+                    ui.label("DISCONNECTED");
+                } else {
+                    ui.label("CONNECTED");
+                }
+                ui.end_row();
+            });
+
+        if let Some(p) = progress {
+            ui.add_space(5.0);
+            let label = if p.filename.is_empty() {
+                "transfer".to_string()
+            } else {
+                p.filename.clone()
+            };
+            match &p.status {
+                TransferStatus::Active => {
+                    if p.bytes_total > 0 {
+                        let fraction = (p.bytes_done as f32 / p.bytes_total as f32).clamp(0.0, 1.0);
+                        ui.add(
+                            egui::ProgressBar::new(fraction)
+                                .text(format!("{label}  {}/{} B", p.bytes_done, p.bytes_total)),
+                        );
+                    } else {
+                        ui.add(
+                            egui::ProgressBar::new(0.0)
+                                .animate(true)
+                                .text(format!("{label}  {} B", p.bytes_done)),
+                        );
+                    }
+                    if ui.button("Cancel").clicked() {
+                        self.transfer_cancel.store(true, Ordering::SeqCst);
+                    }
+                }
+                terminal => {
+                    let msg = match terminal {
+                        TransferStatus::Completed => format!("✔ {label} completed"),
+                        TransferStatus::Aborted => format!("⊘ {label} aborted"),
+                        TransferStatus::Failed(e) => format!("✖ {label} failed: {e}"),
+                        TransferStatus::Active => unreachable!(),
+                    };
+                    ui.label(msg);
+                    if ui.button("Dismiss").clicked() {
+                        if let Ok(mut g) = self.transfer_progress.write() {
+                            *g = None;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn draw_global_settings(&mut self, ui: &mut Ui) {
         ui.add_space(20.0);
 
@@ -1262,6 +1364,12 @@ impl MyApp {
                             .show(ui, |ui| {
                                 self.draw_export_settings(ctx, ui);
                             });
+
+                        CollapsingHeader::new("File Transfer (ZMODEM)")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                self.draw_zmodem(ctx, ui);
+                            });
                     });
                     ui.add_space(20.0);
                     ui.separator();
@@ -1325,6 +1433,27 @@ impl MyApp {
                                 }
                             }
                         }
+                        FileDialogState::ZmodemSend => {
+                            if let Some(path) = self.file_dialog.update(ctx).picked() {
+                                let path = path.to_path_buf();
+                                self.file_dialog_state = FileDialogState::None;
+                                if let Err(e) = self.transfer_tx.send(TransferCommand::Upload(path))
+                                {
+                                    log::error!("tx failed: {:?}", e);
+                                }
+                            }
+                        }
+                        FileDialogState::ZmodemReceive => {
+                            if let Some(path) = self.file_dialog.update(ctx).picked() {
+                                let dir = path.to_path_buf();
+                                self.file_dialog_state = FileDialogState::None;
+                                if let Err(e) =
+                                    self.transfer_tx.send(TransferCommand::Download(dir))
+                                {
+                                    log::error!("tx failed: {:?}", e);
+                                }
+                            }
+                        }
                         FileDialogState::None => {}
                     }
                 });
@@ -1353,6 +1482,16 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         if let Ok(read_guard) = self.connected_lock.read() {
             self.connected_to_device = *read_guard;
+        }
+        if matches!(
+            self.transfer_progress
+                .read()
+                .ok()
+                .and_then(|g| g.clone())
+                .map(|p| p.status),
+            Some(TransferStatus::Active)
+        ) {
+            ctx.request_repaint_after(Duration::from_millis(100));
         }
         self.draw_central_panel(ctx);
         self.draw_side_panel(ctx, frame);
