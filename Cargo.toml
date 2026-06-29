@@ -19,12 +19,12 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 preferences = { version = "2.0.0" }
 regex = "1"
 serde = { version = "1.0", features = ["derive"] }
-serialport = { version = "4.8", features = ["serde"] }
+serialport = { version = "4.9", features = ["serde"] }
 log = "0.4"
 self_update = { git = "https://github.com/hacknus/self_update", features = ["archive-zip", "compression-zip-deflate"], optional = true }
-tempfile = { version = "3.23", optional = true }
+tempfile = { version = "3.27", optional = true }
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "json", "http2"], optional = true }
-semver = { version = "1.0.27", optional = true }
+semver = { version = "1.0.28", optional = true }
 crossbeam-channel = "0.5.15"
 gumdrop = "0.8.1"
 
