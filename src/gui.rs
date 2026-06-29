@@ -306,7 +306,7 @@ impl MyApp {
     }
 
     fn draw_central_panel(&mut self, ui: &mut egui::Ui) {
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             let left_border = 10.0;
             // Width
             let width = ui.available_size().x - 2.0 * left_border;
@@ -1245,7 +1245,7 @@ impl MyApp {
             .max_size(RIGHT_PANEL_WIDTH)
             .resizable(false)
             //.default_width(right_panel_width)
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     ui.add_enabled_ui(true, |ui| {
                         self.draw_serial_settings(ui);

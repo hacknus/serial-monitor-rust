@@ -1,6 +1,6 @@
 [package]
 name = "serial-monitor-rust"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 authors = ["Linus Leo Stöckli"]
 description = "Serial Monitor and Plotter written in rust."
@@ -9,11 +9,11 @@ homepage = "https://github.com/hacknus/serial-monitor-rust"
 
 [dependencies]
 csv = "1.4"
-egui_plot = "0.35"
-egui_extras = { version = "0.34", features = ["all_loaders"] }
-egui-phosphor = { version = "0.12" }
-egui-theme-switch = "0.7"
-egui_logger = "0.10"
+egui_plot = "0.36"
+egui_extras = { version = "0.35", features = ["all_loaders"] }
+egui-phosphor = { git = "https://github.com/crumblingstatue/egui-phosphor", branch = "egui-035" }
+egui-theme-switch = "0.8"
+egui_logger = { git = "https://github.com/hacknus/egui_logger", branch = "expose_logs_0.35" }
 egui-file-dialog = { git = "https://github.com/hacknus/egui-file-dialog", branch = "sort_by_metadata", features = ["information_view"] }
 image = { version = "0.25", default-features = false, features = ["png"] }
 preferences = { version = "2.0.0" }
@@ -29,11 +29,11 @@ crossbeam-channel = "0.5.15"
 gumdrop = "0.8.1"
 
 [target.'cfg(not(target_os = "ios"))'.dependencies]
-eframe = { version = "0.34", features = ["persistence", "wayland", "x11"] }
+eframe = { version = "0.35", features = ["persistence", "wayland", "x11"] }
 keepawake = { version = "0.6" }
 # ios:
 [target.'cfg(target_os = "ios")'.dependencies]
-eframe = { version = "0.34", default-features = false, features = [
+eframe = { version = "0.35", default-features = false, features = [
     "accesskit",
     "default_fonts",
     "wgpu", # Use the wgpu rendering backend on iOS.

@@ -2,8 +2,13 @@
 
 All notable changes to the `Serial Monitor` crate will be documented in this file.
 
-## Unreleased 0.4.x
+## Unreleased 0.5.x
 
+* ...
+
+## 0.5.0 - 29.6.2026
+
+* update to `egui 0.35`
 * fixed CSV raw data export bug (empty files)
 * fixed high CPU usage after disconnecting the serial device
 
